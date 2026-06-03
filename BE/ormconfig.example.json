@@ -1,0 +1,17 @@
+{
+  "name": "default",
+  "type": "postgres",
+  "host": "127.0.0.1",
+  "port": 5432,
+  "username": "postgres",
+  "password": "your_db_password_here",
+  "database": "ncc_dev",
+  "entities": ["src/**/*.entity{.ts,.js}"],
+  "synchronize": true,
+  "migrations": ["src/migrations/*{.ts,.js}"],
+  "migrationsTableName": "migrations_history",
+  "migrationsRun": true,
+  "cli": {
+    "migrationsDir": "src/migrations"
+  }
+}
