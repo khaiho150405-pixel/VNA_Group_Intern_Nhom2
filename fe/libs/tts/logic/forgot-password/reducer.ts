@@ -23,7 +23,7 @@ export const initialForgotPassState: ForgotPassState = {
 };
 
 export type ForgotPassAction =
-  | { type: "onChange"; name: string; value: any }
+  | { type: "onChange"; name: keyof ForgotPassState; value: string | boolean | number }
   | { type: "toggleShowNewPass" }
   | { type: "toggleShowConfirmPass" }
   | { type: "nextStep" }
@@ -34,8 +34,12 @@ export type ForgotPassAction =
 export const forgotPassReducer = (state: ForgotPassState, action: ForgotPassAction): ForgotPassState => {
   switch (action.type) {
     case "onChange":
-      // Xóa thông báo khi người dùng bắt đầu nhập lại
-      return { ...state, [action.name]: action.value, errorMessage: null, successMessage: null };
+      return { 
+        ...state, 
+        [action.name]: action.value, 
+        errorMessage: null, 
+        successMessage: null 
+      };
     case "toggleShowNewPass":
       return { ...state, showNewPass: !state.showNewPass };
     case "toggleShowConfirmPass":

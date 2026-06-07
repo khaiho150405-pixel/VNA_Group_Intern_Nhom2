@@ -1,27 +1,32 @@
-"use client";
+'use client';
 
 import React from 'react';
 import { createTheme, ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
 import { ThemeProvider as StylesThemeProvider } from '@material-ui/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { SnackbarProvider } from 'notistack';
+import { useServerInsertedHTML } from 'next/navigation';
+import { ServerStyleSheets } from '@material-ui/styles';
 
-// Tạo một theme mặc định (bạn có thể custom màu sắc tại đây sau)
 const theme = createTheme();
 
-export default function ThemeProvider({ children }: { children: React.ReactNode }) {
-  // useEffect này giúp fix lỗi mismatch giữa Server và Client khi render MUI
-  React.useEffect(() => {
-    const jssStyles = document.querySelector('#jss-server-side');
-    if (jssStyles && jssStyles.parentElement) {
-      jssStyles.parentElement.removeChild(jssStyles);
-    }
-  }, []);
+export default function ThemeRegistry({ children }: { children: React.ReactNode }) {
+  const [sheets] = React.useState(() => new ServerStyleSheets());
+
+  useServerInsertedHTML(() => {
+    // Thu thập JSS styles từ makeStyles
+    const jssStyles = sheets.getStyleElement();
+    return (
+      <>
+        {jssStyles}
+      </>
+    );
+  });
 
   return (
     <StylesThemeProvider theme={theme}>
       <MuiThemeProvider theme={theme}>
-        <CssBaseline /> {/* Reset CSS chuẩn của MUI */}
+        <CssBaseline />
         <SnackbarProvider maxSnack={3} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
           {children}
         </SnackbarProvider>

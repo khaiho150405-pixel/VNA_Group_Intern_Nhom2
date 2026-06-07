@@ -1,37 +1,17 @@
 "use client";
 import React from 'react';
-import ThemeProvider from '@core/contexts/ThemeProvider';
-import { useLoginStyles } from '@tts/logic/login/style';
+import ThemeRegistry from '@core/contexts/ThemeRegistry';
+import { AuthProvider } from '@core/contexts/AuthProvider';
 
-// 1. Tách ra một Component con. 
-// Vì nó nằm dưới ThemeProvider nên hàm useLoginStyles sẽ lấy được theme an toàn!
-const AuthLayoutContent = ({ children }: { children: React.ReactNode }) => {
-  const classes = useLoginStyles();
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className={classes.root}>
-      {/* Bức ảnh tĩnh bên trái */}
-      <div className={classes.imageSection}></div>
-
-      {/* Khối form linh hoạt bên phải */}
-      <div className={classes.formSection}>
-        {children}
-      </div>
-    </div>
-  );
-};
-
-// 2. Component Layout chính thức xuất ra cho Next.js
-export default function AuthLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="vi">
-      <body>
-        {/* Bọc ThemeProvider ở lớp ngoài cùng */}
-        <ThemeProvider>
-          <AuthLayoutContent>
+    <html lang="vi" suppressHydrationWarning>
+      <body suppressHydrationWarning>
+        <AuthProvider>
+          <ThemeRegistry>
             {children}
-          </AuthLayoutContent>
-        </ThemeProvider>
+          </ThemeRegistry>
+        </AuthProvider>
       </body>
     </html>
   );

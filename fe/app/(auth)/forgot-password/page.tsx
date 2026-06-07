@@ -1,4 +1,4 @@
-import { ForgotPasswordPage } from '@tts/pages/reset-password';
+import { ForgotPasswordPage } from '@tts/pages/ForgotPasswordPage';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {

@@ -1,4 +1,4 @@
-import { LoginPage } from '@/libs/tts/pages/login';
+import { LoginPage } from '@tts/pages/LoginPage';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
