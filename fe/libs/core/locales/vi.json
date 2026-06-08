@@ -1,0 +1,14 @@
+{
+  "login": {
+    "title": "Đăng nhập hệ thống",
+    "userName": "Tên đăng nhập",
+    "password": "Mật khẩu",
+    "email": "Email",
+    "forgotPassword": "Quên mật khẩu?",
+    "memoryAccount": "Ghi nhớ tài khoản",
+    "login": "Đăng nhập",
+    "pleaseInput": "Vui lòng nhập email của bạn để nhận mã xác nhận",
+    "sendRequire": "Gửi yêu cầu",
+    "haveAccount": "Đã có tài khoản?"
+  }
+}

@@ -1,0 +1,96 @@
+variables:
+  CURRENT_BRANCH: $CI_COMMIT_REF_NAME
+  TAG: $CI_COMMIT_SHORT_SHA
+
+before_script:
+  - |-
+    if [[ "$CURRENT_BRANCH" == "develop" ]]; then
+      export DOCKER_USERNAME=$DEV_DOCKER_USERNAME
+      export DOCKER_PASSWORD=$DEV_DOCKER_PASSWORD
+      export DOCKER_REPO=$DEV_DOCKER_REPO
+      export AWS_ACCESS_KEY_ID=$DEV_AWS_ACCESS_KEY_ID
+      export AWS_SECRET_ACCESS_KEY=$DEV_AWS_SECRET_ACCESS_KEY
+      export AWS_DEFAULT_REGION=$DEV_AWS_DEFAULT_REGION
+      export ENV_BUCKET=vna-dev-env
+      export ENV_FILE=tts-frontend-env
+      export KUBE_CLUSTER_ID=$DEV_KUBE_CLUSTER_ID
+      export IMAGE_TAG=$DOCKER_REPO:tts-frontend-$CURRENT_BRANCH-$TAG
+      export NAMESPACE=tts-$CURRENT_BRANCH
+      export REPLICAS=1
+    elif [[ "$CURRENT_BRANCH" == "staging" ]]; then
+      export DOCKER_USERNAME=$DEV_DOCKER_USERNAME
+      export DOCKER_PASSWORD=$DEV_DOCKER_PASSWORD
+      export DOCKER_REPO=$DEV_DOCKER_REPO
+      export AWS_ACCESS_KEY_ID=$DEV_AWS_ACCESS_KEY_ID
+      export AWS_SECRET_ACCESS_KEY=$DEV_AWS_SECRET_ACCESS_KEY
+      export AWS_DEFAULT_REGION=$DEV_AWS_DEFAULT_REGION
+      export ENV_BUCKET=vna-staging-env
+      export ENV_FILE=tts-frontend-env
+      export KUBE_CLUSTER_ID=$DEV_KUBE_CLUSTER_ID
+      export IMAGE_TAG=$DOCKER_REPO:tts-frontend-$CURRENT_BRANCH-$TAG
+      export NAMESPACE=tts-$CURRENT_BRANCH
+      export REPLICAS=1
+    elif [[ "$CURRENT_BRANCH" == "master" ]]; then
+      export DOCKER_USERNAME=$PROD_DOCKER_USER
+      export DOCKER_PASSWORD=$PROD_DOCKER_PASSWORD
+      export DOCKER_REPO=$PROD_DOCKER_REPO
+      export AWS_ACCESS_KEY_ID=$PROD_AWS_ACCESS_KEY_ID
+      export AWS_SECRET_ACCESS_KEY=$PROD_AWS_SECRET_ACCESS_KEY
+      export AWS_DEFAULT_REGION=$PROD_AWS_DEFAULT_REGION
+      export ENV_BUCKET=vna-production-env
+      export ENV_FILE=tts-frontend-env
+      export KUBE_CLUSTER_ID=$PROD_KUBE_CLUSTER_ID
+      export IMAGE_TAG=$DOCKER_REPO:tts-frontend-$CURRENT_BRANCH-$TAG
+      export NAMESPACE=tts-$CURRENT_BRANCH
+      export REPLICAS=2
+    fi
+  - aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+  - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+  - aws configure set region $AWS_DEFAULT_REGION
+  - doctl auth init -t $KUBE_ACCESS_TOKEN
+  - doctl kubernetes cluster kubeconfig save $KUBE_CLUSTER_ID
+
+stages:
+  - containerization
+  - environment_variables
+  - deployment
+
+containerization:
+  stage: containerization
+  only:
+    - develop
+    - staging
+    - master
+  tags:
+    - pi-runner
+  script:
+    - aws s3 cp s3://$ENV_BUCKET/$ENV_FILE .
+    - mv $ENV_FILE .env
+    - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
+    - docker build --no-cache --tag $IMAGE_TAG --file ./prod.Dockerfile .
+    - docker push $IMAGE_TAG
+    - docker image rm $IMAGE_TAG
+
+environment_variables:
+  stage: environment_variables
+  only:
+    - develop
+    - staging
+    - master
+  tags:
+    - pi-runner
+  script:
+    - aws s3 cp s3://$ENV_BUCKET/$ENV_FILE .
+    - kubectl create secret generic tts-frontend-env --from-env-file=./$ENV_FILE --dry-run=client -o yaml --namespace=$NAMESPACE | kubectl apply -f -
+
+deployment:
+  stage: deployment
+  only:
+    - develop
+    - staging
+    - master
+  tags:
+    - pi-runner
+  script:
+    - envsubst < ./deploy/deployment-service.yaml | kubectl apply -f -
+    - envsubst < ./deploy/$CURRENT_BRANCH-ingress.yaml | kubectl apply -f -
