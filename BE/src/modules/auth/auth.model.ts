@@ -16,6 +16,7 @@ export class CurrentUser {
   doet?: number;
   username: string;
   fullName?: string;
+  email?: string;
   realRole?: string;
   avatar?: string;
   role: Role;
@@ -23,7 +24,7 @@ export class CurrentUser {
   constructor(
     doet: number | null,
     user?: Partial<CurrentUser>,
-    keys: string[] = ['id', 'username', 'fullName', 'realRole', 'role', 'avatar', 'unitId', 'workUnit'],
+    keys: string[] = ['id', 'username', 'fullName', 'email', 'realRole', 'role', 'avatar', 'unitId', 'workUnit'],
   ) {
     user &&
       keys.forEach((key) => {

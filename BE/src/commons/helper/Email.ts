@@ -1,16 +1,32 @@
 import { Logger } from '@nestjs/common';
 import * as smtpapi from 'smtpapi';
 import * as nodemailer from 'nodemailer';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export default class Email {
   static sendMail = async (email: string, subject: string, data_html: string, data_text: string = '') => {
     const EMAIL_SENDGRID_KEY = process.env.SENDGRID_KEY || '';
+
+    const attachments = [];
+    // Check if the logo image exists in the templates folder to attach it as inline CID
+    const logoPath = path.resolve(process.cwd(), 'src/commons/templates/logo.png');
+    if (fs.existsSync(logoPath)) {
+      attachments.push({
+        filename: 'logo.png',
+        path: logoPath,
+        cid: 'logo.png', // matches <img src="cid:logo.png" />
+        contentDisposition: 'inline'
+      });
+    }
+
     const msg = {
       to: email,
       from: process.env.EMAIL_FROM || 'info@rcp.com.vn',
       subject: subject,
       text: data_text,
       html: data_html,
+      attachments
     }
 
     return new Promise((resolve, reject) => {

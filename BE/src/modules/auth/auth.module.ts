@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { LocalStrategy } from 'src/commons/guards/localStrategy';
+import { AuthGuard } from 'src/commons/guards/authGuard';
 import { UserModule } from '../user/user.module';
 import { JwtModule } from '@nestjs/jwt';
 import { ViewModule } from '../view/view.module';
@@ -17,7 +18,7 @@ import { ViewModule } from '../view/view.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, LocalStrategy],
+  providers: [AuthService, LocalStrategy, AuthGuard],
   exports: [AuthService],
 })
 export class AuthModule {}

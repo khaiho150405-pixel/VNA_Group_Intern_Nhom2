@@ -2,10 +2,13 @@
  * Interface representing a User in the system.
  */
 export interface IUser {
+  id?: string;
   username: string;
   email: string;
   role: 'ROLE_SO' | 'ROLE_DN';
   displayName: string;
+  fullName?: string;
+  avatar?: string;
 }
 
 /**

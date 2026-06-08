@@ -19,8 +19,13 @@ export class ViewService extends BaseService<View> {
   async getViewsByRoleId(roleId: number): Promise<ResponseData<List<View[]>>> {
     try {
       const data = await this.manager.query(`
-        select * from views v, jsonb_array_elements(v.activities) a
-        where a->>'roleId' = ${roleId}::text and "deletedAt" is null
+        select * from views v, jsonb_array_elements(
+          case 
+            when jsonb_typeof(v.activities) = 'array' then v.activities 
+            else '[]'::jsonb 
+          end
+        ) a
+        where a->>'roleId' = ${roleId}::text and v."deletedAt" is null
       `);
       const items = data.map((x) => {
         const activities = x.activities.filter((y) => y.roleId === roleId);

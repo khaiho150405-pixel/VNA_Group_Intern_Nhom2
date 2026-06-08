@@ -1,3 +1,4 @@
+
 "use client";
 import { useReducer, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -17,14 +18,14 @@ export const useLogin = () => {
     // Load remembered credentials
     const rememberedUser = localStorage.getItem("rememberedUser");
     const rememberedMemory = localStorage.getItem("isMemory") === "true";
-    
+
     if (rememberedMemory && rememberedUser) {
-      dispatch({ 
-        type: "setValues", 
-        values: { userName: rememberedUser, isMemory: true } 
+      dispatch({
+        type: "setValues",
+        values: { userName: rememberedUser, isMemory: true }
       });
     }
-    
+
     return () => clearTimeout(t);
   }, []);
 
@@ -44,7 +45,7 @@ export const useLogin = () => {
 
   const handleLoginSubmit = async () => {
     setShowToast(false);
-    
+
     if (!state.userName || !state.password) {
       dispatch({ type: "setError", message: "Vui lòng nhập đầy đủ thông tin" });
       setShowToast(true);
@@ -52,12 +53,17 @@ export const useLogin = () => {
     }
 
     try {
-      const response = await authService.login({ 
-        userName: state.userName, 
-        password: state.password 
+      const response = await authService.login({
+        userName: state.userName,
+        password: state.password
       });
-      
-      if (response.success && response.user) {
+
+      const apiData = (response as any).data || response;
+      const success = response.success;
+      const loginUser = apiData.user;
+      const loginToken = apiData.token;
+
+      if (success && loginUser) {
         // Handle "Remember Me"
         if (state.isMemory) {
           localStorage.setItem("rememberedUser", state.userName);
@@ -67,12 +73,20 @@ export const useLogin = () => {
           localStorage.setItem("isMemory", "false");
         }
 
-        login(response.user, response.token);
+        login(loginUser, loginToken || "");
         dispatch({ type: "reset" });
-        router.push("/"); // Redirect to home after login
       }
     } catch (error: any) {
-      dispatch({ type: "setError", message: error.message || "Đã có lỗi xảy ra" });
+      let message = "Đã có lỗi xảy ra";
+      const errorData = error.response?.data;
+      if (errorData?.errors?.message === "Wrong password" || errorData?.errors?.message === "Account not found") {
+        message = "Tài khoản hoặc mật khẩu không đúng. Xin vui lòng thử lại";
+      } else if (errorData?.errors?.message) {
+        message = errorData.errors.message;
+      } else if (error?.message) {
+        message = error.message;
+      }
+      dispatch({ type: "setError", message });
       setShowToast(true);
     }
   };

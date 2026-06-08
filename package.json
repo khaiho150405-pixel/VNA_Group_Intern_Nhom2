@@ -1,0 +1,12 @@
+{
+  "name": "vna-group-nhom2-root",
+  "version": "1.0.0",
+  "description": "Root project manager for VNA Group Intern Nhom 2",
+  "scripts": {
+    "setup": "node setup.js",
+    "dev": "npx concurrently \"npm run dev --prefix BE\" \"npm run dev --prefix fe\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

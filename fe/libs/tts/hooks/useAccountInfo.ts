@@ -4,8 +4,10 @@ import { accountInfoReducer, initialAccountInfoState, AccountInfoState } from "@
 import { useAuth } from "@core/contexts/AuthProvider";
 import { authService } from "@tts/services/auth.services";
 
+import { getCookie } from '@core/services/cookies';
+
 export const useAccountInfo = () => {
-  const { user } = useAuth();
+  const { user, login } = useAuth();
   const [state, dispatch] = useReducer(accountInfoReducer, initialAccountInfoState);
 
   useEffect(() => {
@@ -14,7 +16,7 @@ export const useAccountInfo = () => {
         type: 'setInitialData',
         data: {
           username: user.username || '',
-          displayName: user.displayName || '',
+          displayName: (user as any).fullName || user.fullName || user.displayName || '',
           email: user.email || '',
         }
       });
@@ -38,33 +40,51 @@ export const useAccountInfo = () => {
   const handleSave = async () => {
     dispatch({ type: 'setLoading', value: true });
     try {
-      const payload = {
-        displayName: state.displayName,
-        birthday: state.birthday,
-        gender: state.gender,
-        title: state.title,
-        role: state.role,
-        city: state.city,
-        district: state.district,
+      const payload: Record<string, any> = {
+        fullName: state.displayName,
+        dateOfBirth: state.birthday ? new Date(state.birthday) : null,
+        gender: state.gender === 'Nam' ? 1 : (state.gender === 'Nữ' ? 0 : null),
+        realRole: state.role,
+        province: state.city ? { key: state.city, value: state.city === 'HCM' ? 'Thành phố Hồ Chí Minh' : state.city } : null,
+        district: state.district ? { key: state.district, value: state.district === 'GV' ? 'Phường Gò Vấp' : state.district } : null,
         address: state.address,
-        active: state.active,
-        avatar: state.avatarFile // Added avatar file
+        // NOTE: Do NOT send 'status' here — in the DB status=true means "account locked"
       };
-      
-      const response = await authService.updateProfile(payload);
-      
+      // include avatar (data URL) when present so backend can persist or frontend can immediately reflect it
+      if (state.avatarUrl) {
+        payload.avatar = state.avatarUrl;
+      }
+
+      const response = await authService.updateProfile(user?.id || '', payload);
+
       if (response.success) {
-        dispatch({ 
-          type: 'showToast', 
-          message: response.message || 'Cập nhật thành công', 
-          toastType: 'success' 
+        if (user) {
+          const updatedUser = {
+            ...user,
+            fullName: state.displayName,
+            email: state.email,
+            gender: state.gender === 'Nam' ? 1 : (state.gender === 'Nữ' ? 0 : null),
+            realRole: state.role,
+            province: state.city ? { key: state.city, value: state.city === 'HCM' ? 'Thành phố Hồ Chí Minh' : state.city } : null,
+            district: state.district ? { key: state.district, value: state.district === 'GV' ? 'Phường Gò Vấp' : state.district } : null,
+            address: state.address,
+            // if avatarUrl exists update local user object so sidebar/avatar syncs immediately
+            ...(state.avatarUrl ? { avatar: state.avatarUrl } : {}),
+          };
+          const token = getCookie('accessToken') || '';
+          login(updatedUser as any, token);
+        }
+        dispatch({
+          type: 'showToast',
+          message: response.message || 'Cập nhật thành công',
+          toastType: 'success'
         });
       }
     } catch (error: any) {
-      dispatch({ 
-        type: 'showToast', 
-        message: error.message || 'Đã có lỗi xảy ra', 
-        toastType: 'error' 
+      dispatch({
+        type: 'showToast',
+        message: error.message || 'Đã có lỗi xảy ra',
+        toastType: 'error'
       });
     } finally {
       dispatch({ type: 'setLoading', value: false });

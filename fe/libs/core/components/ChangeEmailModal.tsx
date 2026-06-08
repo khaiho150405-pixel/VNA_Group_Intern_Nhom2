@@ -6,12 +6,15 @@ import {
   TextField, 
   Button, 
   Typography, 
-  Box
+  Box,
+  CircularProgress
 } from '@mui/material';
 import { makeStyles } from '@material-ui/styles';
 import { Theme } from '@mui/material/styles';
 import { VNA_COLORS } from '@core/theme';
 import { useAuth } from '@core/contexts/AuthProvider';
+import { authService } from '@tts/services/auth.services';
+import { getCookie } from '@core/services/cookies';
 
 const useStyles = makeStyles((theme: Theme) => ({
   content: {
@@ -73,6 +76,18 @@ const useStyles = makeStyles((theme: Theme) => ({
     textTransform: 'none',
     color: VNA_COLORS.gray,
     padding: 0,
+  },
+  errorText: {
+    color: VNA_COLORS.error,
+    fontSize: '0.8rem',
+    marginBottom: theme.spacing(2),
+    textAlign: 'left',
+  },
+  successText: {
+    color: VNA_COLORS.success || '#4caf50',
+    fontSize: '0.8rem',
+    marginBottom: theme.spacing(2),
+    textAlign: 'left',
   }
 }));
 
@@ -83,9 +98,30 @@ interface ChangeEmailModalProps {
 
 export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClose }) => {
   const classes = useStyles();
-  const { user } = useAuth();
+  const { user, login } = useAuth();
   const [step, setStep] = useState(1);
   const [countdown, setCountdown] = useState(60);
+  const [otp, setOtp] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Send OTP automatically when modal is opened in step 1
+  useEffect(() => {
+    if (open && step === 1 && user?.email) {
+      setErrorMsg(null);
+      setSuccessMsg('Đang gửi mã OTP...');
+      authService.sendOtp(user.email)
+        .then(() => {
+          setSuccessMsg('Mã OTP đã được gửi đến email của bạn.');
+        })
+        .catch((err: any) => {
+          setSuccessMsg(null);
+          setErrorMsg(err.message || 'Không thể gửi mã OTP. Vui lòng thử lại.');
+        });
+    }
+  }, [open, step, user?.email]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -95,11 +131,77 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
     return () => clearInterval(timer);
   }, [open, step, countdown]);
 
-  const handleNext = () => setStep(2);
+  const handleResendOtp = async () => {
+    if (!user?.email) return;
+    try {
+      setErrorMsg(null);
+      setSuccessMsg('Đang gửi lại mã OTP...');
+      setCountdown(60);
+      await authService.sendOtp(user.email);
+      setSuccessMsg('Mã OTP đã được gửi lại thành công.');
+    } catch (err: any) {
+      setSuccessMsg(null);
+      setErrorMsg(err.message || 'Không thể gửi lại mã OTP. Vui lòng thử lại.');
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otp) {
+      setErrorMsg('Vui lòng nhập mã OTP');
+      return;
+    }
+    if (!user?.email) return;
+
+    setLoading(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      await authService.verifyOtp(user.email, otp);
+      setStep(2);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Mã OTP không hợp lệ hoặc đã hết hạn.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateEmail = async () => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!newEmail) {
+      setErrorMsg('Vui lòng nhập email mới');
+      return;
+    }
+    if (!emailRegex.test(newEmail)) {
+      setErrorMsg('Vui lòng nhập đúng định dạng email (ví dụ: example@gmail.com)');
+      return;
+    }
+    if (!user?.id) return;
+
+    setLoading(true);
+    setErrorMsg(null);
+    try {
+      // call put users/:id to update email
+      await authService.updateProfile(user.id, { email: newEmail });
+      
+      // Update local storage and authentication context user info
+      const token = getCookie('accessToken') || '';
+      login({ ...user, email: newEmail }, token);
+      
+      handleClose();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Không thể cập nhật email. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
+  };
   
   const handleClose = () => {
     setStep(1);
     setCountdown(60);
+    setOtp('');
+    setNewEmail('');
+    setErrorMsg(null);
+    setSuccessMsg(null);
     onClose();
   };
 
@@ -112,7 +214,7 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
           <>
             <Typography className={classes.message}>
               Chúng tôi đã gửi mã xác minh qua email cá nhân<br/>
-              <strong>{user?.email || 'phanthanh-tung99@gmail.com'}</strong><br/>
+              <strong>{user?.email || ''}</strong><br/>
               Bạn vui lòng kiểm tra và điền mã xác thực
             </Typography>
             
@@ -123,16 +225,22 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
               size="small"
               className={classes.field}
               placeholder="Nhập mã OTP"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+              disabled={loading}
             />
+
+            {errorMsg && <Typography className={classes.errorText}>{errorMsg}</Typography>}
+            {successMsg && <Typography className={classes.successText}>{successMsg}</Typography>}
             
             <Box>
               <Typography className={classes.countdown}>
                 00:{countdown < 10 ? `0${countdown}` : countdown}
               </Typography>
               <Button 
-                disabled={countdown > 0} 
+                disabled={countdown > 0 || loading} 
                 className={classes.resendBtn}
-                onClick={() => setCountdown(60)}
+                onClick={handleResendOtp}
               >
                 Chưa nhận được mã? Gửi lại
               </Button>
@@ -151,7 +259,12 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
               size="small"
               className={classes.field}
               placeholder="Nhập email mới"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              disabled={loading}
             />
+
+            {errorMsg && <Typography className={classes.errorText}>{errorMsg}</Typography>}
           </>
         )}
       </DialogContent>
@@ -160,11 +273,12 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
         <Button 
           variant="contained" 
           className={classes.confirmBtn}
-          onClick={step === 1 ? handleNext : handleClose}
+          onClick={step === 1 ? handleVerifyOtp : handleUpdateEmail}
+          disabled={loading}
         >
-          {step === 1 ? 'Xác nhận' : 'Lưu'}
+          {loading ? <CircularProgress size={24} style={{ color: '#fff' }} /> : (step === 1 ? 'Xác nhận' : 'Lưu')}
         </Button>
-        <Button onClick={handleClose} className={classes.cancelBtn}>Hủy bỏ</Button>
+        <Button onClick={handleClose} className={classes.cancelBtn} disabled={loading}>Hủy bỏ</Button>
       </DialogActions>
     </Dialog>
   );

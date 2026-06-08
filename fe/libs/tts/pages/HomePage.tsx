@@ -17,7 +17,7 @@ export const HomePage = () => {
         
         <Paper style={{ padding: 24, borderRadius: 8 }}>
           <Typography variant="h6" color="primary" gutterBottom>
-            Chào mừng quay trở lại, {user?.displayName}!
+            Chào mừng quay trở lại, {user?.fullName || user?.displayName}!
           </Typography>
           <Typography variant="body1" color="textSecondary">
             Bạn đang đăng nhập với vai trò: <strong>{user?.role === 'ROLE_SO' ? 'Cán bộ Sở' : 'Doanh nghiệp'}</strong>

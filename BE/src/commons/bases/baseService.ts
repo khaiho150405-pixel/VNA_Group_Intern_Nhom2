@@ -154,6 +154,14 @@ export class BaseService<T> {
     itemDto: any
   ): Promise<ResponseData<UpdateResult>> {
     try {
+      // Prevent normal users from updating 'status' (which means account locked when true)
+      if (itemDto && Object.prototype.hasOwnProperty.call(itemDto, 'status')) {
+        const isAdmin = currentUser && ((currentUser.realRole && currentUser.realRole === 'Admin') || (currentUser.role && (currentUser.role.role === 'ROLE_ADMIN' || currentUser.role.role === 'ADMIN')));
+        if (!isAdmin) {
+          delete itemDto.status;
+        }
+      }
+
       if (itemDto.password) {
         itemDto.password = await argon.hash(itemDto.password);
       }

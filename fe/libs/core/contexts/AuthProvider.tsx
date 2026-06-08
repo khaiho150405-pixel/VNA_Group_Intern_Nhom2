@@ -32,24 +32,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (storedUser && token) {
         setUser(JSON.parse(storedUser));
-      } else if (!token) {
-        // Clear local storage if token is gone
+      } else {
+        // Clear both if either is missing
         localStorage.removeItem('user');
+        deleteCookie('accessToken');
         setUser(null);
+
+        // Redirect to login if not already on public pages
+        const path = window.location.pathname;
+        if (path !== '/login' && path !== '/forgot-password') {
+          router.replace('/login');
+        }
       }
     } catch (error) {
       console.error('Failed to parse user from localStorage', error);
       localStorage.removeItem('user');
+      deleteCookie('accessToken');
+      setUser(null);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [router]);
 
   const login = (userData: IUser, token: string) => {
     setUser(userData);
     localStorage.setItem('user', JSON.stringify(userData));
     setCookie('accessToken', token, 7); // Essential for Middleware
-    router.push('/');
+    window.location.href = '/';
   };
 
   const logout = () => {

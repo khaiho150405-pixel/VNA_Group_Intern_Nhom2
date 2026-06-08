@@ -25,13 +25,16 @@ export class AuthService {
     try {
       const _doet = doet && doet.id ? doet.id : null;
       const user = new CurrentUser(_doet, data);
+      const tokenPayload = { ...user };
+      delete tokenPayload.avatar;
       const [views, token] = await Promise.all([
         await this.viewService.getViewsByRoleId(user.role.id),
-        await this.jwtService.sign({ ...user })
+        await this.jwtService.sign(tokenPayload)
       ]);
       const rs = new LoginModel({
         token,
-        views: get(views, "data.items", [])
+        views: get(views, "data.items", []),
+        user
       });
       return Response.get<LoginModel>(rs);
     } catch (error) {
@@ -114,6 +117,58 @@ export class AuthService {
       user.password = _newPassword;
       user.otp = null;
       user.otpExpired = null;
+      await manage.save(user);
+
+      return Response.SUCCESSFULLY;
+    } catch (error) {
+      throw Response.errorInternal(error);
+    }
+  }
+
+  async verifyOtp(email: string, otp: string) {
+    try {
+      const manage = getManager();
+      const user = await manage.findOne(User, {
+        where: {
+          email: email
+        }
+      });
+      if (!user) {
+        return Response.errorNotFound("Not found email");
+      }
+      if (!user.otp || user.otp !== otp) {
+        return Response.errorBad("Mã OTP không chính xác");
+      }
+      if (!user.otpExpired || new Date() > new Date(user.otpExpired)) {
+        return Response.errorBad("Mã OTP đã hết hạn");
+      }
+
+      user.otp = null;
+      user.otpExpired = null;
+      await manage.save(user);
+
+      return Response.SUCCESSFULLY;
+    } catch (error) {
+      throw Response.errorInternal(error);
+    }
+  }
+
+  async changePassword(userId: string, oldPassword: string, newPassword: string) {
+    try {
+      const manage = getManager();
+      const user = await manage.findOne(User, { where: { id: userId } });
+      if (!user) {
+        return Response.errorNotFound('User not found');
+      }
+
+      // verify old password
+      const match = await argon.verify(user.password, oldPassword);
+      if (!match) {
+        return Response.errorBad('Mật khẩu cũ không đúng');
+      }
+
+      const _newPassword = await argon.hash(newPassword);
+      user.password = _newPassword;
       await manage.save(user);
 
       return Response.SUCCESSFULLY;

@@ -1,17 +1,38 @@
 // --- CƠ SỞ DỮ LIỆU GIẢ LẬP ĐỂ TEST NGHIỆP VỤ ---
 export const MOCK_USERS = [
   {
-    username: "phatAdmin",         
-    password: "123",              
-    email: "nuyenphat2468@gmail.com",
+    username: "testuser",
+    password: "12345678",
+    email: "93.hosikhai.2019@gmail.com",
     role: "ROLE_SO",
-    displayName: "Cán Bộ Sở Quản Lý"
+    displayName: "Hồ Sĩ Khải"
   },
   {
-    username: "phatDN",          
-    password: "123",
-    email: "phatlklk321@gmail.com", 
-    role: "ROLE_DN",
-    displayName: "Công ty Cổ phần Mộc Test"
+    username: "nhanvien",
+    password: "12345678",
+    email: "nhanvien@example.com",
+    role: "ROLE_SO",
+    displayName: "Nhân viên"
+  },
+  {
+    username: "chuyenvien",
+    password: "12345678",
+    email: "chuyenvien@example.com",
+    role: "ROLE_SO",
+    displayName: "Chuyên viên"
+  },
+  {
+    username: "lanhdao",
+    password: "12345678",
+    email: "lanhdao@example.com",
+    role: "ROLE_SO",
+    displayName: "Lãnh đạo"
+  },
+  {
+    username: "superadmin",
+    password: "12345678",
+    email: "superadmin@example.com",
+    role: "ROLE_SO",
+    displayName: "Quản trị viên"
   }
 ];
