@@ -169,9 +169,20 @@ export const Sidebar = () => {
   const [showPassModal, setShowPassModal] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
+  const rawRole = user
+    ? ((user as any).realRole || (typeof user.role === 'object' && user.role !== null ? (user.role as any).role : user.role))
+    : undefined;
+
+  let userRole = rawRole;
+  if (rawRole === 'Admin' || rawRole === 'ROLE_ADMIN') {
+    userRole = 'ROLE_SO';
+  } else if (rawRole === 'User' || rawRole === 'ROLE_USER') {
+    userRole = 'ROLE_DN';
+  }
+
   // Filter items based on user role
   const filteredItems = NAVIGATION_ITEMS.filter(item => 
-    !user || item.roles.includes(user.role)
+    !userRole || item.roles.includes(userRole as any)
   );
 
   const handleToggle = (id: string) => {

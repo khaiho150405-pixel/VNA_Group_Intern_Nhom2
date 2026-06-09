@@ -156,10 +156,18 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
     setErrorMsg(null);
     setSuccessMsg(null);
     try {
-      await authService.verifyOtp(user.email, otp);
-      setStep(2);
+      const response = await authService.verifyOtp(user.email, otp);
+      if (response && response.success) {
+        setStep(2);
+      } else {
+        const errorMsg = 'Mã OTP không chính xác';
+        setErrorMsg(errorMsg);
+        alert(errorMsg);
+      }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Mã OTP không hợp lệ hoặc đã hết hạn.');
+      const errorMsg = err.response?.data?.errors || err.response?.data?.message || err.message || 'Mã OTP không chính xác';
+      setErrorMsg(errorMsg);
+      alert(errorMsg);
     } finally {
       setLoading(false);
     }

@@ -1,15 +1,15 @@
 import axiosClient from '@core/services/axiosClient';
-import { 
-  ILoginResponse, 
-  IApiResponse, 
-  ILoginCredentials, 
+import {
+  ILoginResponse,
+  IApiResponse,
+  ILoginCredentials,
   IResetPasswordRequest,
   IUpdateProfileRequest
 } from '@shared/tts/models/auth.model';
 import { API_ENDPOINTS } from '@core/constants/api';
 import { MOCK_USERS } from './mockData';
 
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === 'true';
+const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === 'false';
 
 /**
  * Authentication related services
@@ -22,9 +22,9 @@ export const authService = {
     if (USE_MOCK) {
       const { userName, password } = credentials;
       const user = MOCK_USERS.find(u => u.username === userName && u.password === password);
-      
+
       await new Promise(resolve => setTimeout(resolve, 800));
-      
+
       if (user) {
         return {
           success: true,
@@ -52,7 +52,7 @@ export const authService = {
     if (USE_MOCK) {
       const user = MOCK_USERS.find(u => u.email === email);
       await new Promise(resolve => setTimeout(resolve, 800));
-      
+
       if (user) {
         const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
         console.log(`[Mock API] OTP for ${email}: ${generatedOtp}`);
@@ -108,12 +108,12 @@ export const authService = {
     if (USE_MOCK) {
       await new Promise(resolve => setTimeout(resolve, 1500));
       console.log('[Mock API] Updating profile with data:', data);
-      
+
       if (data.avatar) {
         console.log('[Mock API] Avatar file received:', data.avatar.name, `(${data.avatar.size} bytes)`);
         // In a real scenario, this would be saved to a storage service and the URL saved to the DB
       }
-      
+
       return { success: true, message: 'Cập nhật thông tin thành công (Mock)' };
     }
 
