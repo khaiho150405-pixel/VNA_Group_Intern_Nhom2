@@ -12,10 +12,11 @@ export class UserService extends BaseService<User> {
   manager: EntityManager;
 
   constructor(
+    // @ts-ignore
     @InjectRepository(User)
     private readonly userRepository: Repository<User>
   ) {
-    super(userRepository, (data) => this.userRepository.create(data));
+    super(userRepository, (data: any) => this.userRepository.create(data));
     this.manager = getManager();
   }
 
@@ -43,7 +44,7 @@ export class UserService extends BaseService<User> {
       let result = {
         success: 0,
         err: 0,
-        username: []
+        username: [] as string[]
       };
       for (const user of users) {
         const existed = await this.checkUsername(user.username);
@@ -107,8 +108,8 @@ export class UserService extends BaseService<User> {
         relations,
         select,
         order: { ...JSON.parse(order || "{}") },
-        skip: pageNumber,
-        take: pageSize,
+        skip: pageNumber ? +pageNumber : 0,
+        take: pageSize ? +pageSize : 10,
         withDeleted: true
       });
       if (!!province) {
@@ -117,15 +118,15 @@ export class UserService extends BaseService<User> {
       return Response.getList({
         items,
         count,
-        pageSize: +pageSize,
-        pageNumber: +pageNumber
+        pageSize: pageSize ? +pageSize : 10,
+        pageNumber: pageNumber ? +pageNumber : 0
       });
     } catch (error) {
       throw Response.errorInternal(error);
     }
   }
 
-  async recovery(user_id) {
+  async recovery(user_id: string) {
     await this.manager.query(`update users
                               set "deletedBy" = NULL,
                                   "deletedAt" = null
@@ -135,7 +136,7 @@ export class UserService extends BaseService<User> {
     };
   }
 
-  async resetPassword(user_id) {
+  async resetPassword(user_id: string) {
     const _newPassword = await argon.hash("12345678");
     await this.manager
       .query(`update users
@@ -144,5 +145,17 @@ export class UserService extends BaseService<User> {
     return {
       success: true
     };
+  }
+
+  async updateUser(id: string, data: any): Promise<any> {
+    try {
+      const updateData = { ...data };
+      delete updateData.id; // Xóa id để TypeORM không báo lỗi cập nhật khoá chính
+
+      await this.userRepository.update(id, updateData);
+      return await this.userRepository.findOne({ where: { id: id as any } });
+    } catch (error) {
+      throw Response.errorInternal(error);
+    }
   }
 }

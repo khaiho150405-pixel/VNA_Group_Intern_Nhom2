@@ -74,9 +74,32 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, 
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const getPasswordStrength = (password: string) => {
+    if (!password) return { label: '', color: 'transparent', score: 0 };
+    if (password.length < 6) return { label: 'Yếu (Ít nhất 6 kí tự)', color: '#f44336', score: 1 };
+    
+    const hasLetter = /[a-zA-Z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecial = /[^a-zA-Z0-9]/.test(password);
+
+    if (password.length >= 8 && hasLetter && hasNumber && hasSpecial) {
+      return { label: 'Mạnh', color: '#4caf50', score: 3 };
+    }
+    if (hasLetter && hasNumber) {
+      return { label: 'Trung bình', color: '#ff9800', score: 2 };
+    }
+    return { label: 'Yếu (Cần có cả chữ và số)', color: '#f44336', score: 1 };
+  };
+
+  const strength = getPasswordStrength(newPassword);
+
   const handleSave = async () => {
     if (!oldPassword || !newPassword || !confirmPassword) {
       alert('Vui lòng nhập đầy đủ thông tin');
+      return;
+    }
+    if (strength.score < 2) {
+      alert('Mật khẩu mới quá yếu. Vui lòng chọn mật khẩu từ mức Trung bình trở lên.');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -133,7 +156,8 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, 
           type={showNew ? 'text' : 'password'}
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
-          className={classes.field}
+          className={newPassword ? '' : classes.field}
+          style={{ marginBottom: newPassword ? 4 : undefined }}
           InputProps={{
             endAdornment: (
               <InputAdornment position="end">
@@ -144,6 +168,12 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, 
             )
           }}
         />
+        
+        {newPassword && (
+          <Typography style={{ fontSize: '0.75rem', color: strength.color, fontWeight: 600, marginBottom: 16 }}>
+            Độ mạnh: {strength.label}
+          </Typography>
+        )}
 
         <Typography className={classes.label}>Nhập lại mật khẩu mới (*)</Typography>
         <TextField

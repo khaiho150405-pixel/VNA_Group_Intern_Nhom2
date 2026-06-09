@@ -38,61 +38,61 @@ export class User extends BaseAddressEntity {
       "otpExpired"
     ]
   ) {
-    super(users);
+    super(users as any);
     users &&
     keys.forEach((key) => {
-      users[key] !== undefined && (this[key] = users[key]);
+      (users as any)[key] !== undefined && ((this as any)[key] = (users as any)[key]);
     });
   }
 
   @PrimaryGeneratedColumn("uuid")
-  id: string;
+  id!: string;
 
   @Column("varchar", { unique: true })
-  username: string;
+  username!: string;
 
   @Column("varchar")
-  password: string;
+  password!: string;
 
   @Column({ nullable: true })
-  fullName: string;
+  fullName!: string;
 
   @Column("varchar", { nullable: true })
-  realRole: string;
+  realRole!: string;
 
   @Column({ nullable: true })
-  gender: Gender;
+  gender!: Gender;
 
   @Column({ nullable: true })
-  avatar: string;
+  avatar!: string;
 
   @Column({ nullable: true })
-  email: string;
+  email!: string;
 
   @Column({ nullable: true })
-  dateOfBirth: Date;
+  dateOfBirth!: Date;
 
   @Column({ nullable: true })
-  status: boolean;
+  status!: boolean;
 
   @Column({ nullable: true })
-  otp: string;
+  otp!: string;
 
   @Column({ type: "timestamp", nullable: true })
-  otpExpired: Date;
+  otpExpired!: Date;
 
   @Column({ nullable: true })
-  unitId: number;
+  unitId!: number;
 
   @Column({ nullable: true })
-  deletedAt: Date;
+  deletedAt!: Date;
 
   @Column({ nullable: true })
-  doet_id: number;
+  doet_id!: number;
 
   @ManyToOne(() => Role, (role: Role) => role.users)
   @JoinColumn({ name: "roleId" })
-  role: Role;
+  role!: Role;
 
   @BeforeInsert()
   async hashPassword() {
@@ -100,5 +100,5 @@ export class User extends BaseAddressEntity {
   }
 
   @Column({ nullable: true })
-  workUnit: string;
+  workUnit!: string;
 }

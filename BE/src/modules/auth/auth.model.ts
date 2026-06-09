@@ -6,20 +6,22 @@ class Role {
   constructor(role?: Partial<Role>, keys: string[] = ['id', 'role', 'name']) {
     role &&
       keys.forEach((key) => {
-        role[key] !== undefined && (this[key] = role[key]);
+        (role as any)[key] !== undefined && ((this as any)[key] = (role as any)[key]);
       });
   }
 }
 
 export class CurrentUser {
-  id: string;
-  doet?: number;
-  username: string;
+  id!: string;
+  doet?: number | null;
+  username!: string;
   fullName?: string;
   email?: string;
   realRole?: string;
   avatar?: string;
-  role: Role;
+  role!: Role;
+  unitId?: number;
+  workUnit?: any;
 
   constructor(
     doet: number | null,
@@ -29,9 +31,9 @@ export class CurrentUser {
     user &&
       keys.forEach((key) => {
         if (key === 'role') {
-          user[key] !== undefined && (this[key] = new Role(user[key]));
+          (user as any)[key] !== undefined && (this.role = new Role((user as any)[key]));
         } else {
-          user[key] !== undefined && (this[key] = user[key]);
+          (user as any)[key] !== undefined && ((this as any)[key] = (user as any)[key]);
         }
       });
     this.doet = doet;
@@ -39,7 +41,7 @@ export class CurrentUser {
 }
 
 export class LoginModel {
-  token: string;
+  token!: string;
   user?: CurrentUser;
   views: any;
 
@@ -49,7 +51,7 @@ export class LoginModel {
   ) {
     loginModel &&
       keys.forEach((key) => {
-        loginModel[key] !== undefined && (this[key] = loginModel[key]);
+        (loginModel as any)[key] !== undefined && ((this as any)[key] = (loginModel as any)[key]);
       });
   }
 }

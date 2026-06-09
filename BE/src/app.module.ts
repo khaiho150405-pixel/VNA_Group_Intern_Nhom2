@@ -23,7 +23,7 @@ import { DomainMiddleware } from "./commons/middleware/domain.middleware";
     UserModule,
     RoleModule,
     ViewModule,
-    DoetModule
+    DoetModule,
   ],
   controllers: [AppController],
   providers: [AppService]

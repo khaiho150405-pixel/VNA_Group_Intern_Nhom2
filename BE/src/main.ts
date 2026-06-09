@@ -14,7 +14,15 @@ async function bootstrap() {
     methods: ['GET', 'PUT', 'POST', 'PATCH', 'DELETE'],
   });
   const config = new DocumentBuilder()
-    .addBearerAuth({ in: 'header', type: 'http', bearerFormat: 'JWT' })
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        in: 'header',
+      },
+      'JWT-auth',
+    )
     .setTitle('VNA - Meritorious Person - API documentation')
     .setDescription('')
     .setVersion('1.0')
@@ -31,6 +39,7 @@ async function bootstrap() {
   );
 
   app.useGlobalFilters(new ServiceErrorsFilter());
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
 
   const port = process.env.VNA_PORT || 3000;
   Logger.log(`==== ${port} ====`);
