@@ -92,15 +92,18 @@ export const useForgotPassword = () => {
         otp: state.otp, 
         newPassword: state.newPassword 
       });
-      if (response.success) {
+      if (response && response.success) {
         triggerToast("success", "Khôi phục mật khẩu thành công!");
         setTimeout(() => {
           dispatch({ type: "reset" });
           router.push("/login");
         }, 1500);
+      } else {
+        alert("Mã OTP không chính xác");
       }
     } catch (error: any) {
-      triggerToast("error", error.message || "Có lỗi xảy ra");
+      const errorMsg = error.response?.data?.errors || error.response?.data?.message || error.message || "Có lỗi xảy ra";
+      alert(errorMsg);
     }
   };
 
