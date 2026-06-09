@@ -67,7 +67,7 @@ export class AuthService {
         }
       });
       if (!user) {
-        return Response.errorNotFound("Not found email");
+        throw Response.errorNotFound("Email chưa đăng ký trong hệ thống. Xin vui lòng thử lại sau");
       }
       
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -104,7 +104,7 @@ export class AuthService {
         }
       });
       if (!user) {
-        return Response.errorNotFound("Not found email");
+        throw Response.errorNotFound("Email chưa đăng ký trong hệ thống. Xin vui lòng thử lại sau");
       }
       if (!user.otp || user.otp !== otp) {
         return Response.errorBad("Mã OTP không chính xác");
@@ -134,7 +134,7 @@ export class AuthService {
         }
       });
       if (!user) {
-        return Response.errorNotFound("Not found email");
+        throw Response.errorNotFound("Email chưa đăng ký trong hệ thống. Xin vui lòng thử lại sau");
       }
       if (!user.otp || user.otp !== otp) {
         return Response.errorBad("Mã OTP không chính xác");

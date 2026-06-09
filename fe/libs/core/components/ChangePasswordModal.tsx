@@ -16,6 +16,7 @@ import { makeStyles } from '@material-ui/styles';
 import { Theme } from '@mui/material/styles';
 import { VNA_COLORS } from '@core/theme';
 import { authService } from '@tts/services/auth.services';
+import { validate, VALIDATION_MESSAGES } from '@core/utils/validation';
 
 const useStyles = makeStyles((theme: Theme) => ({
   dialogTitle: {
@@ -75,14 +76,21 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, 
   const [loading, setLoading] = useState(false);
 
   const handleSave = async () => {
-    if (!oldPassword || !newPassword || !confirmPassword) {
-      alert('Vui lòng nhập đầy đủ thông tin');
+    if (!validate.required(oldPassword) || !validate.required(newPassword) || !validate.required(confirmPassword)) {
+      alert(VALIDATION_MESSAGES.FULL_INFO_REQUIRED);
       return;
     }
+    
+    if (!validate.minLength(newPassword, 6)) {
+      alert(VALIDATION_MESSAGES.PASSWORD_MIN_LENGTH(6));
+      return;
+    }
+
     if (newPassword !== confirmPassword) {
-      alert('Mật khẩu mới không khớp');
+      alert(VALIDATION_MESSAGES.PASSWORD_CONFIRM_NOT_MATCH);
       return;
     }
+
     try {
       setLoading(true);
       const res = await authService.changePassword(oldPassword, newPassword);

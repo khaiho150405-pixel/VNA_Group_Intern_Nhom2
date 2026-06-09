@@ -26,7 +26,7 @@ export const NAVIGATION_ITEMS: NavItem[] = [
     id: 'help', 
     label: 'Hướng dẫn sử dụng', 
     icon: <HelpIcon fontSize="small" />,
-    roles: ['ROLE_SO', 'ROLE_DN'] 
+    roles: ['superAdmin', 'ROLE_DN'] 
   },
   { 
     id: 'home', 

@@ -15,6 +15,7 @@ import { VNA_COLORS } from '@core/theme';
 import { useAuth } from '@core/contexts/AuthProvider';
 import { authService } from '@tts/services/auth.services';
 import { getCookie } from '@core/services/cookies';
+import { validate, VALIDATION_MESSAGES } from '@core/utils/validation';
 
 const useStyles = makeStyles((theme: Theme) => ({
   content: {
@@ -118,7 +119,8 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
         })
         .catch((err: any) => {
           setSuccessMsg(null);
-          setErrorMsg(err.message || 'Không thể gửi mã OTP. Vui lòng thử lại.');
+          const msg = err.response?.data?.errors || err.response?.data?.message || err.message || 'Không thể gửi mã OTP. Vui lòng thử lại.';
+          setErrorMsg(msg);
         });
     }
   }, [open, step, user?.email]);
@@ -141,13 +143,18 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
       setSuccessMsg('Mã OTP đã được gửi lại thành công.');
     } catch (err: any) {
       setSuccessMsg(null);
-      setErrorMsg(err.message || 'Không thể gửi lại mã OTP. Vui lòng thử lại.');
+      const msg = err.response?.data?.errors || err.response?.data?.message || err.message || 'Không thể gửi lại mã OTP. Vui lòng thử lại.';
+      setErrorMsg(msg);
     }
   };
 
   const handleVerifyOtp = async () => {
-    if (!otp) {
-      setErrorMsg('Vui lòng nhập mã OTP');
+    if (!validate.required(otp)) {
+      setErrorMsg(VALIDATION_MESSAGES.REQUIRED);
+      return;
+    }
+    if (!validate.otp(otp)) {
+      setErrorMsg(VALIDATION_MESSAGES.OTP_INVALID);
       return;
     }
     if (!user?.email) return;
@@ -162,25 +169,22 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
       } else {
         const errorMsg = 'Mã OTP không chính xác';
         setErrorMsg(errorMsg);
-        alert(errorMsg);
       }
     } catch (err: any) {
-      const errorMsg = err.response?.data?.errors || err.response?.data?.message || err.message || 'Mã OTP không chính xác';
-      setErrorMsg(errorMsg);
-      alert(errorMsg);
+      const msg = err.response?.data?.errors || err.response?.data?.message || err.message || 'Mã OTP không chính xác';
+      setErrorMsg(msg);
     } finally {
       setLoading(false);
     }
   };
 
   const handleUpdateEmail = async () => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!newEmail) {
+    if (!validate.required(newEmail)) {
       setErrorMsg('Vui lòng nhập email mới');
       return;
     }
-    if (!emailRegex.test(newEmail)) {
-      setErrorMsg('Vui lòng nhập đúng định dạng email (ví dụ: example@gmail.com)');
+    if (!validate.email(newEmail)) {
+      setErrorMsg(VALIDATION_MESSAGES.EMAIL_INVALID);
       return;
     }
     if (!user?.id) return;
@@ -197,7 +201,8 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
       
       handleClose();
     } catch (err: any) {
-      setErrorMsg(err.message || 'Không thể cập nhật email. Vui lòng thử lại.');
+      const msg = err.response?.data?.errors || err.response?.data?.message || err.message || 'Không thể cập nhật email. Vui lòng thử lại.';
+      setErrorMsg(msg);
     } finally {
       setLoading(false);
     }

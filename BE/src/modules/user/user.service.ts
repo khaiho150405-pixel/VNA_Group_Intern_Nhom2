@@ -46,8 +46,12 @@ export class UserService extends BaseService<User> {
         username: []
       };
       for (const user of users) {
-        const existed = await this.checkUsername(user.username);
-        if (existed.existed) {
+        const [existedUsername, existedEmail] = await Promise.all([
+          this.userRepository.findOne({ where: { username: user.username } }),
+          user.email ? this.userRepository.findOne({ where: { email: user.email } }) : null
+        ]);
+
+        if (existedUsername || existedEmail) {
           result.err += 1;
           result.username.push(user.username);
         } else {
@@ -121,6 +125,72 @@ export class UserService extends BaseService<User> {
         pageNumber: +pageNumber
       });
     } catch (error) {
+      throw Response.errorInternal(error);
+    }
+  }
+
+  async put(currentUser: any, id: string, itemDto: any): Promise<any> {
+    try {
+      // 1. Check email uniqueness
+      if (itemDto.email) {
+        const email = itemDto.email.trim();
+        const existedEmail = await this.userRepository.createQueryBuilder("u")
+          .where("LOWER(u.email) = LOWER(:email)", { email })
+          .andWhere("u.id != :id", { id })
+          .getOne();
+        
+        if (existedEmail) {
+          throw Response.errorBad("Email này đã được sử dụng bởi một tài khoản khác");
+        }
+      }
+
+      // 2. Check username uniqueness
+      if (itemDto.username) {
+        const username = itemDto.username.trim();
+        const existedUsername = await this.userRepository.createQueryBuilder("u")
+          .where("LOWER(u.username) = LOWER(:username)", { username })
+          .andWhere("u.id != :id", { id })
+          .getOne();
+        
+        if (existedUsername) {
+          throw Response.errorBad("Tên đăng nhập đã tồn tại");
+        }
+      }
+
+      // 3. Call base service put
+      return await super.put(currentUser, id, itemDto);
+    } catch (error) {
+      // If it's already a service error (like our 400 above), just re-throw it
+      if (error?.status) throw error;
+      throw Response.errorInternal(error);
+    }
+  }
+
+  async post(currentUser: any, itemDto: any, doet: any): Promise<any> {
+    try {
+      if (itemDto.email) {
+        const email = itemDto.email.trim();
+        const existedEmail = await this.userRepository.createQueryBuilder("u")
+          .where("LOWER(u.email) = LOWER(:email)", { email })
+          .getOne();
+        if (existedEmail) {
+          throw Response.errorBad("Email này đã được sử dụng bởi một tài khoản khác");
+        }
+      }
+
+      if (itemDto.username) {
+        const username = itemDto.username.trim();
+        const existedUsername = await this.userRepository.createQueryBuilder("u")
+          .where("LOWER(u.username) = LOWER(:username)", { username })
+          .getOne();
+        if (existedUsername) {
+          throw Response.errorBad("Tên đăng nhập đã tồn tại");
+        }
+      }
+
+      return await super.post(currentUser, itemDto, doet);
+    } catch (error) {
+      if (error?.status) throw error;
       throw Response.errorInternal(error);
     }
   }

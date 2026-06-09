@@ -3,6 +3,7 @@ import { useReducer, useEffect } from "react";
 import { accountInfoReducer, initialAccountInfoState, AccountInfoState } from "@tts/logic/account-info/reducer";
 import { useAuth } from "@core/contexts/AuthProvider";
 import { authService } from "@tts/services/auth.services";
+import { validate, VALIDATION_MESSAGES } from "@core/utils/validation";
 
 import { getCookie } from '@core/services/cookies';
 
@@ -38,6 +39,25 @@ export const useAccountInfo = () => {
   };
 
   const handleSave = async () => {
+    // Basic validation
+    if (!validate.required(state.displayName)) {
+      dispatch({
+        type: 'showToast',
+        message: 'Họ và tên không được để trống',
+        toastType: 'error'
+      });
+      return;
+    }
+
+    if (state.email && !validate.email(state.email)) {
+      dispatch({
+        type: 'showToast',
+        message: VALIDATION_MESSAGES.EMAIL_INVALID,
+        toastType: 'error'
+      });
+      return;
+    }
+
     dispatch({ type: 'setLoading', value: true });
     try {
       const payload: Record<string, any> = {
@@ -50,6 +70,12 @@ export const useAccountInfo = () => {
         address: state.address,
         // NOTE: Do NOT send 'status' here — in the DB status=true means "account locked"
       };
+      
+      // If email changed, include it in payload
+      if (state.email && state.email !== user?.email) {
+        payload.email = state.email;
+      }
+
       // include avatar (data URL) when present so backend can persist or frontend can immediately reflect it
       if (state.avatarUrl) {
         payload.avatar = state.avatarUrl;
@@ -62,7 +88,7 @@ export const useAccountInfo = () => {
           const updatedUser = {
             ...user,
             fullName: state.displayName,
-            email: state.email,
+            email: state.email || user.email,
             gender: state.gender === 'Nam' ? 1 : (state.gender === 'Nữ' ? 0 : null),
             realRole: state.role,
             province: state.city ? { key: state.city, value: state.city === 'HCM' ? 'Thành phố Hồ Chí Minh' : state.city } : null,
@@ -81,9 +107,10 @@ export const useAccountInfo = () => {
         });
       }
     } catch (error: any) {
+      const errorMsg = error.response?.data?.errors || error.response?.data?.message || error.message || 'Đã có lỗi xảy ra';
       dispatch({
         type: 'showToast',
-        message: error.message || 'Đã có lỗi xảy ra',
+        message: errorMsg,
         toastType: 'error'
       });
     } finally {

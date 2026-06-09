@@ -182,7 +182,7 @@ export const Sidebar = () => {
 
   // Filter items based on user role
   const filteredItems = NAVIGATION_ITEMS.filter(item => 
-    !userRole || item.roles.includes(userRole as any)
+    item.roles.includes(userRole as any)
   );
 
   const handleToggle = (id: string) => {
@@ -258,7 +258,7 @@ export const Sidebar = () => {
               className={classes.logo} 
             />
             <Typography className={classes.headerText}>
-              Uỷ ban nhân dân tỉnh ABC
+              Hệ thống quản lý
             </Typography>
           </>
         )}
@@ -281,7 +281,7 @@ export const Sidebar = () => {
       <Box className={classes.userSection} onClick={(e) => setAnchorEl(e.currentTarget)} style={{ justifyContent: isCollapsed ? 'center' : 'flex-start', paddingLeft: isCollapsed ? 0 : 16, paddingRight: isCollapsed ? 0 : 16 }}>
         <Avatar src={user?.avatar || '/static/mock-images/logo.png'} style={{ width: 32, height: 32, border: '1px solid rgba(255,255,255,0.2)' }} />
         <Box className={classes.userName} style={{ opacity: isCollapsed ? 0 : 1, width: isCollapsed ? 0 : 'auto', display: isCollapsed ? 'none' : 'block' }}>
-          <Typography>{user?.fullName || user?.displayName || 'Phan Thanh Tùng'}</Typography>
+          <Typography>{user?.fullName || user?.displayName || 'Người dùng'}</Typography>
         </Box>
         {!isCollapsed && <ChevronRight fontSize="small" style={{ opacity: 0.7 }} />}
       </Box>

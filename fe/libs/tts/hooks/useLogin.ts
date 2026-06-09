@@ -1,10 +1,10 @@
-
 "use client";
 import { useReducer, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { loginReducer, initialLoginState, LoginState } from "@tts/logic/login/reducer";
 import { useAuth } from "@core/contexts/AuthProvider";
 import { authService } from "@tts/services/auth.services";
+import { validate, VALIDATION_MESSAGES } from "@core/utils/validation";
 
 export const useLogin = () => {
   const { login } = useAuth();
@@ -46,8 +46,20 @@ export const useLogin = () => {
   const handleLoginSubmit = async () => {
     setShowToast(false);
 
-    if (!state.userName || !state.password) {
-      dispatch({ type: "setError", message: "Vui lòng nhập đầy đủ thông tin" });
+    if (!validate.required(state.userName) || !validate.required(state.password)) {
+      dispatch({ type: "setError", message: VALIDATION_MESSAGES.FULL_INFO_REQUIRED });
+      setShowToast(true);
+      return;
+    }
+
+    if (!validate.username(state.userName)) {
+      dispatch({ type: "setError", message: VALIDATION_MESSAGES.USERNAME_INVALID });
+      setShowToast(true);
+      return;
+    }
+
+    if (!validate.minLength(state.password, 1)) { // Basic check, already covered by required
+      dispatch({ type: "setError", message: VALIDATION_MESSAGES.FULL_INFO_REQUIRED });
       setShowToast(true);
       return;
     }
