@@ -1,4 +1,4 @@
-import axios, { AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+﻿import axios, { AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { getCookie } from './cookies';
 
 const axiosClient = axios.create({
@@ -34,3 +34,4 @@ axiosClient.interceptors.response.use(
 );
 
 export default axiosClient;
+

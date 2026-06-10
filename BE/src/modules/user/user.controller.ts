@@ -39,6 +39,16 @@ export class UserController extends BaseController<User, UserService> {
     return await this.userService.checkUsername(username);
   }
 
+  @Get("checkEmail")
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
+  @ApiOperation({ summary: "Check if email exists" })
+  async checkEmail(
+    @Query("email") email: string,
+    @Query("excludeId") excludeId?: string
+  ): Promise<{ email: string; existed: boolean }> {
+    return await this.userService.checkEmail(email, excludeId);
+  }
+
   @Get()
   @ApiOperation({ summary: "Get items" })
   async getAll(@Query() query: GetAllDto): Promise<any> {

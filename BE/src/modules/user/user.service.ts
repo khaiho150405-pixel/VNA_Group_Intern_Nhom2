@@ -24,14 +24,35 @@ export class UserService extends BaseService<User> {
     username: string
   ): Promise<{ username: string; existed: boolean }> {
     try {
-      const foundedUser = await this.userRepository.findOne({
-        where: {
-          username
-        }
-      });
+      const foundedUser = await this.userRepository.createQueryBuilder("u")
+        .where("TRIM(u.username) = :username", { username: username.trim() })
+        .getOne();
       const result = !!foundedUser;
       return {
         username,
+        existed: result
+      };
+    } catch (error) {
+      throw Response.errorInternal(error);
+    }
+  }
+
+  async checkEmail(
+    email: string,
+    excludeId?: string
+  ): Promise<{ email: string; existed: boolean }> {
+    try {
+      const query = this.userRepository.createQueryBuilder("u")
+        .where("TRIM(u.email) = :email", { email: email.trim() });
+
+      if (excludeId && excludeId !== 'undefined') {
+        query.andWhere("u.id != :id", { id: excludeId });
+      }
+
+      const foundedUser = await query.getOne();
+      const result = !!foundedUser;
+      return {
+        email,
         existed: result
       };
     } catch (error) {
@@ -47,9 +68,16 @@ export class UserService extends BaseService<User> {
         username: [] as string[]
       };
       for (const user of users) {
+        const username = user.username ? user.username.trim() : '';
+        const email = user.email ? user.email.trim() : '';
+        
         const [existedUsername, existedEmail] = await Promise.all([
-          this.userRepository.findOne({ where: { username: user.username } }),
-          user.email ? this.userRepository.findOne({ where: { email: user.email } }) : null
+          this.userRepository.createQueryBuilder("u")
+            .where("TRIM(u.username) = :username", { username })
+            .getOne(),
+          email ? this.userRepository.createQueryBuilder("u")
+            .where("TRIM(u.email) = :email", { email })
+            .getOne() : null
         ]);
 
         if (existedUsername || existedEmail) {
@@ -59,6 +87,8 @@ export class UserService extends BaseService<User> {
           await this.userRepository.save(
             new User({
               ...user,
+              username,
+              email,
               password: user.password,
               createdBy: currentUser.id,
               createdAt: new Date()
@@ -112,8 +142,8 @@ export class UserService extends BaseService<User> {
         relations,
         select,
         order: { ...JSON.parse(order || "{}") },
-        skip: pageNumber ? +pageNumber : 0,
-        take: pageSize ? +pageSize : 10,
+        skip: pageNumber * pageSize,
+        take: pageSize,
         withDeleted: true
       });
       if (!!province) {
@@ -134,9 +164,10 @@ export class UserService extends BaseService<User> {
     try {
       // 1. Check email uniqueness
       if (itemDto.email) {
-        const email = itemDto.email.trim();
+        itemDto.email = itemDto.email.trim();
+        const email = itemDto.email;
         const existedEmail = await this.userRepository.createQueryBuilder("u")
-          .where("LOWER(u.email) = LOWER(:email)", { email })
+          .where("TRIM(u.email) = :email", { email })
           .andWhere("u.id != :id", { id })
           .getOne();
         
@@ -147,9 +178,10 @@ export class UserService extends BaseService<User> {
 
       // 2. Check username uniqueness
       if (itemDto.username) {
-        const username = itemDto.username.trim();
+        itemDto.username = itemDto.username.trim();
+        const username = itemDto.username;
         const existedUsername = await this.userRepository.createQueryBuilder("u")
-          .where("LOWER(u.username) = LOWER(:username)", { username })
+          .where("TRIM(u.username) = :username", { username })
           .andWhere("u.id != :id", { id })
           .getOne();
         
@@ -170,9 +202,10 @@ export class UserService extends BaseService<User> {
   async post(currentUser: any, itemDto: any, doet: any): Promise<any> {
     try {
       if (itemDto.email) {
-        const email = itemDto.email.trim();
+        itemDto.email = itemDto.email.trim();
+        const email = itemDto.email;
         const existedEmail = await this.userRepository.createQueryBuilder("u")
-          .where("LOWER(u.email) = LOWER(:email)", { email })
+          .where("TRIM(u.email) = :email", { email })
           .getOne();
         if (existedEmail) {
           throw Response.errorBad("Email này đã được sử dụng bởi một tài khoản khác");
@@ -180,9 +213,10 @@ export class UserService extends BaseService<User> {
       }
 
       if (itemDto.username) {
-        const username = itemDto.username.trim();
+        itemDto.username = itemDto.username.trim();
+        const username = itemDto.username;
         const existedUsername = await this.userRepository.createQueryBuilder("u")
-          .where("LOWER(u.username) = LOWER(:username)", { username })
+          .where("TRIM(u.username) = :username", { username })
           .getOne();
         if (existedUsername) {
           throw Response.errorBad("Tên đăng nhập đã tồn tại");

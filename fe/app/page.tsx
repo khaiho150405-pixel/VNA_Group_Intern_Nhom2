@@ -1,5 +1,6 @@
-import { HomePage } from '@tts/pages/HomePage';
+﻿import { HomePage } from '@tts/pages/HomePage';
 
 export default function Page() {
   return <HomePage />;
 }
+

@@ -9,13 +9,14 @@ import {
   Box,
   CircularProgress
 } from '@mui/material';
-import { makeStyles } from '@material-ui/styles';
+import { makeStyles } from '@mui/styles';
 import { Theme } from '@mui/material/styles';
 import { VNA_COLORS } from '@core/theme';
 import { useAuth } from '@core/contexts/AuthProvider';
 import { authService } from '@tts/services/auth.services';
 import { getCookie } from '@core/services/cookies';
 import { validate, VALIDATION_MESSAGES } from '@core/utils/validation';
+import { RequiredLabel } from './RequiredLabel';
 
 const useStyles = makeStyles((theme: Theme) => ({
   content: {
@@ -35,15 +36,35 @@ const useStyles = makeStyles((theme: Theme) => ({
     marginBottom: theme.spacing(3),
     lineHeight: 1.6,
   },
-  label: {
-    fontSize: '0.85rem',
-    fontWeight: 600,
-    marginBottom: theme.spacing(0.5),
-    display: 'block',
-    textAlign: 'left',
-  },
   field: {
-    marginBottom: theme.spacing(1),
+    marginBottom: theme.spacing(2),
+    '& .MuiOutlinedInput-root': {
+      borderRadius: 4,
+      backgroundColor: '#fff',
+      '& fieldset': {
+        borderColor: '#e0e0e0',
+      },
+      '&:hover fieldset': {
+        borderColor: '#bdbdbd',
+      },
+      '&.Mui-focused fieldset': {
+        borderColor: VNA_COLORS.primary,
+      },
+    },
+    '& .MuiInputLabel-outlined': {
+      fontSize: '0.85rem',
+      transform: 'translate(14px, 12px) scale(1)',
+      '&.MuiInputLabel-shrink': {
+        transform: 'translate(14px, -6px) scale(0.75)',
+      }
+    },
+    '& .MuiOutlinedInput-input': {
+      paddingTop: '10.5px',
+      paddingBottom: '10.5px',
+      paddingLeft: '14px',
+      fontSize: '0.85rem',
+      textAlign: 'left',
+    }
   },
   countdown: {
     color: VNA_COLORS.primary,
@@ -57,7 +78,8 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontSize: '0.85rem',
     padding: 0,
     marginBottom: theme.spacing(3),
-    '&:disabled': { color: '#ccc' }
+    '&:disabled': { color: '#ccc' },
+    '&:hover': { backgroundColor: 'transparent', color: VNA_COLORS.primaryHover }
   },
   actions: {
     flexDirection: 'column',
@@ -71,12 +93,15 @@ const useStyles = makeStyles((theme: Theme) => ({
     padding: theme.spacing(1, 0),
     width: '100%',
     marginBottom: theme.spacing(2),
+    borderRadius: 8,
     '&:hover': { backgroundColor: VNA_COLORS.primaryHover },
   },
   cancelBtn: {
     textTransform: 'none',
     color: VNA_COLORS.gray,
     padding: 0,
+    borderRadius: 8,
+    '&:hover': { backgroundColor: '#f5f5f7', color: '#333' }
   },
   errorText: {
     color: VNA_COLORS.error,
@@ -192,7 +217,15 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
     setLoading(true);
     setErrorMsg(null);
     try {
-      // call put users/:id to update email
+      // 1. Check if email already exists
+      const checkRes = await authService.checkEmail(newEmail, user.id);
+      if (checkRes && checkRes.existed) {
+        setErrorMsg('Email này đã được sử dụng bởi một tài khoản khác');
+        setLoading(false);
+        return;
+      }
+
+      // 2. call put users/:id to update email
       await authService.updateProfile(user.id, { email: newEmail });
       
       // Update local storage and authentication context user info
@@ -231,11 +264,11 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
               Bạn vui lòng kiểm tra và điền mã xác thực
             </Typography>
             
-            <Typography className={classes.label}>OTP (*)</Typography>
             <TextField
               fullWidth
               variant="outlined"
               size="small"
+              label={<RequiredLabel label="Mã OTP" />}
               className={classes.field}
               placeholder="Nhập mã OTP"
               value={otp}
@@ -254,6 +287,7 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
                 disabled={countdown > 0 || loading} 
                 className={classes.resendBtn}
                 onClick={handleResendOtp}
+                disableRipple
               >
                 Chưa nhận được mã? Gửi lại
               </Button>
@@ -265,11 +299,11 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
               Vui lòng nhập email mới
             </Typography>
             
-            <Typography className={classes.label}>Email (*)</Typography>
             <TextField
               fullWidth
               variant="outlined"
               size="small"
+              label={<RequiredLabel label="Email mới" />}
               className={classes.field}
               placeholder="Nhập email mới"
               value={newEmail}
@@ -291,7 +325,7 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
         >
           {loading ? <CircularProgress size={24} style={{ color: '#fff' }} /> : (step === 1 ? 'Xác nhận' : 'Lưu')}
         </Button>
-        <Button onClick={handleClose} className={classes.cancelBtn} disabled={loading}>Hủy bỏ</Button>
+        <Button onClick={handleClose} className={classes.cancelBtn} disabled={loading} disableRipple>Hủy bỏ</Button>
       </DialogActions>
     </Dialog>
   );

@@ -60,6 +60,20 @@ export const useAccountInfo = () => {
 
     dispatch({ type: 'setLoading', value: true });
     try {
+      // Check email uniqueness if it has changed
+      if (state.email && state.email !== user?.email) {
+        const checkRes = await authService.checkEmail(state.email, user?.id);
+        if (checkRes && checkRes.existed) {
+          dispatch({
+            type: 'showToast',
+            message: 'Email này đã được sử dụng bởi một tài khoản khác',
+            toastType: 'error'
+          });
+          dispatch({ type: 'setLoading', value: false });
+          return;
+        }
+      }
+
       const payload: Record<string, any> = {
         fullName: state.displayName,
         dateOfBirth: state.birthday ? new Date(state.birthday) : null,

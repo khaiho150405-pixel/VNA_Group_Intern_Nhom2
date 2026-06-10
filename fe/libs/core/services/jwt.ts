@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Decodes a JWT token without verifying the signature.
  */
 export const decodeToken = (token: string): any => {
@@ -27,3 +27,4 @@ export const isTokenExpired = (token: string): boolean => {
   const currentTime = Math.floor(Date.now() / 1000);
   return decoded.exp < currentTime;
 };
+

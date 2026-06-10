@@ -1,4 +1,4 @@
-export const VNA_COLORS = {
+﻿export const VNA_COLORS = {
   primary: "#2f65f0",
   primaryHover: "#1e4fd1",
   error: "#ff453a",
@@ -19,3 +19,4 @@ export const VNA_TYPOGRAPHY = {
   bodySize: "0.85rem",
   buttonSize: "0.95rem",
 };
+
