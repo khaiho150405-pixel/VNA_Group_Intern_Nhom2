@@ -31,7 +31,7 @@ try {
   execSync('npm install', { cwd: path.resolve(__dirname, 'BE'), stdio: 'inherit' });
 
   console.log('[Dependencies] Installing Frontend (fe) dependencies...');
-  execSync('npm install', { cwd: path.resolve(__dirname, 'fe'), stdio: 'inherit' });
+  execSync('npm install --legacy-peer-deps', { cwd: path.resolve(__dirname, 'fe'), stdio: 'inherit' });
 
   console.log('=== Setup Completed Successfully! ===');
   console.log('You can now start both servers by running:');

@@ -4,10 +4,13 @@ import {
   Controller,
   Get, Param,
   Post,
+  Put,
   Query,
   Req,
   UseGuards,
-  UseInterceptors
+  UseInterceptors,
+  Logger,
+  BadRequestException
 } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import {
@@ -66,5 +69,22 @@ export class UserController extends BaseController<User, UserService> {
     @Param("id") id: string
   ): Promise<{ success: boolean }> {
     return await this.userService.resetPassword(id);
+  }
+
+  @Put(":id")
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
+  @ApiOperation({ summary: "Cập nhật thông tin user" })
+  async updateProfile(
+    @Param("id") id: string,
+    @Body() body: any
+  ): Promise<any> {
+    if ('fullName' in body) {
+      if (!body.fullName || typeof body.fullName !== 'string' || body.fullName.trim() === '') {
+        const errorMsg = 'Họ và tên không được để trống';
+        Logger.error(`Cập nhật thất bại: ${errorMsg}`, 'UserController');
+        throw new BadRequestException(errorMsg);
+      }
+    }
+    return await this.userService.updateUser(id, body);
   }
 }
