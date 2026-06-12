@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Set a cookie with a specific name, value, and expiration days.
  */
 export const setCookie = (name: string, value: string, days: number = 7) => {
@@ -29,3 +29,4 @@ export const deleteCookie = (name: string) => {
   if (typeof document === 'undefined') return;
   document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
 };
+

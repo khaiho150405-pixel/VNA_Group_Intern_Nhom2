@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect } from 'react';
 import { ErrorFallback } from '@core/components/ErrorFallback';
@@ -17,3 +17,4 @@ export default function GlobalError({
 
   return <ErrorFallback error={error} reset={reset} />;
 }
+

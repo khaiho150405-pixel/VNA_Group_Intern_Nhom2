@@ -30,6 +30,7 @@ async function bootstrap() {
     }),
   );
 
+  app.useGlobalPipes(new ValidationPipe());
   app.useGlobalFilters(new ServiceErrorsFilter());
 
   const port = process.env.VNA_PORT || 3000;

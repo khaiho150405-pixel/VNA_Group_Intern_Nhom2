@@ -15,6 +15,24 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const parseJwt = (token: string) => {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map(function (c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        })
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch (error) {
+    return null;
+  }
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<IUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,9 +72,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [router]);
 
-  const login = (userData: IUser, token: string) => {
-    setUser(userData);
-    localStorage.setItem('user', JSON.stringify(userData));
+  const login = (userData: IUser | any, token: string) => {
+    let finalUser = userData;
+    if (!finalUser) {
+      finalUser = parseJwt(token);
+    }
+    setUser(finalUser);
+    localStorage.setItem('user', JSON.stringify(finalUser));
     setCookie('accessToken', token, 7); // Essential for Middleware
     window.location.href = '/';
   };
@@ -93,3 +115,4 @@ export const useAuth = () => {
   }
   return context;
 };
+

@@ -17,7 +17,9 @@
     "typeRoots": [
       "./types",
       "./node_modules/@types"
-    ]
+    ],
+    "types": ["jest"],
+    "skipLibCheck": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

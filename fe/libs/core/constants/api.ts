@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Centralized API endpoints for the application.
  */
 export const API_ENDPOINTS = {
@@ -15,6 +15,9 @@ export const API_ENDPOINTS = {
   USER: {
     ME: '/users/me',
     UPDATE: '/users/update',
+    CHECK_EMAIL: '/users/checkEmail',
+    CHECK_USERNAME: '/users/checkUsername',
   },
   // Add other modules as needed
 };
+

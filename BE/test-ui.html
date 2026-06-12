@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Danh sách doanh nghiệp - Test API</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <style>
+        body { background-color: #f8f9fc; font-family: 'Segoe UI', sans-serif; font-size: 14px; }
+        .card { border-radius: 8px; border: 1px solid #e3e6f0; box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15); }
+        .table thead th { background-color: #f8f9fc; border-bottom: 2px solid #e3e6f0; font-weight: 600; color: #4e73df; white-space: nowrap; }
+        .filter-row th { background-color: #fff; padding: 8px 10px; font-weight: normal; }
+        .filter-row input, .filter-row select { font-size: 13px; border-radius: 4px; border: 1px solid #d1d3e2; padding: 4px 8px; width: 100%; }
+        .action-icon { color: #858796; cursor: pointer; margin: 0 4px; font-size: 16px; transition: color 0.2s; }
+        .action-icon:hover { color: #4e73df; }
+        .form-switch .form-check-input { cursor: pointer; }
+        .form-switch .form-check-input:checked { background-color: #2e59d9; border-color: #2e59d9; }
+    </style>
+</head>
+<body class="p-4">
+
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <div class="input-group input-group-sm">
+                <span class="input-group-text bg-primary text-white border-primary">🔑 JWT Token</span>
+                <input type="text" id="jwt-token" class="form-control border-primary" placeholder="Nhập Bearer Token để gọi API...">
+                <button class="btn btn-outline-primary" onclick="loadBusinesses()">Tải Dữ Liệu</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card bg-white">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center py-3 border-bottom-0">
+            <h5 class="m-0 fw-bold text-dark">Danh sách doanh nghiệp</h5>
+            <div>
+                <button class="btn btn-outline-primary btn-sm me-2 px-3 fw-semibold">
+                    <i class="bi bi-download me-1"></i> Thêm từ file
+                </button>
+                <button class="btn btn-primary btn-sm px-3 fw-semibold" onclick="openModal()">
+                    <i class="bi bi-plus-lg me-1"></i> Thêm mới
+                </button>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th class="text-center" style="width: 40px;">
+                            <input class="form-check-input" type="checkbox">
+                        </th>
+                        <th style="min-width: 100px;">Thao tác</th>
+                        <th style="min-width: 200px;">Tên doanh nghiệp</th>
+                        <th style="min-width: 150px;">Mã số thuế</th>
+                        <th style="min-width: 180px;">Loại hình kinh doanh</th>
+                        <th style="min-width: 200px;">Ngành nghề kinh doanh</th>
+                        <th style="min-width: 150px;">Phường/ xã</th>
+                        <th style="min-width: 100px;" class="text-center">Trạng thái</th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th class="text-center"><button class="btn btn-sm btn-primary py-0" onclick="loadBusinesses()" title="Lọc dữ liệu"><i class="bi bi-search"></i></button></th>
+                        <th></th>
+                        <th><input type="text" id="filter-name" placeholder="Tìm tên..." onkeypress="if(event.key === 'Enter') loadBusinesses()"></th>
+                        <th><input type="text" id="filter-tax" placeholder="Tìm MST..." onkeypress="if(event.key === 'Enter') loadBusinesses()"></th>
+                        <th>
+                            <select id="filter-type" onchange="loadBusinesses()">
+                                <option value="">Tất cả</option>
+                            </select>
+                        </th>
+                        <th>
+                            <select id="filter-industry" onchange="loadBusinesses()">
+                                <option value="">Tất cả</option>
+                            </select>
+                        </th>
+                        <th>
+                            <select disabled title="Chưa hỗ trợ lọc theo phường/xã">
+                                <option value="">Tất cả</option>
+                            </select>
+                        </th>
+                        <th>
+                            <select id="filter-status" onchange="loadBusinesses()">
+                                <option value="">Tất cả</option>
+                                <option value="ACTIVE">Hoạt động</option>
+                                <option value="INACTIVE">Tạm khóa</option>
+                            </select>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody id="table-body">
+                    <tr><td colspan="8" class="text-center text-muted py-4">Chưa có dữ liệu. Vui lòng nhập token và bấm "Tải Dữ Liệu"...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="modal fade" id="businessModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold" id="modalTitle">Thêm Doanh Nghiệp Mới</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="biz-id">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Tên doanh nghiệp <span class="text-danger">*</span></label>
+                            <input type="text" id="biz-name" class="form-control" placeholder="Ví dụ: Công ty TNHH Dệt An Lạc Tây">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Mã số thuế <span class="text-danger">*</span></label>
+                            <input type="text" id="biz-tax" class="form-control" placeholder="Ví dụ: 7689972839">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Loại hình kinh doanh <span class="text-danger">*</span></label>
+                            <select id="biz-type" class="form-select">
+                                <option value="">-- Đang tải từ Database... --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Ngành nghề kinh doanh <span class="text-danger">*</span></label>
+                            <select id="biz-industry" class="form-select">
+                                <option value="">-- Đang tải từ Database... --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Email <span class="text-danger">*</span></label>
+                            <input type="text" id="biz-email" class="form-control" placeholder="Ví dụ: contact@congty.com">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Tỉnh/ Thành phố <span class="text-danger">*</span></label>
+                            <input type="text" id="biz-province" class="form-control" placeholder="Ví dụ: TPHCM">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Phường/ xã <span class="text-danger">*</span></label>
+                            <input type="text" id="biz-ward" class="form-control" placeholder="Ví dụ: Phường Bình Thọ">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Trạng thái</label>
+                            <select id="biz-status" class="form-select">
+                                <option value="ACTIVE">Đang hoạt động</option>
+                                <option value="INACTIVE">Tạm khóa</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <span id="form-message" class="me-auto fw-bold"></span>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-primary" onclick="saveBusiness()">Lưu thông tin</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal hiển thị tài khoản vừa tạo -->
+    <div class="modal fade" id="accountModal" tabindex="-1">
+        <div class="modal-dialog modal-sm modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title fw-bold">Tạo doanh nghiệp thành công</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <p class="mb-2 text-dark">Tài khoản quản trị đã được tạo tự động:</p>
+                    <div class="bg-light p-3 rounded border text-start">
+                        <div class="mb-2"><strong>Tài khoản:</strong> <span id="acc-username" class="text-primary fw-bold"></span></div>
+                        <div><strong>Mật khẩu:</strong> <span id="acc-password" class="text-danger fw-bold"></span></div>
+                    </div>
+                    <p class="text-muted mt-3 mb-0" style="font-size: 12px;">Vui lòng sao chép lại thông tin này!</p>
+                </div>
+                <div class="modal-footer justify-content-center">
+                    <button type="button" class="btn btn-primary px-4" data-bs-dismiss="modal">Xác nhận</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Quên Mật Khẩu -->
+    <div class="modal fade" id="resetPasswordModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">Quên Mật Khẩu Doanh Nghiệp</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Email nhận OTP</label>
+                        <div class="input-group">
+                            <input type="text" id="rp-email" class="form-control" disabled>
+                            <button class="btn btn-outline-primary" type="button" onclick="sendResetOtp()">Gửi OTP</button>
+                        </div>
+                        <small id="rp-otp-message" class="text-success d-none mt-1">Đã gửi mã OTP thành công!</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Mã OTP <span class="text-danger">*</span></label>
+                        <input type="text" id="rp-otp" class="form-control" placeholder="Nhập mã 6 số từ email">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Mật khẩu mới <span class="text-danger">*</span></label>
+                        <input type="password" id="rp-new-password" class="form-control" placeholder="Ít nhất 6 ký tự, gồm cả chữ và số">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Xác nhận mật khẩu <span class="text-danger">*</span></label>
+                        <input type="password" id="rp-confirm-password" class="form-control" placeholder="Nhập lại mật khẩu mới">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <span id="rp-form-message" class="me-auto fw-bold"></span>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-primary" onclick="submitResetPassword()">Khôi phục mật khẩu</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Đổi Mật Khẩu -->
+    <div class="modal fade" id="changePasswordModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">Đổi Mật Khẩu Doanh Nghiệp</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="cp-biz-id">
+                    <div class="mb-3">
+                        <label class="form-label">Mật khẩu cũ <span class="text-danger">*</span></label>
+                        <input type="password" id="cp-old-password" class="form-control" placeholder="Nhập mật khẩu hiện tại">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email nhận OTP</label>
+                        <div class="input-group">
+                            <input type="text" id="cp-email" class="form-control" disabled>
+                            <button class="btn btn-outline-primary" type="button" onclick="sendOtp()">Gửi OTP</button>
+                        </div>
+                        <small id="otp-message" class="text-success d-none mt-1">Đã gửi mã OTP thành công!</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Mã OTP <span class="text-danger">*</span></label>
+                        <input type="text" id="cp-otp" class="form-control" placeholder="Nhập mã 6 số từ email">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Mật khẩu mới <span class="text-danger">*</span></label>
+                        <input type="password" id="cp-new-password" class="form-control" placeholder="Ít nhất 6 ký tự, gồm cả chữ và số">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Xác nhận mật khẩu <span class="text-danger">*</span></label>
+                        <input type="password" id="cp-confirm-password" class="form-control" placeholder="Nhập lại mật khẩu mới">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <span id="cp-form-message" class="me-auto fw-bold"></span>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-primary" onclick="submitChangePassword()">Đổi mật khẩu</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_URL = 'http://localhost:3800/api/v1/doets'; // Đường dẫn API của bạn
+        const modal = new bootstrap.Modal(document.getElementById('businessModal'));
+        const cpModal = new bootstrap.Modal(document.getElementById('changePasswordModal'));
+        const rpModal = new bootstrap.Modal(document.getElementById('resetPasswordModal'));
+
+        function getHeaders() {
+            const token = document.getElementById('jwt-token').value;
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            return headers;
+        }
+
+        function openResetPasswordModal(item) {
+            document.getElementById('rp-form-message').textContent = '';
+            document.getElementById('rp-otp-message').classList.add('d-none');
+            document.getElementById('rp-email').value = item.email || '';
+            document.getElementById('rp-otp').value = '';
+            document.getElementById('rp-new-password').value = '';
+            document.getElementById('rp-confirm-password').value = '';
+            
+            if (!item.email) {
+                document.getElementById('rp-form-message').textContent = 'Doanh nghiệp chưa có email!';
+                document.getElementById('rp-form-message').className = 'me-auto fw-bold text-danger';
+            }
+            
+            rpModal.show();
+        }
+
+        function openChangePasswordModal(item) {
+            document.getElementById('cp-form-message').textContent = '';
+            document.getElementById('otp-message').classList.add('d-none');
+            document.getElementById('cp-biz-id').value = item.id;
+            document.getElementById('cp-old-password').value = '';
+            document.getElementById('cp-email').value = item.email || '';
+            document.getElementById('cp-otp').value = '';
+            document.getElementById('cp-new-password').value = '';
+            document.getElementById('cp-confirm-password').value = '';
+            
+            if (!item.email) {
+                document.getElementById('cp-form-message').textContent = 'Doanh nghiệp chưa có email!';
+                document.getElementById('cp-form-message').className = 'me-auto fw-bold text-danger';
+            }
+            
+            cpModal.show();
+        }
+
+        async function sendResetOtp() {
+            const email = document.getElementById('rp-email').value;
+            if (!email) return alert('Không tìm thấy email của doanh nghiệp!');
+            
+            try {
+                const response = await fetch(`${API_URL}/send-otp`, {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify({ email })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('rp-otp-message').classList.remove('d-none');
+                    document.getElementById('rp-otp').value = data.otp;
+                    alert('Hệ thống giả lập gửi Email thành công! Mã OTP của bạn là: ' + data.otp);
+                } else alert('Lỗi khi gửi OTP!');
+            } catch (error) {
+                alert('Lỗi kết nối khi gửi OTP!');
+            }
+        }
+
+        async function sendOtp() {
+            const email = document.getElementById('cp-email').value;
+            if (!email) return alert('Không tìm thấy email của doanh nghiệp!');
+            
+            try {
+                const response = await fetch(`${API_URL}/send-otp`, {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify({ email })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('otp-message').classList.remove('d-none');
+                    // Tự động điền mã OTP vào ô nhập để test cho nhanh
+                    document.getElementById('cp-otp').value = data.otp;
+                    alert('Hệ thống giả lập gửi Email thành công! Mã OTP của bạn là: ' + data.otp);
+                } else alert('Lỗi khi gửi OTP!');
+            } catch (error) {
+                alert('Lỗi kết nối khi gửi OTP!');
+            }
+        }
+
+        async function submitResetPassword() {
+            const email = document.getElementById('rp-email').value;
+            const otp = document.getElementById('rp-otp').value.trim();
+            const newPassword = document.getElementById('rp-new-password').value;
+            const confirmPassword = document.getElementById('rp-confirm-password').value;
+            const msgEl = document.getElementById('rp-form-message');
+
+            if (!otp) { msgEl.textContent = 'Vui lòng nhập mã OTP!'; msgEl.className = 'me-auto fw-bold text-danger'; return; }
+            if (newPassword !== confirmPassword) { msgEl.textContent = 'Mật khẩu xác nhận không khớp!'; msgEl.className = 'me-auto fw-bold text-danger'; return; }
+
+            try {
+                msgEl.textContent = 'Đang xử lý...';
+                msgEl.className = 'me-auto fw-bold text-warning';
+
+                const response = await fetch(`${API_URL}/reset-password`, {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify({ email, otp, newPassword })
+                });
+                
+                const result = await response.json();
+                if (response.ok || response.status === 201) {
+                    msgEl.textContent = 'Khôi phục mật khẩu thành công!';
+                    msgEl.className = 'me-auto fw-bold text-success';
+                    setTimeout(() => rpModal.hide(), 1000);
+                } else {
+                    let errMsg = result.message || 'Thất bại';
+                    if (Array.isArray(result.message)) errMsg = result.message.join('; ');
+                    msgEl.textContent = 'Lỗi: ' + errMsg;
+                    msgEl.className = 'me-auto fw-bold text-danger';
+                }
+            } catch (error) {
+                msgEl.textContent = 'Lỗi kết nối API!';
+                msgEl.className = 'me-auto fw-bold text-danger';
+            }
+        }
+
+        async function submitChangePassword() {
+            const id = document.getElementById('cp-biz-id').value;
+            const oldPassword = document.getElementById('cp-old-password').value;
+            const otp = document.getElementById('cp-otp').value.trim();
+            const newPassword = document.getElementById('cp-new-password').value;
+            const confirmPassword = document.getElementById('cp-confirm-password').value;
+            const msgEl = document.getElementById('cp-form-message');
+
+            if (!oldPassword) { msgEl.textContent = 'Vui lòng nhập mật khẩu cũ!'; msgEl.className = 'me-auto fw-bold text-danger'; return; }
+            if (!otp) { msgEl.textContent = 'Vui lòng nhập mã OTP!'; msgEl.className = 'me-auto fw-bold text-danger'; return; }
+            if (newPassword !== confirmPassword) { msgEl.textContent = 'Mật khẩu xác nhận không khớp!'; msgEl.className = 'me-auto fw-bold text-danger'; return; }
+
+            try {
+                msgEl.textContent = 'Đang xử lý...';
+                msgEl.className = 'me-auto fw-bold text-warning';
+
+                // Cần đảm bảo BE của bạn đã có API xử lý đổi mật khẩu theo ID doanh nghiệp
+                const response = await fetch(`${API_URL}/${id}/change-password`, {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify({ oldPassword, otp, newPassword })
+                });
+                
+                const result = await response.json();
+                if (response.ok || response.status === 201) {
+                    msgEl.textContent = 'Đổi mật khẩu thành công!';
+                    msgEl.className = 'me-auto fw-bold text-success';
+                    setTimeout(() => cpModal.hide(), 1000);
+                } else {
+                    let errMsg = result.message || 'Thất bại';
+                    if (Array.isArray(result.message)) errMsg = result.message.join('; ');
+                    msgEl.textContent = 'Lỗi: ' + errMsg;
+                    msgEl.className = 'me-auto fw-bold text-danger';
+                }
+            } catch (error) {
+                msgEl.textContent = 'Lỗi kết nối API!';
+                msgEl.className = 'me-auto fw-bold text-danger';
+            }
+        }
+
+        function extractData(result) {
+            console.log("📦 Dữ liệu thô từ API:", result); // In ra F12 để dễ debug
+
+            if (Array.isArray(result)) return (result.length > 0 && Array.isArray(result[0])) ? result[0] : result;
+            
+            if (result && typeof result === 'object') {
+                if (Array.isArray(result.data)) return (result.data.length >= 1 && Array.isArray(result.data[0])) ? result.data[0] : result.data;
+                if (Array.isArray(result.items)) return result.items;
+                if (result.data && typeof result.data === 'object') {
+                    if (Array.isArray(result.data.data)) return result.data.data;
+                    if (Array.isArray(result.data.items)) return result.data.items;
+                }
+            }
+            return [];
+        }
+
+        async function loadDropdowns() {
+            try {
+                const [lhkdRes, blRes] = await Promise.all([
+                    fetch('http://localhost:3800/api/v1/loai-hinh-kinh-doanh/dropdown/active', { headers: getHeaders() }),
+                    fetch('http://localhost:3800/api/v1/business-line/dropdown/active', { headers: getHeaders() })
+                ]);
+                
+                const activeLhkd = extractData(await lhkdRes.json());
+                const activeBl = extractData(await blRes.json());
+
+                document.getElementById('biz-type').innerHTML = '<option value="">-- Chọn Loại hình KD --</option>' + activeLhkd.map(i => `<option value="${i.id}">${i.tenloaihinh}</option>`).join('');
+                document.getElementById('biz-industry').innerHTML = '<option value="">-- Chọn Ngành nghề --</option>' + activeBl.map(i => `<option value="${i.id}">${i.tennganh}</option>`).join('');
+                
+                // Đổ dữ liệu vào bộ lọc
+                document.getElementById('filter-type').innerHTML = '<option value="">Tất cả</option>' + activeLhkd.map(i => `<option value="${i.id}">${i.tenloaihinh}</option>`).join('');
+                document.getElementById('filter-industry').innerHTML = '<option value="">Tất cả</option>' + activeBl.map(i => `<option value="${i.id}">${i.tennganh}</option>`).join('');
+            } catch (err) { console.error('Lỗi tải dropdown:', err); }
+        }
+
+        async function openModal(item = null) {
+            document.getElementById('form-message').textContent = '';
+            
+            // Kéo dữ liệu vào Dropdown ngay khi mở Form nếu chưa có
+            if (document.getElementById('biz-type').options.length <= 1) {
+                await loadDropdowns();
+            }
+
+            if (item) {
+                document.getElementById('modalTitle').textContent = 'Cập Nhật Doanh Nghiệp';
+                document.getElementById('biz-id').value = item.id || '';
+                document.getElementById('biz-name').value = item.name || '';
+                document.getElementById('biz-tax').value = item.taxCode || '';
+                document.getElementById('biz-type').value = item.loaiHinhKinhDoanh?.id || '';
+                document.getElementById('biz-industry').value = item.businessLine?.id || '';
+                document.getElementById('biz-email').value = item.email || '';
+                document.getElementById('biz-province').value = item.province ? (item.province.value || item.province) : '';
+                document.getElementById('biz-ward').value = item.ward ? (item.ward.value || item.ward) : '';
+                document.getElementById('biz-status').value = item.status || 'ACTIVE';
+            } else {
+                document.getElementById('modalTitle').textContent = 'Thêm Doanh Nghiệp Mới';
+                document.getElementById('biz-id').value = '';
+                document.getElementById('biz-name').value = '';
+                document.getElementById('biz-tax').value = '';
+                document.getElementById('biz-type').value = '';
+                document.getElementById('biz-industry').value = '';
+                document.getElementById('biz-email').value = '';
+                document.getElementById('biz-province').value = '';
+                document.getElementById('biz-ward').value = '';
+                document.getElementById('biz-status').value = 'ACTIVE';
+            }
+            modal.show();
+        }
+
+        async function saveBusiness() {
+            const id = document.getElementById('biz-id').value;
+            const msgEl = document.getElementById('form-message');
+            const taxCode = document.getElementById('biz-tax').value.trim();
+            
+            // PAYLOAD DỮ LIỆU - Nhớ khớp các key này với DTO trong NestJS của bạn!
+            const payload = {
+                name: document.getElementById('biz-name').value,
+                taxCode: taxCode,
+                email: document.getElementById('biz-email').value.trim(),
+                loaiHinhKinhDoanh: document.getElementById('biz-type').value ? { id: parseInt(document.getElementById('biz-type').value) } : null,
+                businessLine: document.getElementById('biz-industry').value ? { id: parseInt(document.getElementById('biz-industry').value) } : null,
+                province: { key: 2, value: document.getElementById('biz-province').value },
+                ward: { key: 1, value: document.getElementById('biz-ward').value },
+                status: document.getElementById('biz-status').value
+            };
+
+            const isNew = !id; // true nếu là tạo mới (POST)
+            const method = id ? 'PUT' : 'POST'; 
+            const url = id ? `${API_URL}/${id}` : API_URL;
+
+            try {
+                msgEl.textContent = 'Đang gửi Request...';
+                msgEl.className = 'me-auto fw-bold text-warning';
+
+                const response = await fetch(url, { method, headers: getHeaders(), body: JSON.stringify(payload) });
+                const result = await response.json();
+
+                if (response.ok || response.status === 201) {
+                    msgEl.textContent = 'Lưu thành công!';
+                    msgEl.className = 'me-auto fw-bold text-success';
+                    loadBusinesses();
+                    setTimeout(() => {
+                        modal.hide();
+                        // Nếu là tạo mới, hiển thị Popup thông báo Tài khoản
+                        if (isNew) {
+                            const plainTaxCode = taxCode.replace('-', '');
+                            document.getElementById('acc-username').textContent = taxCode;
+                            document.getElementById('acc-password').textContent = plainTaxCode.slice(-6);
+                            new bootstrap.Modal(document.getElementById('accountModal')).show();
+                        }
+                    }, 1000);
+                } else {
+                    let errMsg = result.message || 'Thất bại';
+                    if (Array.isArray(result.message)) {
+                        errMsg = result.message.join('; ');
+                    }
+                    msgEl.textContent = 'Lỗi: ' + errMsg;
+                    msgEl.className = 'me-auto fw-bold text-danger';
+                }
+            } catch (error) {
+                msgEl.textContent = 'Lỗi kết nối API!';
+                msgEl.className = 'me-auto fw-bold text-danger';
+            }
+        }
+
+        async function loadBusinesses() {
+            try {
+                // Đảm bảo Dropdown bộ lọc được tải từ Database trước khi lấy danh sách
+                if (document.getElementById('filter-type').options.length <= 1) await loadDropdowns();
+
+                // Tạo URL chứa các query params từ bộ lọc
+                let url = API_URL + '?';
+                const name = document.getElementById('filter-name')?.value;
+                const taxCode = document.getElementById('filter-tax')?.value;
+                const loaiHinhId = document.getElementById('filter-type')?.value;
+                const businessLineId = document.getElementById('filter-industry')?.value;
+                const status = document.getElementById('filter-status')?.value;
+
+                if (name) url += `name=${encodeURIComponent(name)}&`;
+                if (taxCode) url += `taxCode=${encodeURIComponent(taxCode)}&`;
+                if (loaiHinhId) url += `loaiHinhId=${loaiHinhId}&`;
+                if (businessLineId) url += `businessLineId=${businessLineId}&`;
+                if (status) url += `status=${status}&`;
+
+                const response = await fetch(url, { headers: getHeaders() });
+                const result = await response.json();
+
+                // Cảnh báo ngay nếu API báo lỗi (VD: Sai token, Token hết hạn...)
+                if (!response.ok) {
+                    console.error("API Lỗi:", result);
+                    alert("Lỗi tải danh sách: " + (result.message || JSON.stringify(result)));
+                    return;
+                }
+
+                const tbody = document.getElementById('table-body');
+                tbody.innerHTML = ''; 
+                
+                const items = extractData(result);
+
+                if (items.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">Không có dữ liệu</td></tr>';
+                    return;
+                }
+
+                items.forEach(item => {
+                    const tr = document.createElement('tr');
+                    const itemData = encodeURIComponent(JSON.stringify(item));
+                    const isChecked = item.status === 'ACTIVE' ? 'checked' : '';
+                    
+                    tr.innerHTML = `
+                        <td class="text-center"><input class="form-check-input" type="checkbox"></td>
+                        <td>
+                            <i class="bi bi-eye action-icon" title="Xem chi tiết"></i>
+                            <i class="bi bi-pencil action-icon" title="Chỉnh sửa" onclick="openModal(JSON.parse(decodeURIComponent('${itemData}')))"></i>
+                            <div class="dropdown d-inline-block">
+                                <i class="bi bi-key action-icon" data-bs-toggle="dropdown" title="Quản lý mật khẩu"></i>
+                                <ul class="dropdown-menu shadow-sm" style="font-size: 13px;">
+                                    <li><a class="dropdown-item py-2" href="#" onclick="openChangePasswordModal(JSON.parse(decodeURIComponent('${itemData}')))"><i class="bi bi-shield-lock me-2 text-primary"></i> Đổi mật khẩu</a></li>
+                                    <li><a class="dropdown-item py-2" href="#" onclick="openResetPasswordModal(JSON.parse(decodeURIComponent('${itemData}')))"><i class="bi bi-arrow-counterclockwise me-2 text-warning"></i> Quên mật khẩu</a></li>
+                                </ul>
+                            </div>
+                        </td>
+                        <td class="fw-medium">${item.name || '-'}</td>
+                        <td>${item.taxCode || '-'}</td>
+                        <td>${item.loaiHinhKinhDoanh ? item.loaiHinhKinhDoanh.tenloaihinh : '-'}</td>
+                        <td>${item.businessLine ? item.businessLine.tennganh : '-'}</td>
+                        <td>${item.ward ? (item.ward.value || item.ward) : '-'}</td>
+                        <td class="text-center">
+                            <div class="form-check form-switch d-flex justify-content-center m-0 p-0">
+                                <input class="form-check-input" type="checkbox" role="switch" ${isChecked} disabled>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (error) {
+                console.error('Lỗi khi tải dữ liệu: ', error);
+            }
+        }
+    </script>
+</body>
+</html>

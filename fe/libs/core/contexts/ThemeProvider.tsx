@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { createTheme, ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
-import { ThemeProvider as StylesThemeProvider } from '@material-ui/styles';
+import { ThemeProvider as StylesThemeProvider } from '@mui/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { SnackbarProvider } from 'notistack';
 

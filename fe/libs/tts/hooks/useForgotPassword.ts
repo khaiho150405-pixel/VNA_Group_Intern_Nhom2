@@ -3,6 +3,7 @@ import { useReducer, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { forgotPassReducer, initialForgotPassState, ForgotPassState } from "@tts/logic/forgot-password/reducer";
 import { authService } from "@tts/services/auth.services";
+import { validate, VALIDATION_MESSAGES } from "@core/utils/validation";
 
 export const useForgotPassword = () => {
   const router = useRouter();
@@ -49,15 +50,13 @@ export const useForgotPassword = () => {
   };
 
   const handleSendEmail = async () => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    if (!state.email) {
-      triggerToast("error", "Vui lòng nhập đầy đủ thông tin");
+    if (!validate.required(state.email)) {
+      triggerToast("error", VALIDATION_MESSAGES.FULL_INFO_REQUIRED);
       return;
     }
     
-    if (!emailRegex.test(state.email)) {
-      triggerToast("error", "Vui lòng nhập đúng định dạng email, định dạng đúng ...@...");
+    if (!validate.email(state.email)) {
+      triggerToast("error", VALIDATION_MESSAGES.EMAIL_INVALID);
       return;
     }
     
@@ -71,18 +70,29 @@ export const useForgotPassword = () => {
         }, 1000);
       }
     } catch (error: any) {
-      triggerToast("error", error.message || "Có lỗi xảy ra khi gửi email.");
+      const errorMsg = error.response?.data?.errors || error.response?.data?.message || error.message || "Có lỗi xảy ra khi gửi email.";
+      triggerToast("error", errorMsg);
     }
   };
 
   const handleResetPassword = async () => {
-    if (!state.newPassword || !state.confirmPassword || !state.otp) {
-      triggerToast("error", "Vui lòng nhập đầy đủ thông tin");
+    if (!validate.required(state.newPassword) || !validate.required(state.confirmPassword) || !validate.required(state.otp)) {
+      triggerToast("error", VALIDATION_MESSAGES.FULL_INFO_REQUIRED);
+      return;
+    }
+
+    if (!validate.minLength(state.newPassword, 6)) {
+      triggerToast("error", VALIDATION_MESSAGES.PASSWORD_MIN_LENGTH(6));
       return;
     }
 
     if (state.newPassword !== state.confirmPassword) {
-      triggerToast("error", "Mật khẩu xác nhận không khớp. Vui lòng nhập lại");
+      triggerToast("error", VALIDATION_MESSAGES.PASSWORD_CONFIRM_NOT_MATCH);
+      return;
+    }
+
+    if (!validate.otp(state.otp)) {
+      triggerToast("error", VALIDATION_MESSAGES.OTP_INVALID);
       return;
     }
 

@@ -9,6 +9,8 @@ import { RoleModule } from "./modules/role/role.module";
 import { UserModule } from "./modules/user/user.module";
 import { ViewModule } from "./modules/view/view.module";
 import { DoetModule } from "./modules/doet/doet.module";
+import { LoaiHinhKinhDoanhModule } from "./modules/loai-hinh-kinh-doanh/loai-hinh-kinh-doanh.module";
+import { BusinessLineModule } from "./modules/business-line/business-line.module";
 import { DomainMiddleware } from "./commons/middleware/domain.middleware";
 
 @Module({
@@ -23,7 +25,9 @@ import { DomainMiddleware } from "./commons/middleware/domain.middleware";
     UserModule,
     RoleModule,
     ViewModule,
-    DoetModule
+    DoetModule,
+    LoaiHinhKinhDoanhModule,
+    BusinessLineModule,
   ],
   controllers: [AppController],
   providers: [AppService]

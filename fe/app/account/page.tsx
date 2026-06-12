@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
 import { MainLayout } from '@core/layouts/MainLayout';
@@ -11,3 +11,4 @@ export default function AccountPage() {
     </MainLayout>
   );
 }
+

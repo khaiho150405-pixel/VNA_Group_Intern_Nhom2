@@ -1,4 +1,4 @@
-export const AUTH_PATHS = {
+﻿export const AUTH_PATHS = {
   LOGIN: '/login',
   FORGOT_PASSWORD: '/forgot-password',
   REGISTER: '/register',
@@ -11,3 +11,4 @@ export const PUBLIC_PATHS = [
 ];
 
 export const DEFAULT_REDIRECT = '/';
+

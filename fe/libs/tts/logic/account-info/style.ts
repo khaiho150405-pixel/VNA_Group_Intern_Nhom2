@@ -1,5 +1,5 @@
-"use client";
-import { makeStyles } from '@material-ui/styles';
+﻿"use client";
+import { makeStyles } from '@mui/styles';
 import { Theme } from '@mui/material/styles';
 
 export const useAccountInfoStyles = makeStyles((theme: Theme) => ({
@@ -39,9 +39,10 @@ export const useAccountInfoStyles = makeStyles((theme: Theme) => ({
     color: '#666',
     marginRight: theme.spacing(2),
     fontSize: '0.85rem',
+    borderRadius: 6,
     '&:hover': {
-      backgroundColor: 'transparent',
-      textDecoration: 'underline',
+      backgroundColor: '#f5f5f7',
+      color: '#333',
     }
   },
   saveBtn: {
@@ -181,3 +182,4 @@ export const useAccountInfoStyles = makeStyles((theme: Theme) => ({
     }
   }
 }));
+

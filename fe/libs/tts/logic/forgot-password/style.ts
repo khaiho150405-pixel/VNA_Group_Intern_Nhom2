@@ -1,5 +1,5 @@
-"use client";
-import { makeStyles } from "@material-ui/styles";
+﻿"use client";
+import { makeStyles } from "@mui/styles";
 import { Theme } from "@mui/material/styles";
 
 export const useResetPasswordStyles = makeStyles((theme: Theme) => ({
@@ -51,7 +51,7 @@ export const useResetPasswordStyles = makeStyles((theme: Theme) => ({
     textTransform: "none",
     fontWeight: 500,
     padding: 0,
-    "&:hover": { backgroundColor: "transparent", textDecoration: "underline" }
+    "&:hover": { backgroundColor: "transparent", color: "#1e4fd1" }
   },
   loginBtn: {
     padding: theme.spacing(1.2),

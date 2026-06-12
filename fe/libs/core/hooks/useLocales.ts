@@ -1,11 +1,11 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 // @ts-ignore
 import vi from '@core/locales/vi.json';
 
 const dictionaries: any = { vi };
 
 export default function useLocales() {
-  const [currentLang] = useState<'vi'>('vi'); // Có thể mở rộng thêm 'en'
+  const [currentLang] = useState<'vi'>('vi'); // CÃ³ thá»ƒ má»Ÿ rá»™ng thÃªm 'en'
 
   const translate = (key: string): string => {
     const keys = key.split('.');

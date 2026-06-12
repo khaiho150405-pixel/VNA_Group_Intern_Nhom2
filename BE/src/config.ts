@@ -15,7 +15,7 @@ export const load = () => {
   // }
   const dbConfig = {
     host: env.VNA_DB_HOST,
-    port: parseInt(env.VNA_DB_PORT),
+    port: parseInt(env.VNA_DB_PORT!, 10),
     username: env.VNA_DB_USER,
     password: env.VNA_DB_PASSWORD,
     database: env.VNA_DB_DATABASE,
@@ -52,7 +52,7 @@ export const load = () => {
 };
 
 export const dbOptions = async (configService: ConfigService) =>
-  configService.get<TypeOrmModuleOptions>('db');
+  configService.get<TypeOrmModuleOptions>('db')!;
 
 export const jwtOptions = async (configService: ConfigService) =>
-  configService.get<JwtModuleOptions>('jwt');
+  configService.get<JwtModuleOptions>('jwt')!;
