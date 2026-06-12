@@ -29,3 +29,6 @@ reset_link.txt
 
 # ORM config (contains DB credentials)
 ormconfig.json
+
+# typescript
+*.tsbuildinfo
