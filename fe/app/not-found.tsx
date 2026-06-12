@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Box, Typography, Button, Container } from '@mui/material';
-import { makeStyles } from '@material-ui/styles';
+import { makeStyles } from '@mui/styles';
 import { Theme } from '@mui/material/styles';
 import { VNA_COLORS } from '@core/theme';
 

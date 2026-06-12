@@ -12,7 +12,7 @@ export class DomainMiddleware implements NestMiddleware {
       const domain = extractHostname(fullDomain);
       if (domain != "admin-dev.rcp.com.vn" || domain != "admin.rcp.com.vn") {
         const manage = getManager();
-        req.doet = await manage.findOne(Doet, {
+        (req as any).doet = await manage.findOne(Doet, {
           where: {
             domain: domain
           }

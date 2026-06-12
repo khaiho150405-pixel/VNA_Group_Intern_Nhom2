@@ -10,6 +10,7 @@
 !.yarn/releases
 !.yarn/versions
 !.gemini/settings.json
+/.gemini/settings.json
 
 # testing
 /coverage

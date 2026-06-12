@@ -11,52 +11,94 @@ import {
   InputAdornment,
   IconButton
 } from '@mui/material';
-import { Visibility, VisibilityOff, Close } from '@material-ui/icons';
-import { makeStyles } from '@material-ui/styles';
+import { Visibility, VisibilityOff, Close } from '@mui/icons-material';
+import { makeStyles } from '@mui/styles';
 import { Theme } from '@mui/material/styles';
 import { VNA_COLORS } from '@core/theme';
 import { authService } from '@tts/services/auth.services';
 import { validate, VALIDATION_MESSAGES } from '@core/utils/validation';
+import { RequiredLabel } from './RequiredLabel';
 
 const useStyles = makeStyles((theme: Theme) => ({
+  dialogPaper: {
+    borderRadius: 14,
+    boxShadow: '0px 12px 40px rgba(0, 0, 0, 0.15)',
+    overflow: 'hidden',
+  },
   dialogTitle: {
     backgroundColor: VNA_COLORS.primary,
     color: '#fff',
-    padding: theme.spacing(1, 2),
+    padding: theme.spacing(2),
+    textAlign: 'center',
     '& h2': {
-      fontSize: '1rem',
+      fontSize: '1.1rem',
       fontWeight: 600,
-      textAlign: 'center',
+      margin: 0,
+      color: '#fff',
     }
   },
   content: {
-    padding: theme.spacing(3, 3, 2),
+    padding: theme.spacing(4, 4, 1),
   },
   field: {
-    marginBottom: theme.spacing(2),
-  },
-  label: {
-    fontSize: '0.85rem',
-    fontWeight: 600,
-    marginBottom: theme.spacing(0.5),
-    display: 'block',
+    marginBottom: theme.spacing(3),
+    '& .MuiOutlinedInput-root': {
+      borderRadius: 4,
+      backgroundColor: '#fff',
+      '& fieldset': {
+        borderColor: '#e0e0e0',
+      },
+      '&:hover fieldset': {
+        borderColor: '#bdbdbd',
+      },
+      '&.Mui-focused fieldset': {
+        borderColor: VNA_COLORS.primary,
+      },
+    },
+    '& .MuiInputLabel-outlined': {
+      fontSize: '0.85rem',
+      transform: 'translate(14px, 12px) scale(1)',
+      '&.MuiInputLabel-shrink': {
+        transform: 'translate(14px, -6px) scale(0.75)',
+      }
+    },
+    '& .MuiOutlinedInput-input': {
+      paddingTop: '10.5px',
+      paddingBottom: '10.5px',
+      paddingLeft: '14px',
+      fontSize: '0.85rem',
+    }
   },
   actions: {
     justifyContent: 'center',
-    paddingBottom: theme.spacing(2),
+    padding: theme.spacing(0, 4, 4),
+    gap: theme.spacing(2),
   },
   cancelBtn: {
     textTransform: 'none',
-    color: VNA_COLORS.gray,
-    marginRight: theme.spacing(2),
+    color: '#666',
+    fontSize: '0.95rem',
+    fontWeight: 500,
+    padding: theme.spacing(1, 4),
+    borderRadius: 8,
+    '&:hover': { 
+      backgroundColor: '#f5f5f5',
+      color: '#333'
+    },
   },
   saveBtn: {
     backgroundColor: VNA_COLORS.primary,
     color: '#fff',
     textTransform: 'none',
     fontWeight: 600,
-    padding: theme.spacing(0.5, 4),
-    '&:hover': { backgroundColor: VNA_COLORS.primaryHover },
+    fontSize: '0.95rem',
+    padding: theme.spacing(1, 6),
+    borderRadius: 8,
+    boxShadow: '0px 4px 10px rgba(47, 101, 240, 0.3)',
+    '&:hover': { 
+      backgroundColor: VNA_COLORS.primaryHover,
+      boxShadow: '0px 6px 12px rgba(47, 101, 240, 0.4)',
+    },
   }
 }));
 
@@ -74,6 +116,25 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, 
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const getPasswordStrength = (password: string) => {
+    if (!password) return { label: '', color: 'transparent', score: 0 };
+    if (password.length < 6) return { label: 'Yếu (Ít nhất 6 kí tự)', color: '#f44336', score: 1 };
+    
+    const hasLetter = /[a-zA-Z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecial = /[^a-zA-Z0-9]/.test(password);
+
+    if (password.length >= 8 && hasLetter && hasNumber && hasSpecial) {
+      return { label: 'Mạnh', color: '#4caf50', score: 3 };
+    }
+    if (hasLetter && hasNumber) {
+      return { label: 'Trung bình', color: '#ff9800', score: 2 };
+    }
+    return { label: 'Yếu (Cần có cả chữ và số)', color: '#f44336', score: 1 };
+  };
+
+  const strength = getPasswordStrength(newPassword);
 
   const handleSave = async () => {
     if (!validate.required(oldPassword) || !validate.required(newPassword) || !validate.required(confirmPassword)) {
@@ -108,70 +169,92 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, 
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth="xs" 
+      fullWidth
+      slotProps={{ paper: { className: classes.dialogPaper } }}
+    >
       <DialogTitle className={classes.dialogTitle}>
         Đổi mật khẩu
       </DialogTitle>
       <DialogContent className={classes.content}>
-        <Typography className={classes.label}>Mật khẩu cũ (*)</Typography>
-        <TextField
-          fullWidth
-          variant="outlined"
-          size="small"
-          type={showOld ? 'text' : 'password'}
-          value={oldPassword}
-          onChange={(e) => setOldPassword(e.target.value)}
-          className={classes.field}
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <IconButton size="small" onClick={() => setShowOld(!showOld)}>
-                  {showOld ? <Visibility fontSize="small" /> : <VisibilityOff fontSize="small" />}
-                </IconButton>
-              </InputAdornment>
-            )
-          }}
-        />
+        <Box className={classes.field}>
+          <TextField
+            fullWidth
+            variant="outlined"
+            size="small"
+            label={<RequiredLabel label="Mật khẩu cũ" />}
+            type={showOld ? 'text' : 'password'}
+            value={oldPassword}
+            onChange={(e) => setOldPassword(e.target.value)}
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => setShowOld(!showOld)}>
+                      {showOld ? <Visibility fontSize="small" /> : <VisibilityOff fontSize="small" />}
+                    </IconButton>
+                  </InputAdornment>
+                )
+              }
+            }}
+          />
+        </Box>
 
-        <Typography className={classes.label}>Mật khẩu mới (*)</Typography>
-        <TextField
-          fullWidth
-          variant="outlined"
-          size="small"
-          type={showNew ? 'text' : 'password'}
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          className={classes.field}
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <IconButton size="small" onClick={() => setShowNew(!showNew)}>
-                  {showNew ? <Visibility fontSize="small" /> : <VisibilityOff fontSize="small" />}
-                </IconButton>
-              </InputAdornment>
-            )
-          }}
-        />
+        <Box className={classes.field}>
+          <TextField
+            fullWidth
+            variant="outlined"
+            size="small"
+            label={<RequiredLabel label="Mật khẩu mới" />}
+            type={showNew ? 'text' : 'password'}
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => setShowNew(!showNew)}>
+                      {showNew ? <Visibility fontSize="small" /> : <VisibilityOff fontSize="small" />}
+                    </IconButton>
+                  </InputAdornment>
+                )
+              }
+            }}
+          />
+          {newPassword && (
+            <Box sx={{ mt: 1, ml: 1 }}>
+              <Typography style={{ fontSize: '0.75rem', color: strength.color, fontWeight: 600 }}>
+                Độ mạnh: {strength.label}
+              </Typography>
+            </Box>
+          )}
+        </Box>
 
-        <Typography className={classes.label}>Nhập lại mật khẩu mới (*)</Typography>
-        <TextField
-          fullWidth
-          variant="outlined"
-          size="small"
-          type={showConfirm ? 'text' : 'password'}
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          className={classes.field}
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <IconButton size="small" onClick={() => setShowConfirm(!showConfirm)}>
-                  {showConfirm ? <Visibility fontSize="small" /> : <VisibilityOff fontSize="small" />}
-                </IconButton>
-              </InputAdornment>
-            )
-          }}
-        />
+        <Box className={classes.field}>
+          <TextField
+            fullWidth
+            variant="outlined"
+            size="small"
+            label={<RequiredLabel label="Nhập lại mật khẩu mới" />}
+            type={showConfirm ? 'text' : 'password'}
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => setShowConfirm(!showConfirm)}>
+                      {showConfirm ? <Visibility fontSize="small" /> : <VisibilityOff fontSize="small" />}
+                    </IconButton>
+                  </InputAdornment>
+                )
+              }
+            }}
+          />
+        </Box>
       </DialogContent>
       <DialogActions className={classes.actions}>
         <Button onClick={onClose} className={classes.cancelBtn}>Hủy bỏ</Button>

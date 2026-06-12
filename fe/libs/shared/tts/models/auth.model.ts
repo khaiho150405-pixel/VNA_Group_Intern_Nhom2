@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Interface representing a User in the system.
  */
 export interface IUser {
@@ -71,3 +71,4 @@ export interface IUpdateProfileRequest {
   address?: string;
   active?: boolean;
 }
+

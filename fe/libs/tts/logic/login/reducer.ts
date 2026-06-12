@@ -1,4 +1,4 @@
-export interface LoginState {
+﻿export interface LoginState {
   userName: string;
   password: string;
   email: string;
@@ -51,3 +51,4 @@ export const loginReducer = (state: LoginState, action: LoginAction): LoginState
       return state;
   }
 };
+

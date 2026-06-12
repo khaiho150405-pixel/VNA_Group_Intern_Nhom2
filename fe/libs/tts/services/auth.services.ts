@@ -1,4 +1,4 @@
-import axiosClient from '@core/services/axiosClient';
+﻿import axiosClient from '@core/services/axiosClient';
 import {
   ILoginResponse,
   IApiResponse,
@@ -85,4 +85,14 @@ export const authService = {
   changePassword: async (oldPassword: string, newPassword: string): Promise<IApiResponse> => {
     return axiosClient.post('/auth/change-password', { oldPassword, newPassword });
   },
+
+  /**
+   * Check if email exists
+   */
+  checkEmail: async (email: string, excludeId?: string): Promise<{ email: string; existed: boolean }> => {
+    return axiosClient.get(API_ENDPOINTS.USER.CHECK_EMAIL, {
+      params: { email, excludeId }
+    });
+  },
 };
+

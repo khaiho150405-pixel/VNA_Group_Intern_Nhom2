@@ -69,13 +69,13 @@ export const useLogin = () => {
         userName: state.userName,
         password: state.password
       });
-
+      console.log('reponse: ', response);
       const apiData = (response as any).data || response;
       const success = response.success;
       const loginUser = apiData.user;
       const loginToken = apiData.token;
 
-      if (success && loginUser) {
+      if (success && loginToken) {
         // Handle "Remember Me"
         if (state.isMemory) {
           localStorage.setItem("rememberedUser", state.userName);
@@ -87,6 +87,9 @@ export const useLogin = () => {
 
         login(loginUser, loginToken || "");
         dispatch({ type: "reset" });
+      } else {
+        dispatch({ type: "setError", message: "Đăng nhập thành công nhưng không nhận được Token từ Server." });
+        setShowToast(true);
       }
     } catch (error: any) {
       let message = "Đã có lỗi xảy ra";

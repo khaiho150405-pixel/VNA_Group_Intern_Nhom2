@@ -28,8 +28,8 @@ export class AuthService {
       const tokenPayload = { ...user };
       delete tokenPayload.avatar;
       const [views, token] = await Promise.all([
-        await this.viewService.getViewsByRoleId(user.role.id),
-        await this.jwtService.sign(tokenPayload)
+        this.viewService.getViewsByRoleId(user.role?.id as any),
+        this.jwtService.signAsync(tokenPayload)
       ]);
       const rs = new LoginModel({
         token,
@@ -46,7 +46,7 @@ export class AuthService {
     try {
       const _doet = doet && doet.id ? doet.id : null;
       const user = new CurrentUser(_doet, await this.jwtService.verifyAsync(token));
-      const views = await this.viewService.getViewsByRoleId(user.role.id);
+      const views = await this.viewService.getViewsByRoleId(user.role?.id as any);
       const rs = new LoginModel({
         user,
         views: get(views, "data.items", [])
@@ -78,7 +78,7 @@ export class AuthService {
       const template = fs.readFileSync(
         path.resolve(
           __dirname,
-          `${process.env.dirTemp}/forgot-password.html`
+          `${process.env.dirTemp || ''}/forgot-password.html`
         ), {
           encoding: "utf-8"
         });
@@ -115,8 +115,8 @@ export class AuthService {
 
       const _newPassword = await argon.hash(passwordNew);
       user.password = _newPassword;
-      user.otp = null;
-      user.otpExpired = null;
+      user.otp = null as any;
+      user.otpExpired = null as any;
       await manage.save(user);
 
       return Response.SUCCESSFULLY;
@@ -143,8 +143,8 @@ export class AuthService {
         return Response.errorBad("Mã OTP đã hết hạn");
       }
 
-      user.otp = null;
-      user.otpExpired = null;
+      user.otp = null as any;
+      user.otpExpired = null as any;
       await manage.save(user);
 
       return Response.SUCCESSFULLY;

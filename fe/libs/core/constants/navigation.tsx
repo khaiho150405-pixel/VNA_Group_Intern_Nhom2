@@ -1,16 +1,14 @@
 import React from 'react';
-import { 
-  Home as HomeIcon, 
-  Settings as SettingsIcon, 
-  HelpOutline as HelpIcon,
-  MailOutline as MailIcon,
-  Apps as AppsIcon,
-  People as PeopleIcon,
-  Group as GroupIcon,
-  SupervisorAccount as SupervisorAccountIcon,
-  BarChart as ChartIcon,
-  RadioButtonUnchecked as CircleIcon
-} from '@material-ui/icons';
+import HomeIcon from '@mui/icons-material/Home';
+import SettingsIcon from '@mui/icons-material/Settings';
+import HelpIcon from '@mui/icons-material/HelpOutlined';
+import MailIcon from '@mui/icons-material/MailOutlined';
+import AppsIcon from '@mui/icons-material/Apps';
+import PeopleIcon from '@mui/icons-material/People';
+import GroupIcon from '@mui/icons-material/Group';
+import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
+import ChartIcon from '@mui/icons-material/BarChart';
+import CircleIcon from '@mui/icons-material/RadioButtonUnchecked';
 
 export interface NavItem {
   id: string;
@@ -26,7 +24,7 @@ export const NAVIGATION_ITEMS: NavItem[] = [
     id: 'help', 
     label: 'Hướng dẫn sử dụng', 
     icon: <HelpIcon fontSize="small" />,
-    roles: ['superAdmin', 'ROLE_DN'] 
+    roles: ['ROLE_SO', 'ROLE_DN'] 
   },
   { 
     id: 'home', 

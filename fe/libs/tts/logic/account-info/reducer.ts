@@ -1,4 +1,4 @@
-export const initialAccountInfoState = {
+﻿export const initialAccountInfoState = {
   active: true,
   showEmailModal: false,
   username: '',
@@ -80,3 +80,4 @@ export const accountInfoReducer = (state: AccountInfoState, action: AccountInfoA
       return state;
   }
 };
+
