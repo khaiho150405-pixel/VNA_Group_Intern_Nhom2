@@ -10,5 +10,18 @@
     "pleaseInput": "Vui lòng nhập email của bạn để nhận mã xác nhận",
     "sendRequire": "Gửi yêu cầu",
     "haveAccount": "Đã có tài khoản?"
+  },
+  "notifications": {
+    "success": "Hoàn thành thành công!",
+    "loginSuccess": "Đăng nhập thành công!",
+    "profileUpdateSuccess": "Cập nhật thông tin cá nhân thành công!",
+    "emailChangeSuccess": "Thay đổi email thành công!",
+    "passwordChangeSuccess": "Thay đổi mật khẩu thành công!",
+    "forgotPasswordSuccess": "Khôi phục mật khẩu thành công!",
+    "otpSentSuccess": "Mã OTP đã được gửi đến email của bạn!",
+    "error": "Đã có lỗi xảy ra!",
+    "loginError": "Tài khoản hoặc mật khẩu không đúng. Xin vui lòng thử lại",
+    "tokenError": "Đăng nhập thất bại. Không nhận được Token từ Server.",
+    "otpError": "Mã OTP không chính xác"
   }
 }

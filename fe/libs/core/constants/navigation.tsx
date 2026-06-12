@@ -1,14 +1,6 @@
 import React from 'react';
-import HomeIcon from '@mui/icons-material/Home';
 import SettingsIcon from '@mui/icons-material/Settings';
-import HelpIcon from '@mui/icons-material/HelpOutlined';
-import MailIcon from '@mui/icons-material/MailOutlined';
-import AppsIcon from '@mui/icons-material/Apps';
-import PeopleIcon from '@mui/icons-material/People';
-import GroupIcon from '@mui/icons-material/Group';
-import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
-import ChartIcon from '@mui/icons-material/BarChart';
-import CircleIcon from '@mui/icons-material/RadioButtonUnchecked';
+import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
 
 export interface NavItem {
   id: string;
@@ -21,59 +13,24 @@ export interface NavItem {
 
 export const NAVIGATION_ITEMS: NavItem[] = [
   { 
-    id: 'help', 
-    label: 'Hướng dẫn sử dụng', 
-    icon: <HelpIcon fontSize="small" />,
-    roles: ['ROLE_SO', 'ROLE_DN'] 
-  },
-  { 
-    id: 'home', 
-    label: 'Trang chủ', 
-    icon: <HomeIcon fontSize="small" />, 
-    path: '/',
-    roles: ['ROLE_SO', 'ROLE_DN'] 
-  },
-  { 
     id: 'system', 
-    label: 'Chức năng hệ thống', 
+    label: 'Hệ thống', 
     icon: <SettingsIcon fontSize="small" />,
     roles: ['ROLE_SO', 'ROLE_DN'],
     children: [
-      { id: 'user-mgmt', label: 'Quản lý người dùng', icon: <CircleIcon style={{ fontSize: 12 }} />, roles: ['ROLE_SO'] },
-      { id: 'role-mgmt', label: 'Vai trò người dùng', icon: <CircleIcon style={{ fontSize: 12 }} />, roles: ['ROLE_SO'] },
-      { 
-        id: 'inbox', 
-        label: 'Tiếp nhận', 
-        icon: <CircleIcon style={{ fontSize: 12 }} />,
-        roles: ['ROLE_SO', 'ROLE_DN'] 
-      },
+      { id: 'account', label: 'Tài khoản', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO', 'ROLE_DN'], path: '/account' },
+      { id: 'company-mgmt', label: 'Quản lý doanh nghiệp', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO', 'ROLE_DN'] },
+      { id: 'report-period', label: 'Kỳ báo cáo', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO', 'ROLE_DN'] },
     ]
   },
   { 
-    id: 'software', 
-    label: 'Quản lý phần mềm', 
-    icon: <AppsIcon fontSize="small" />,
-    roles: ['ROLE_SO'],
-    children: []
-  },
-  { 
-    id: 'teacher', 
-    label: 'Chuẩn nghề nghiệp giáo viên', 
-    icon: <PeopleIcon fontSize="small" />, 
-    roles: ['ROLE_SO'],
-    children: [] 
-  },
-  { 
-    id: 'manager', 
-    label: 'Chuẩn nghề nghiệp HT - HP', 
-    icon: <SupervisorAccountIcon fontSize="small" />, 
-    roles: ['ROLE_SO'],
-    children: [] 
-  },
-  { 
-    id: 'report', 
-    label: 'Báo cáo thống kê', 
-    icon: <ChartIcon fontSize="small" />,
-    roles: ['ROLE_SO', 'ROLE_DN'] 
+    id: 'accident', 
+    label: 'Tai nạn lao động', 
+    icon: <SettingsIcon fontSize="small" />,
+    roles: ['ROLE_SO', 'ROLE_DN'],
+    children: [
+      { id: 'common-list', label: 'Danh mục chung', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO', 'ROLE_DN'] },
+      { id: 'tnld-hdlh', label: 'TNLD theo HĐLĐ', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO', 'ROLE_DN'] },
+    ]
   },
 ];

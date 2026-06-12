@@ -4,21 +4,60 @@ import { accountInfoReducer, initialAccountInfoState, AccountInfoState } from "@
 import { useAuth } from "@core/contexts/AuthProvider";
 import { authService } from "@tts/services/auth.services";
 import { validate, VALIDATION_MESSAGES } from "@core/utils/validation";
+import useLocales from "@core/hooks/useLocales";
 
 import { getCookie } from '@core/services/cookies';
 
 export const useAccountInfo = () => {
   const { user, login } = useAuth();
+  const { translate } = useLocales();
   const [state, dispatch] = useReducer(accountInfoReducer, initialAccountInfoState);
 
   useEffect(() => {
+    // Fetch dynamic roles
+    const fetchRoles = async () => {
+      try {
+        const roles = await authService.getRoles();
+        if (Array.isArray(roles)) {
+          dispatch({ type: 'onChange', name: 'roles', value: roles });
+        }
+      } catch (error) {
+        console.error('Failed to fetch roles:', error);
+      }
+    };
+    fetchRoles();
+  }, []);
+
+  useEffect(() => {
     if (user) {
+      const userRoleKey = (user as any).roleId === 4 ? 'superAdmin' 
+                       : (user as any).roleId === 3 ? 'leader' 
+                       : (user as any).roleId === 2 ? 'expert' 
+                       : (user as any).roleId === 1 ? 'employee' 
+                       : (user as any).realRole || '';
+
+      let formattedBirthday = '1995-06-01';
+      const rawBirthday = (user as any).dateOfBirth || (user as any).birthday;
+      if (rawBirthday) {
+        const date = new Date(rawBirthday);
+        if (!isNaN(date.getTime())) {
+          formattedBirthday = date.toISOString().split('T')[0];
+        }
+      }
+
       dispatch({
         type: 'setInitialData',
         data: {
           username: user.username || '',
           displayName: (user as any).fullName || user.fullName || user.displayName || '',
           email: user.email || '',
+          avatarUrl: user.avatar || '',
+          birthday: formattedBirthday,
+          gender: (user as any).gender === 1 ? 'Nam' : ((user as any).gender === 0 ? 'Nữ' : ''),
+          address: (user as any).address || '',
+          city: (user as any).province?.key || (user as any).province || '',
+          district: (user as any).district?.key || (user as any).district || '',
+          role: userRoleKey,
         }
       });
     }
@@ -36,6 +75,11 @@ export const useAccountInfo = () => {
 
   const handleInputChange = (name: keyof AccountInfoState, value: any) => {
     dispatch({ type: 'onChange', name, value });
+    
+    // If city changes, reset district
+    if (name === 'city') {
+      dispatch({ type: 'onChange', name: 'district', value: '' });
+    }
   };
 
   const handleSave = async () => {
@@ -90,10 +134,8 @@ export const useAccountInfo = () => {
         payload.email = state.email;
       }
 
-      // include avatar (data URL) when present so backend can persist or frontend can immediately reflect it
-      if (state.avatarUrl) {
-        payload.avatar = state.avatarUrl;
-      }
+      // include avatar (data URL) or empty string to signal removal
+      payload.avatar = state.avatarUrl || '';
 
       const response = await authService.updateProfile(user?.id || '', payload);
 
@@ -108,20 +150,19 @@ export const useAccountInfo = () => {
             province: state.city ? { key: state.city, value: state.city === 'HCM' ? 'Thành phố Hồ Chí Minh' : state.city } : null,
             district: state.district ? { key: state.district, value: state.district === 'GV' ? 'Phường Gò Vấp' : state.district } : null,
             address: state.address,
-            // if avatarUrl exists update local user object so sidebar/avatar syncs immediately
-            ...(state.avatarUrl ? { avatar: state.avatarUrl } : {}),
+            avatar: state.avatarUrl || '',
           };
           const token = getCookie('accessToken') || '';
-          login(updatedUser as any, token);
+          login(updatedUser as any, token, false);
         }
         dispatch({
           type: 'showToast',
-          message: response.message || 'Cập nhật thành công',
+          message: response.message || translate("notifications.profileUpdateSuccess"),
           toastType: 'success'
         });
       }
     } catch (error: any) {
-      const errorMsg = error.response?.data?.errors || error.response?.data?.message || error.message || 'Đã có lỗi xảy ra';
+      const errorMsg = error.response?.data?.errors || error.response?.data?.message || error.message || translate("notifications.error");
       dispatch({
         type: 'showToast',
         message: errorMsg,

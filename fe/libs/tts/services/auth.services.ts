@@ -94,5 +94,12 @@ export const authService = {
       params: { email, excludeId }
     });
   },
+
+  /**
+   * Get all roles from database
+   */
+  getRoles: async (): Promise<any[]> => {
+    return axiosClient.get('/roles');
+  },
 };
 

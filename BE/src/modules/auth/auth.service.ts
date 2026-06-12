@@ -167,6 +167,12 @@ export class AuthService {
         return Response.errorBad('Mật khẩu cũ không đúng');
       }
 
+      // Check if new password is the same as old password
+      const isSame = await argon.verify(user.password, newPassword);
+      if (isSame) {
+        return Response.errorBad('Mật khẩu mới không được trùng với mật khẩu cũ');
+      }
+
       const _newPassword = await argon.hash(newPassword);
       user.password = _newPassword;
       await manage.save(user);

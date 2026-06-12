@@ -9,14 +9,17 @@ import {
   Switch, 
   MenuItem,
   InputAdornment,
-  CircularProgress
+  CircularProgress,
+  IconButton
 } from '@mui/material';
-import { PhotoCamera, Save, Event } from '@mui/icons-material';
+import { PhotoCamera, Save, Event, Delete } from '@mui/icons-material';
 import { ChangeEmailModal } from '@core/components/ChangeEmailModal';
 import { RequiredLabel } from '@core/components/RequiredLabel';
 import { AppToast } from '@tts/components/AppToast';
 import { useAccountInfoStyles } from '../logic/account-info/style';
 import { useAccountInfo } from '@tts/hooks/useAccountInfo';
+
+import { CustomCalendar } from '@core/components/CustomCalendar';
 
 export const AccountInfoPage = () => {
   const classes = useAccountInfoStyles();
@@ -28,6 +31,7 @@ export const AccountInfoPage = () => {
   } = useAccountInfo();
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [calendarAnchor, setCalendarAnchor] = React.useState<null | HTMLElement>(null);
 
   const {
     active,
@@ -44,7 +48,8 @@ export const AccountInfoPage = () => {
     address,
     avatarUrl,
     loading,
-    toast
+    toast,
+    roles
   } = state;
 
   const handleAvatarClick = () => {
@@ -70,6 +75,25 @@ export const AccountInfoPage = () => {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleInputFocus = () => {
+    dispatch({ type: 'hideToast' });
+  };
+
+  const formatDateDisplay = (dateStr: string) => {
+    if (!dateStr) return '';
+    const [y, m, d] = dateStr.split('-');
+    if (!y || !m || !d) return dateStr;
+    return `${d}/${m}/${y}`;
+  };
+
+  const handleCalendarOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setCalendarAnchor(event.currentTarget);
+  };
+
+  const handleCalendarClose = () => {
+    setCalendarAnchor(null);
   };
 
   return (
@@ -103,8 +127,18 @@ export const AccountInfoPage = () => {
       <Box className={classes.mainContent}>
         <Grid container spacing={3}>
           {/* Left Column: Avatar & Activation */}
+
           <Grid size={{ xs: 12, md: 3 }}>
             <Box className={classes.leftCard}>
+              <IconButton 
+                className={classes.deleteAvatarBtn} 
+                onClick={() => dispatch({ type: 'removeAvatar' })}
+                disabled={loading || !avatarUrl}
+                size="small"
+                title="Xóa ảnh"
+              >
+                <Delete fontSize="small" />
+              </IconButton>
               <input
                 type="file"
                 hidden
@@ -149,6 +183,7 @@ export const AccountInfoPage = () => {
                 <Switch 
                   checked={active} 
                   onChange={() => dispatch({ type: 'toggleActive' })} 
+                  onFocus={handleInputFocus}
                   color="primary" 
                   size="small"
                   disabled={loading}
@@ -167,6 +202,7 @@ export const AccountInfoPage = () => {
                   <TextField 
                     fullWidth label={<RequiredLabel label="Tên đăng nhập" />} variant="outlined" size="small" 
                     className={classes.field} value={username} 
+                    onFocus={handleInputFocus}
                     disabled slotProps={{ inputLabel: { shrink: true } }}
                   />
                 </Grid>
@@ -175,33 +211,59 @@ export const AccountInfoPage = () => {
                     fullWidth label={<RequiredLabel label="Họ và tên" />} variant="outlined" size="small" 
                     className={classes.field} value={displayName} 
                     onChange={(e) => handleInputChange('displayName', e.target.value)}
+                    onFocus={handleInputFocus}
                     slotProps={{ inputLabel: { shrink: true } }}
                     disabled={loading}
                   />
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField 
-                    fullWidth label="Ngày tháng năm sinh" variant="outlined" size="small" 
-                    className={classes.field} value={birthday}
-                    onChange={(e) => handleInputChange('birthday', e.target.value)}
-                    disabled={loading}
-                    slotProps={{
-                      inputLabel: { shrink: true },
-                      input: {
-                        endAdornment: (
-                          <InputAdornment position="end">
-                            <Event fontSize="small" style={{ color: '#999' }} />
-                          </InputAdornment>
-                        ),
-                      }
-                    }}
-                  />
+                  <Box sx={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+                    <TextField 
+                      fullWidth label="Ngày tháng năm sinh" variant="outlined" size="small" 
+                      className={classes.field} value={formatDateDisplay(birthday)}
+                      onFocus={handleInputFocus}
+                      placeholder="DD/MM/YYYY"
+                      autoComplete="off"
+                      disabled={loading}
+                      onClick={handleCalendarOpen}
+                      sx={{ '& .MuiOutlinedInput-root': { pr: '4px' } }}
+                      slotProps={{
+                        inputLabel: { shrink: true },
+                        input: {
+                          readOnly: true,
+                          endAdornment: (
+                            <InputAdornment position="end">
+                              <IconButton 
+                                size="small" 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCalendarOpen(e);
+                                }}
+                                disabled={loading}
+                                sx={{ padding: '4px' }}
+                              >
+                                <Event fontSize="small" style={{ color: '#999' }} />
+                              </IconButton>
+                            </InputAdornment>
+                          ),
+                        }
+                      }}
+                    />
+                    <CustomCalendar
+                      open={Boolean(calendarAnchor)}
+                      anchorEl={calendarAnchor}
+                      value={birthday}
+                      onChange={(val) => handleInputChange('birthday', val)}
+                      onClose={handleCalendarClose}
+                    />
+                  </Box>
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
                   <TextField 
                     select fullWidth label="Giới tính" variant="outlined" size="small" 
                     className={classes.field} value={gender}
                     onChange={(e) => handleInputChange('gender', e.target.value)}
+                    onFocus={handleInputFocus}
                     slotProps={{ inputLabel: { shrink: true } }}
                     disabled={loading}
                   >
@@ -215,6 +277,7 @@ export const AccountInfoPage = () => {
                     className={classes.field} placeholder="Nhập chức danh" 
                     value={title}
                     onChange={(e) => handleInputChange('title', e.target.value)}
+                    onFocus={handleInputFocus}
                     slotProps={{ inputLabel: { shrink: true } }}
                     disabled={loading}
                   />
@@ -224,11 +287,27 @@ export const AccountInfoPage = () => {
                     select fullWidth label={<RequiredLabel label="Vai trò" />} variant="outlined" size="small" 
                     className={classes.field} value={role}
                     onChange={(e) => handleInputChange('role', e.target.value)}
-                    slotProps={{ inputLabel: { shrink: true } }}
+                    onFocus={handleInputFocus}
+                    slotProps={{ 
+                      inputLabel: { shrink: true },
+                      select: { displayEmpty: true }
+                    }}
                     disabled={loading}
                   >
-                    <MenuItem value="Admin">Quản trị viên</MenuItem>
-                    <MenuItem value="User">Người dùng</MenuItem>
+                    {roles && roles.length > 0 ? (
+                      [
+                        <MenuItem key="placeholder" value="">-- Chọn vai trò --</MenuItem>,
+                        ...roles.map((r) => (
+                          <MenuItem key={r.id} value={r.role}>{r.name}</MenuItem>
+                        ))
+                      ]
+                    ) : [
+                      <MenuItem key="placeholder" value="">-- Chọn vai trò --</MenuItem>,
+                      <MenuItem key="superAdmin" value="superAdmin">Quản trị viên</MenuItem>,
+                      <MenuItem key="leader" value="leader">Lãnh đạo</MenuItem>,
+                      <MenuItem key="expert" value="expert">Chuyên viên</MenuItem>,
+                      <MenuItem key="employee" value="employee">Nhân viên</MenuItem>
+                    ]}
                   </TextField>
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
@@ -239,6 +318,7 @@ export const AccountInfoPage = () => {
                     size="small" 
                     className={classes.field}
                     value={email} 
+                    onFocus={handleInputFocus}
                     disabled 
                     slotProps={{ inputLabel: { shrink: true } }}
                   />
@@ -247,6 +327,7 @@ export const AccountInfoPage = () => {
                   <Button 
                     className={classes.changeLink} 
                     onClick={() => dispatch({ type: 'toggleEmailModal', value: true })}
+                    onFocus={handleInputFocus}
                     disableRipple
                     disabled={loading}
                     style={{ marginBottom: '20px', marginLeft: 0 }}
@@ -264,9 +345,14 @@ export const AccountInfoPage = () => {
                     select fullWidth label="Tỉnh / Thành phố" variant="outlined" size="small" 
                     className={classes.field} value={city}
                     onChange={(e) => handleInputChange('city', e.target.value)}
-                    slotProps={{ inputLabel: { shrink: true } }}
+                    onFocus={handleInputFocus}
+                    slotProps={{ 
+                      inputLabel: { shrink: true },
+                      select: { displayEmpty: true }
+                    }}
                     disabled={loading}
                   >
+                    <MenuItem value="">--Chọn tỉnh/ thành phố--</MenuItem>
                     <MenuItem value="HCM">Thành phố Hồ Chí Minh</MenuItem>
                   </TextField>
                 </Grid>
@@ -275,9 +361,14 @@ export const AccountInfoPage = () => {
                     select fullWidth label="Phường xã" variant="outlined" size="small" 
                     className={classes.field} value={district}
                     onChange={(e) => handleInputChange('district', e.target.value)}
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    disabled={loading}
+                    onFocus={handleInputFocus}
+                    slotProps={{ 
+                      inputLabel: { shrink: true },
+                      select: { displayEmpty: true }
+                    }}
+                    disabled={loading || !city}
                   >
+                    <MenuItem value="">--Chọn phường xã--</MenuItem>
                     <MenuItem value="GV">Phường Gò Vấp</MenuItem>
                   </TextField>
                 </Grid>
@@ -287,8 +378,9 @@ export const AccountInfoPage = () => {
                     className={classes.field} placeholder="Nhập địa chỉ" 
                     value={address}
                     onChange={(e) => handleInputChange('address', e.target.value)}
+                    onFocus={handleInputFocus}
                     slotProps={{ inputLabel: { shrink: true } }}
-                    disabled={loading}
+                    disabled={loading || !district}
                   />
                 </Grid>
               </Grid>

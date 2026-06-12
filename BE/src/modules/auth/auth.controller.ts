@@ -81,6 +81,14 @@ export class AuthController {
     @Body("otp") otp: string,
     @Body("password") passwordNew: string
   ): Promise<any> {
+    if (passwordNew.length < 6) {
+      throw new BadRequestException('Mật khẩu mới phải có ít nhất 6 kí tự');
+    }
+    const hasLetter = /[a-zA-Z]/.test(passwordNew);
+    const hasNumber = /[0-9]/.test(passwordNew);
+    if (!hasLetter || !hasNumber) {
+      throw new BadRequestException('Mật khẩu mới quá yếu. Cần chứa ít nhất chữ và số.');
+    }
     return this.authService.resetPassword(email, otp, passwordNew);
   }
 

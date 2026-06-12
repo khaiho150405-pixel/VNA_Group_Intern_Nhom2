@@ -7,8 +7,10 @@ import {
   Button, 
   Typography, 
   Box,
-  CircularProgress
+  CircularProgress,
+  Collapse
 } from '@mui/material';
+import { CheckCircleOutlined, ErrorOutlined } from '@mui/icons-material';
 import { makeStyles } from '@mui/styles';
 import { Theme } from '@mui/material/styles';
 import { VNA_COLORS } from '@core/theme';
@@ -16,6 +18,7 @@ import { useAuth } from '@core/contexts/AuthProvider';
 import { authService } from '@tts/services/auth.services';
 import { getCookie } from '@core/services/cookies';
 import { validate, VALIDATION_MESSAGES } from '@core/utils/validation';
+import useLocales from '@core/hooks/useLocales';
 import { RequiredLabel } from './RequiredLabel';
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -103,17 +106,37 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderRadius: 8,
     '&:hover': { backgroundColor: '#f5f5f7', color: '#333' }
   },
-  errorText: {
-    color: VNA_COLORS.error,
-    fontSize: '0.8rem',
+  errorBox: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+    backgroundColor: 'rgba(255, 69, 58, 0.05)',
+    border: `1px solid ${VNA_COLORS.error}`,
+    borderRadius: 4,
+    padding: theme.spacing(1.5),
     marginBottom: theme.spacing(2),
     textAlign: 'left',
   },
-  successText: {
-    color: VNA_COLORS.success || '#4caf50',
-    fontSize: '0.8rem',
+  successBox: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+    backgroundColor: 'rgba(52, 199, 89, 0.05)',
+    border: `1px solid ${VNA_COLORS.success}`,
+    borderRadius: 4,
+    padding: theme.spacing(1.5),
     marginBottom: theme.spacing(2),
     textAlign: 'left',
+  },
+  errorText: {
+    color: VNA_COLORS.error,
+    fontSize: '0.85rem',
+    fontWeight: 500,
+  },
+  successText: {
+    color: VNA_COLORS.success || '#4caf50',
+    fontSize: '0.85rem',
+    fontWeight: 500,
   }
 }));
 
@@ -125,6 +148,7 @@ interface ChangeEmailModalProps {
 export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClose }) => {
   const classes = useStyles();
   const { user, login } = useAuth();
+  const { translate } = useLocales();
   const [step, setStep] = useState(1);
   const [countdown, setCountdown] = useState(60);
   const [otp, setOtp] = useState('');
@@ -133,6 +157,24 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  // Auto-dismiss messages after 3 seconds
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (errorMsg || successMsg) {
+      // Don't auto-dismiss the permanent info messages in step 1 if needed, 
+      // but here they are used for feedback, so auto-dismiss is fine.
+      // Exception: "Đang gửi..." or "Đã gửi..." might want to stay longer or be cleared by next action.
+      // For simplicity, we'll auto-dismiss unless it's a loading-like message.
+      if (successMsg !== 'Đang gửi mã OTP...' && successMsg !== 'Đang gửi lại mã OTP...') {
+        timer = setTimeout(() => {
+          setErrorMsg(null);
+          setSuccessMsg(null);
+        }, 3000);
+      }
+    }
+    return () => clearTimeout(timer);
+  }, [errorMsg, successMsg]);
+
   // Send OTP automatically when modal is opened in step 1
   useEffect(() => {
     if (open && step === 1 && user?.email) {
@@ -140,11 +182,11 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
       setSuccessMsg('Đang gửi mã OTP...');
       authService.sendOtp(user.email)
         .then(() => {
-          setSuccessMsg('Mã OTP đã được gửi đến email của bạn.');
+          setSuccessMsg(translate("notifications.otpSentSuccess"));
         })
         .catch((err: any) => {
           setSuccessMsg(null);
-          const msg = err.response?.data?.errors || err.response?.data?.message || err.message || 'Không thể gửi mã OTP. Vui lòng thử lại.';
+          const msg = err.response?.data?.errors || err.response?.data?.message || err.message || translate("notifications.error");
           setErrorMsg(msg);
         });
     }
@@ -165,10 +207,10 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
       setSuccessMsg('Đang gửi lại mã OTP...');
       setCountdown(60);
       await authService.sendOtp(user.email);
-      setSuccessMsg('Mã OTP đã được gửi lại thành công.');
+      setSuccessMsg(translate("notifications.otpSentSuccess"));
     } catch (err: any) {
       setSuccessMsg(null);
-      const msg = err.response?.data?.errors || err.response?.data?.message || err.message || 'Không thể gửi lại mã OTP. Vui lòng thử lại.';
+      const msg = err.response?.data?.errors || err.response?.data?.message || err.message || translate("notifications.error");
       setErrorMsg(msg);
     }
   };
@@ -192,11 +234,11 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
       if (response && response.success) {
         setStep(2);
       } else {
-        const errorMsg = 'Mã OTP không chính xác';
+        const errorMsg = translate("notifications.otpError");
         setErrorMsg(errorMsg);
       }
     } catch (err: any) {
-      const msg = err.response?.data?.errors || err.response?.data?.message || err.message || 'Mã OTP không chính xác';
+      const msg = err.response?.data?.errors || err.response?.data?.message || err.message || translate("notifications.otpError");
       setErrorMsg(msg);
     } finally {
       setLoading(false);
@@ -210,6 +252,10 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
     }
     if (!validate.email(newEmail)) {
       setErrorMsg(VALIDATION_MESSAGES.EMAIL_INVALID);
+      return;
+    }
+    if (user?.email && newEmail.toLowerCase() === user.email.toLowerCase()) {
+      setErrorMsg('Email mới không được trùng với email hiện tại');
       return;
     }
     if (!user?.id) return;
@@ -230,11 +276,14 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
       
       // Update local storage and authentication context user info
       const token = getCookie('accessToken') || '';
-      login({ ...user, email: newEmail }, token);
+      login({ ...user, email: newEmail }, token, false);
       
-      handleClose();
+      setSuccessMsg(translate("notifications.emailChangeSuccess"));
+      setTimeout(() => {
+        handleClose();
+      }, 1500);
     } catch (err: any) {
-      const msg = err.response?.data?.errors || err.response?.data?.message || err.message || 'Không thể cập nhật email. Vui lòng thử lại.';
+      const msg = err.response?.data?.errors || err.response?.data?.message || err.message || translate("notifications.error");
       setErrorMsg(msg);
     } finally {
       setLoading(false);
@@ -251,6 +300,11 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
     onClose();
   };
 
+  const handleInputFocus = () => {
+    setErrorMsg(null);
+    setSuccessMsg(null);
+  };
+
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>
       <DialogContent className={classes.content}>
@@ -264,6 +318,19 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
               Bạn vui lòng kiểm tra và điền mã xác thực
             </Typography>
             
+            <Collapse in={!!errorMsg}>
+              <Box className={classes.errorBox}>
+                <ErrorOutlined className={classes.errorText} fontSize="small" />
+                <Typography className={classes.errorText}>{errorMsg}</Typography>
+              </Box>
+            </Collapse>
+            <Collapse in={!!successMsg}>
+              <Box className={classes.successBox}>
+                <CheckCircleOutlined className={classes.successText} fontSize="small" />
+                <Typography className={classes.successText}>{successMsg}</Typography>
+              </Box>
+            </Collapse>
+
             <TextField
               fullWidth
               variant="outlined"
@@ -273,11 +340,9 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
               placeholder="Nhập mã OTP"
               value={otp}
               onChange={(e) => setOtp(e.target.value)}
+              onFocus={handleInputFocus}
               disabled={loading}
             />
-
-            {errorMsg && <Typography className={classes.errorText}>{errorMsg}</Typography>}
-            {successMsg && <Typography className={classes.successText}>{successMsg}</Typography>}
             
             <Box>
               <Typography className={classes.countdown}>
@@ -299,6 +364,19 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
               Vui lòng nhập email mới
             </Typography>
             
+            <Collapse in={!!errorMsg}>
+              <Box className={classes.errorBox}>
+                <ErrorOutlined className={classes.errorText} fontSize="small" />
+                <Typography className={classes.errorText}>{errorMsg}</Typography>
+              </Box>
+            </Collapse>
+            <Collapse in={!!successMsg}>
+              <Box className={classes.successBox}>
+                <CheckCircleOutlined className={classes.successText} fontSize="small" />
+                <Typography className={classes.successText}>{successMsg}</Typography>
+              </Box>
+            </Collapse>
+
             <TextField
               fullWidth
               variant="outlined"
@@ -308,10 +386,9 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
               placeholder="Nhập email mới"
               value={newEmail}
               onChange={(e) => setNewEmail(e.target.value)}
+              onFocus={handleInputFocus}
               disabled={loading}
             />
-
-            {errorMsg && <Typography className={classes.errorText}>{errorMsg}</Typography>}
           </>
         )}
       </DialogContent>

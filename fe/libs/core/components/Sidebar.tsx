@@ -29,14 +29,18 @@ import { useRouter, usePathname } from 'next/navigation';
 import { NAVIGATION_ITEMS, NavItem } from '../constants/navigation';
 import { ChangePasswordModal } from './ChangePasswordModal';
 
-export const Sidebar = () => {
+interface SidebarProps {
+  isCollapsed: boolean;
+  onToggle: () => void;
+}
+
+export const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
   const { user, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [openItems, setOpenItems] = useState<string[]>([]);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [showPassModal, setShowPassModal] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const rawRole = user
     ? ((user as any).realRole || (typeof user.role === 'object' && user.role !== null ? (user.role as any).role : user.role))
@@ -49,14 +53,12 @@ export const Sidebar = () => {
     userRole = 'ROLE_DN';
   }
 
-  // Filter items based on user role
-  const filteredItems = NAVIGATION_ITEMS.filter(item => 
-    item.roles.includes(userRole as any)
-  );
+  // Filter items based on user role - REMOVED AS REQUESTED
+  const filteredItems = NAVIGATION_ITEMS;
 
   const handleToggle = (id: string) => {
     if (isCollapsed) {
-      setIsCollapsed(false);
+      onToggle();
       setOpenItems([id]);
       return;
     }
@@ -69,13 +71,6 @@ export const Sidebar = () => {
     if (path) router.push(path);
   };
 
-  const toggleSidebar = () => {
-    setIsCollapsed(!isCollapsed);
-    if (!isCollapsed) {
-      setOpenItems([]); // Close all menus when collapsing
-    }
-  };
-
   const renderItem = (item: NavItem, isNested = false) => {
     const hasChildren = item.children && item.children.length > 0;
     const isOpen = openItems.includes(item.id);
@@ -85,7 +80,7 @@ export const Sidebar = () => {
       <React.Fragment key={item.id}>
         <ListItemButton 
           sx={{
-            padding: (theme) => theme.spacing(1, 2),
+            padding: (theme) => theme.spacing(1.2, 2.5),
             margin: (theme) => theme.spacing(0.2, 0),
             whiteSpace: 'nowrap',
             '&:hover': {
@@ -94,12 +89,9 @@ export const Sidebar = () => {
             ...(isActive && {
               backgroundColor: 'rgba(255,255,255,0.12)',
             }),
-            ...(isNested && {
-              paddingLeft: (theme) => theme.spacing(4),
-            }),
             justifyContent: isCollapsed ? 'center' : 'flex-start', 
-            paddingLeft: isCollapsed ? 0 : (isNested ? 4 : 2), 
-            paddingRight: isCollapsed ? 0 : 2
+            paddingLeft: isCollapsed ? 0 : (isNested ? 5 : 2.5),
+            paddingRight: isCollapsed ? 0 : 2.5
           }}
           onClick={() => hasChildren ? handleToggle(item.id) : handleNavigate(item.path)}
           title={isCollapsed ? item.label : ''}
@@ -107,7 +99,7 @@ export const Sidebar = () => {
           <ListItemIcon 
             sx={{
               color: 'rgba(255,255,255,0.9)',
-              minWidth: isCollapsed ? 0 : 36,
+              minWidth: isCollapsed ? 40 : 36,
               justifyContent: 'center',
               '& svg': {
                 fontSize: '1.2rem',
@@ -119,23 +111,52 @@ export const Sidebar = () => {
           <ListItemText 
             primary={item.label} 
             sx={{ 
-              transition: (theme) => theme.transitions.create('opacity'),
               '& span': {
-                fontSize: '0.82rem',
-                fontWeight: 400,
+                fontSize: '0.9rem',
+                fontWeight: 500,
+                color: 'rgba(255,255,255,0.9)',
               },
               opacity: isCollapsed ? 0 : 1, 
               width: isCollapsed ? 0 : 'auto',
               display: isCollapsed ? 'none' : 'block'
             }} 
           />
-          {!isCollapsed && hasChildren ? (isOpen ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />) : null}
+          {!isCollapsed && hasChildren ? (isOpen ? <ExpandMore fontSize="small" sx={{ opacity: 0.8 }} /> : <ExpandMore fontSize="small" sx={{ opacity: 0.8, transform: 'rotate(-90deg)' }} />) : null}
         </ListItemButton>
         
         {!isCollapsed && hasChildren && (
           <Collapse in={isOpen} timeout="auto" unmountOnExit>
             <List component="div" disablePadding>
-              {item.children?.map(child => renderItem(child, true))}
+              {item.children?.map(child => (
+                <ListItemButton
+                  key={child.id}
+                  sx={{
+                    paddingLeft: (theme) => theme.spacing(5),
+                    paddingTop: (theme) => theme.spacing(1),
+                    paddingBottom: (theme) => theme.spacing(1),
+                    '&:hover': {
+                      backgroundColor: 'rgba(255,255,255,0.08)',
+                    },
+                    ...(pathname === child.path && {
+                      backgroundColor: 'rgba(255,255,255,0.12)',
+                    }),
+                  }}
+                  onClick={() => handleNavigate(child.path)}
+                >
+                  <ListItemIcon sx={{ minWidth: 28, color: 'rgba(255,255,255,0.7)' }}>
+                    {child.icon}
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary={child.label}
+                    sx={{
+                      '& span': {
+                        fontSize: '0.85rem',
+                        color: 'rgba(255,255,255,0.8)',
+                      }
+                    }}
+                  />
+                </ListItemButton>
+              ))}
             </List>
           </Collapse>
         )}
@@ -147,7 +168,7 @@ export const Sidebar = () => {
     <Box 
       sx={{
         height: '100vh',
-        backgroundColor: '#1a337e',
+        backgroundColor: '#1b378b',
         color: '#fff',
         display: 'flex',
         flexDirection: 'column',
@@ -162,15 +183,12 @@ export const Sidebar = () => {
     >
       <Box 
         sx={{
-          padding: (theme) => theme.spacing(2, 2),
           display: 'flex',
           alignItems: 'center',
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
-          minHeight: 64,
-          overflow: 'hidden',
-          whiteSpace: 'nowrap',
-          justifyContent: isCollapsed ? 'center' : 'flex-start', 
-          padding: isCollapsed ? 0 : '16px'
+          padding: isCollapsed ? '16px 0' : '16px 15px',
+          borderBottom: '1px solid rgba(255,255,255,0.2)',
+          minHeight: 80,
+          justifyContent: isCollapsed ? 'center' : 'flex-start',
         }}
       >
         {!isCollapsed && (
@@ -180,33 +198,44 @@ export const Sidebar = () => {
               src="/static/mock-images/logo.png" 
               alt="Logo" 
               sx={{
-                height: 32,
-                marginRight: (theme) => theme.spacing(1.5),
-                transition: (theme) => theme.transitions.create('opacity'),
+                height: 40,
+                width: 40,
+                marginRight: 1,
+                flexShrink: 0
               }}
             />
-            <Typography 
-              sx={{
-                fontSize: '0.85rem',
-                fontWeight: 600,
-                lineHeight: 1.3,
-                flex: 1,
-                transition: (theme) => theme.transitions.create('opacity'),
-              }}
-            >
-              Hệ thống quản lý
-            </Typography>
+            <Box sx={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', mr: 1 }}>
+              <Typography 
+                sx={{
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  lineHeight: 1.2,
+                  color: 'rgba(255,255,255,0.9)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  alignItems: 'center',
+                }}
+              >
+                Ủy ban nhân dân thành phố
+              </Typography>
+              <Typography 
+                sx={{
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  lineHeight: 1.2,
+                  color: 'rgba(255,255,255,0.9)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  alignItems: 'center',
+                }}
+              >
+                Hồ Chí Minh
+              </Typography>
+            </Box>
           </>
         )}
-        <IconButton 
-          size="small" 
-          sx={{ 
-            color: '#fff',
-            padding: isCollapsed ? '16px 0' : '8px'
-          }} 
-          onClick={toggleSidebar}
-        >
-          <MenuIcon fontSize="small" />
+        <IconButton size="small" sx={{ color: '#fff', flexShrink: 0 }} onClick={() => onToggle()}>
+          <MenuIcon />
         </IconButton>
       </Box>
 
@@ -215,7 +244,7 @@ export const Sidebar = () => {
           flex: 1,
           overflowY: 'auto',
           overflowX: 'hidden',
-          paddingTop: (theme) => theme.spacing(1),
+          paddingTop: (theme) => theme.spacing(2),
           '&::-webkit-scrollbar': {
             width: '4px',
           },
@@ -230,43 +259,51 @@ export const Sidebar = () => {
 
       <Box 
         sx={{
-          padding: (theme) => theme.spacing(1.5, 2),
-          borderTop: '1px solid rgba(255,255,255,0.1)',
+          padding: (theme) => theme.spacing(1.5, 2.5),
+          borderTop: '1px solid rgba(255,255,255,0.2)',
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
-          overflow: 'hidden',
-          whiteSpace: 'nowrap',
           '&:hover': {
             backgroundColor: 'rgba(255,255,255,0.05)',
           },
-          justifyContent: isCollapsed ? 'center' : 'flex-start', 
-          paddingLeft: isCollapsed ? 0 : 2, 
-          paddingRight: isCollapsed ? 0 : 2
+          margin: isCollapsed ? '0 5px 10px' : '0 10px 10px',
+          borderRadius: 1,
+          justifyContent: isCollapsed ? 'center' : 'flex-start',
+          paddingLeft: isCollapsed ? 0 : 2.5,
+          paddingRight: isCollapsed ? 0 : 2.5
         }}
         onClick={(e) => setAnchorEl(e.currentTarget)} 
       >
-        <Avatar src={user?.avatar || '/static/mock-images/logo.png'} sx={{ width: 32, height: 32, border: '1px solid rgba(255,255,255,0.2)' }} />
-        <Box 
+        <Avatar 
+          src={user?.avatar} 
           sx={{ 
-            flex: 1,
-            marginLeft: (theme) => theme.spacing(1.2),
-            transition: (theme) => theme.transitions.create('opacity'),
-            '& p': {
-              fontSize: '0.85rem',
-              fontWeight: 500,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            },
-            opacity: isCollapsed ? 0 : 1, 
-            width: isCollapsed ? 0 : 'auto', 
-            display: isCollapsed ? 'none' : 'block' 
-          }}
-        >
-          <Typography>{user?.fullName || user?.displayName || 'Người dùng'}</Typography>
-        </Box>
-        {!isCollapsed && <ChevronRight fontSize="small" sx={{ opacity: 0.7 }} />}
+            width: 36, 
+            height: 36, 
+            border: '1px solid rgba(255,255,255,0.3)' 
+          }} 
+        />
+        {!isCollapsed && (
+          <Box 
+            sx={{ 
+              flex: 1,
+              marginLeft: (theme) => theme.spacing(1.5),
+            }}
+          >
+            <Typography 
+              sx={{ 
+                fontSize: '0.9rem', 
+                fontWeight: 500,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {user?.fullName || user?.displayName || 'Người dùng'}
+            </Typography>
+          </Box>
+        )}
+        {!isCollapsed && <ExpandMore fontSize="small" sx={{ opacity: 0.7, transform: 'rotate(-90deg)' }} />}
       </Box>
 
       <Menu

@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 export const MainLayout = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading } = useAuth();
   const router = useRouter();
+  const [isCollapsed, setIsCollapsed] = React.useState(false);
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -42,13 +43,13 @@ export const MainLayout = ({ children }: { children: React.ReactNode }) => {
         backgroundColor: '#f4f6f8',
       }}
     >
-      <Sidebar />
+      <Sidebar isCollapsed={isCollapsed} onToggle={() => setIsCollapsed(!isCollapsed)} />
       <Box
         component="main"
         sx={{
           flex: 1,
           height: '100%',
-          overflowY: 'auto',
+          overflowY: 'auto'
         }}
       >
         {children}

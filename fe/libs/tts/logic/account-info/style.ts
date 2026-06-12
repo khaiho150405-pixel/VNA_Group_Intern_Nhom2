@@ -4,7 +4,7 @@ import { Theme } from '@mui/material/styles';
 
 export const useAccountInfoStyles = makeStyles((theme: Theme) => ({
   root: {
-    backgroundColor: '#f4f6f8',
+    backgroundColor: '#ffffff',
     minHeight: '100vh',
     display: 'flex',
     flexDirection: 'column',
@@ -18,28 +18,31 @@ export const useAccountInfoStyles = makeStyles((theme: Theme) => ({
   },
   pageHeader: {
     backgroundColor: '#fff',
-    padding: theme.spacing(1.5, 3),
+    padding: theme.spacing(2, 3),
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    boxShadow: '0px 2px 4px rgba(0,0,0,0.05)',
+    boxShadow: '0px 4px 10px rgba(0,0,0,0.08)',
     zIndex: 1,
+    minHeight: '64px',
   },
   headerTitle: {
     fontWeight: 700,
-    fontSize: '1rem',
+    fontSize: '1.1rem',
     color: '#333',
+    margin: 0,
   },
   actions: {
     display: 'flex',
     alignItems: 'center',
+    gap: theme.spacing(1),
   },
   cancelBtn: {
     textTransform: 'none',
     color: '#666',
-    marginRight: theme.spacing(2),
     fontSize: '0.85rem',
     borderRadius: 6,
+    padding: theme.spacing(0.5, 2),
     '&:hover': {
       backgroundColor: '#f5f5f7',
       color: '#333',
@@ -50,7 +53,7 @@ export const useAccountInfoStyles = makeStyles((theme: Theme) => ({
     color: '#fff',
     textTransform: 'none',
     fontWeight: 600,
-    padding: theme.spacing(0.5, 2.5),
+    padding: theme.spacing(0.5, 3),
     borderRadius: 6,
     '&:hover': {
       backgroundColor: '#1e4fd1',
@@ -68,13 +71,26 @@ export const useAccountInfoStyles = makeStyles((theme: Theme) => ({
     flexDirection: 'column',
     alignItems: 'center',
     height: 'fit-content',
-    boxShadow: '0px 4px 12px rgba(0,0,0,0.03)',
+    boxShadow: '0px 4px 20px rgba(0,0,0,0.08)',
+    border: '1px solid #f0f0f0',
+    position: 'relative',
+  },
+  deleteAvatarBtn: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    color: theme.palette.error.main,
+    padding: 4,
+    '&:hover': {
+      backgroundColor: 'rgba(211, 47, 47, 0.04)',
+    }
   },
   rightCard: {
     backgroundColor: '#fff',
     borderRadius: 8,
     padding: theme.spacing(3, 4),
-    boxShadow: '0px 4px 12px rgba(0,0,0,0.03)',
+    boxShadow: '0px 4px 20px rgba(0,0,0,0.08)',
+    border: '1px solid #f0f0f0',
   },
   avatarCircle: {
     width: 130,
@@ -151,6 +167,10 @@ export const useAccountInfoStyles = makeStyles((theme: Theme) => ({
       },
       '&.Mui-disabled': {
         backgroundColor: '#f9f9f9',
+      },
+      '& input[type="date"]::-webkit-calendar-picker-indicator': {
+        display: 'none',
+        appearance: 'none',
       }
     },
     '& .MuiInputLabel-outlined': {

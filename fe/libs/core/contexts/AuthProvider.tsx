@@ -8,7 +8,7 @@ import { IUser } from '@shared/tts/models/auth.model';
 interface AuthContextType {
   user: IUser | null;
   isAuthenticated: boolean;
-  login: (userData: IUser, token: string) => void;
+  login: (userData: IUser, token: string, redirect?: boolean) => void;
   logout: () => void;
   loading: boolean;
 }
@@ -72,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [router]);
 
-  const login = (userData: IUser | any, token: string) => {
+  const login = (userData: IUser | any, token: string, redirect: boolean = true) => {
     let finalUser = userData;
     if (!finalUser) {
       finalUser = parseJwt(token);
@@ -80,7 +80,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(finalUser);
     localStorage.setItem('user', JSON.stringify(finalUser));
     setCookie('accessToken', token, 7); // Essential for Middleware
-    window.location.href = '/';
+    
+    if (redirect) {
+      window.location.href = '/';
+    }
   };
 
   const logout = () => {

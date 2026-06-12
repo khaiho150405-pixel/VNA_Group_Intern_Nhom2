@@ -4,9 +4,11 @@ import { useRouter } from "next/navigation";
 import { forgotPassReducer, initialForgotPassState, ForgotPassState } from "@tts/logic/forgot-password/reducer";
 import { authService } from "@tts/services/auth.services";
 import { validate, VALIDATION_MESSAGES } from "@core/utils/validation";
+import useLocales from "@core/hooks/useLocales";
 
 export const useForgotPassword = () => {
   const router = useRouter();
+  const { translate } = useLocales();
   const [state, dispatch] = useReducer(forgotPassReducer, initialForgotPassState);
   const [showToast, setShowToast] = useState(false);
   const [visible, setVisible] = useState(false);
@@ -63,14 +65,14 @@ export const useForgotPassword = () => {
     try {
       const response = await authService.sendOtp(state.email);
       if (response.success) {
-        triggerToast("success", response.message || "Gửi email thành công");
+        triggerToast("success", translate("notifications.otpSentSuccess"));
         setTimeout(() => {
           dispatch({ type: "nextStep" });
           setCountdown(60);
         }, 1000);
       }
     } catch (error: any) {
-      const errorMsg = error.response?.data?.errors || error.response?.data?.message || error.message || "Có lỗi xảy ra khi gửi email.";
+      const errorMsg = error.response?.data?.errors || error.response?.data?.message || error.message || translate("notifications.error");
       triggerToast("error", errorMsg);
     }
   };
@@ -91,6 +93,13 @@ export const useForgotPassword = () => {
       return;
     }
 
+    const hasLetter = /[a-zA-Z]/.test(state.newPassword);
+    const hasNumber = /[0-9]/.test(state.newPassword);
+    if (!hasLetter || !hasNumber) {
+      triggerToast("error", 'Mật khẩu mới quá yếu. Cần chứa ít nhất chữ và số.');
+      return;
+    }
+
     if (!validate.otp(state.otp)) {
       triggerToast("error", VALIDATION_MESSAGES.OTP_INVALID);
       return;
@@ -103,17 +112,17 @@ export const useForgotPassword = () => {
         newPassword: state.newPassword 
       });
       if (response && response.success) {
-        triggerToast("success", "Khôi phục mật khẩu thành công!");
+        triggerToast("success", translate("notifications.forgotPasswordSuccess"));
         setTimeout(() => {
           dispatch({ type: "reset" });
           router.push("/login");
         }, 1500);
       } else {
-        alert("Mã OTP không chính xác");
+        triggerToast("error", translate("notifications.otpError"));
       }
     } catch (error: any) {
-      const errorMsg = error.response?.data?.errors || error.response?.data?.message || error.message || "Có lỗi xảy ra";
-      alert(errorMsg);
+      const errorMsg = error.response?.data?.errors || error.response?.data?.message || error.message || translate("notifications.error");
+      triggerToast("error", errorMsg);
     }
   };
 
