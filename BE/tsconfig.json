@@ -8,13 +8,17 @@
     "allowSyntheticDefaultImports": true,
     "target": "es2017",
     "sourceMap": true,
+    "rootDir": "./src",
     "outDir": "./dist",
     "baseUrl": "./",
     "incremental": true,
     "resolveJsonModule": true,
+    "ignoreDeprecations": "6.0",
     "typeRoots": [
       "./types",
       "./node_modules/@types"
     ]
-  }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
 }
