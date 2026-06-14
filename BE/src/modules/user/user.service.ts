@@ -60,17 +60,26 @@ export class UserService extends BaseService<User> {
     }
   }
 
-  async import(currentUser: CurrentUser, users: any): Promise<any> {
+  async import(currentUser: CurrentUser, inputData: any): Promise<any> {
     try {
+      console.log("Dữ liệu gốc từ Frontend gửi xuống:", inputData);
+      let users = inputData;
+      if (inputData && typeof inputData === 'object' && !Array.isArray(inputData)) {
+        users = inputData.data || inputData.users || inputData.items || Object.values(inputData)[0] || [];
+      }
+      if (!users || !Array.isArray(users)) {
+        throw new Error("Dữ liệu gửi lên không đúng định dạng mảng (Array)!");
+      }
       let result = {
         success: 0,
         err: 0,
         username: [] as string[]
       };
+
       for (const user of users) {
         const username = user.username ? user.username.trim() : '';
         const email = user.email ? user.email.trim() : '';
-        
+
         const [existedUsername, existedEmail] = await Promise.all([
           this.userRepository.createQueryBuilder("u")
             .where("TRIM(u.username) = :username", { username })
@@ -84,21 +93,25 @@ export class UserService extends BaseService<User> {
           result.err += 1;
           result.username.push(user.username);
         } else {
-          await this.userRepository.save(
-            new User({
-              ...user,
-              username,
-              email,
-              password: user.password,
-              createdBy: currentUser.id,
-              createdAt: new Date()
-            })
-          );
+          const rawPassword = user.password || '12345678';
+          const hashedPassword = await argon.hash(rawPassword);
+
+          const newUser = this.userRepository.create({
+            ...user,
+            username,
+            email,
+            password: hashedPassword,
+            createdBy: currentUser?.id || null,
+            createdAt: new Date(),
+          });
+
+          await this.userRepository.save(newUser);
           result.success += 1;
         }
       }
       return result;
     } catch (error) {
+      console.error("LỖI KHI LƯU DB (HÀM IMPORT):", error);
       throw Response.errorInternal(error);
     }
   }
@@ -144,7 +157,6 @@ export class UserService extends BaseService<User> {
         order: { ...JSON.parse(order || "{}") },
         skip: pageNumber * pageSize,
         take: pageSize,
-        withDeleted: true
       });
       if (!!province) {
         items = items.filter((x) => x.province?.key === province.key);
@@ -170,7 +182,7 @@ export class UserService extends BaseService<User> {
           .where("TRIM(u.email) = :email", { email })
           .andWhere("u.id != :id", { id })
           .getOne();
-        
+
         if (existedEmail) {
           throw Response.errorBad("Email này đã được sử dụng bởi một tài khoản khác");
         }
@@ -184,7 +196,7 @@ export class UserService extends BaseService<User> {
           .where("TRIM(u.username) = :username", { username })
           .andWhere("u.id != :id", { id })
           .getOne();
-        
+
         if (existedUsername) {
           throw Response.errorBad("Tên đăng nhập đã tồn tại");
         }
@@ -256,8 +268,30 @@ export class UserService extends BaseService<User> {
       const updateData = { ...data };
       delete updateData.id; // Xóa id để TypeORM không báo lỗi cập nhật khoá chính
 
+      if (updateData.password) {
+        updateData.password = await argon.hash(updateData.password);
+      }
+
       await this.userRepository.update(id, updateData);
       return await this.userRepository.findOne({ where: { id: id as any } });
+    } catch (error) {
+      throw Response.errorInternal(error);
+    }
+  }
+
+  async delete(currentUser: any, id: string): Promise<any> {
+    try {
+      await this.manager.query(`
+        UPDATE users 
+        SET "deletedBy" = '${currentUser?.id}', 
+            "deletedAt" = NOW() 
+        WHERE id = '${id}'
+      `);
+
+      return {
+        success: true,
+        message: "Xoá người dùng thành công"
+      };
     } catch (error) {
       throw Response.errorInternal(error);
     }

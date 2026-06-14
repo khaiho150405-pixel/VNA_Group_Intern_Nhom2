@@ -2,6 +2,7 @@ import {
   Body,
   ClassSerializerInterceptor,
   Controller,
+  Delete,
   Get, Param,
   Post,
   Put,
@@ -61,9 +62,9 @@ export class UserController extends BaseController<User, UserService> {
   @ApiOperation({ summary: "Get items" })
   async import(
     @Req() req: any,
-    @Body("users") users: any
+    @Body() body: any
   ): Promise<{ success: number; err: number; username: [] }> {
-    return await this.userService.import(req.user, users);
+    return await this.userService.import(req.user, body);
   }
 
   @Post("recovery")
@@ -98,5 +99,10 @@ export class UserController extends BaseController<User, UserService> {
     }
     const updatedUser = await this.userService.updateUser(id, body);
     return Response.get(updatedUser);
+  }
+
+  @Delete(':id')
+  async delete(@Req() req: any, @Param('id') id: string) {
+    return await this.userService.delete(req.user, id);
   }
 }
