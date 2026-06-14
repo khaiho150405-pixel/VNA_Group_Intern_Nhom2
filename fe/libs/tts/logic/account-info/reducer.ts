@@ -1,4 +1,4 @@
-export const initialAccountInfoState = {
+﻿export const initialAccountInfoState = {
   active: true,
   showEmailModal: false,
   username: '',

@@ -82,10 +82,20 @@ export class UserController extends BaseController<User, UserService> {
     return await this.userService.resetPassword(id);
   }
 
+  @Post(":id/reset-password")
+  @ApiOperation({ summary: "reset password account with custom password" })
+  async resetPasswordCustom(
+    @Param("id") id: string,
+    @Body("password") password?: string
+  ): Promise<{ success: boolean }> {
+    return await this.userService.resetPasswordCustom(id, password);
+  }
+
   @Put(":id")
   @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
   @ApiOperation({ summary: "Cập nhật thông tin user" })
   async updateProfile(
+    @Req() req: any,
     @Param("id") id: string,
     @Body() body: any
   ): Promise<any> {
@@ -96,7 +106,7 @@ export class UserController extends BaseController<User, UserService> {
         throw new BadRequestException(errorMsg);
       }
     }
-    const updatedUser = await this.userService.updateUser(id, body);
+    const updatedUser = await this.userService.updateUser(id, body, req.user);
     return Response.get(updatedUser);
   }
 }

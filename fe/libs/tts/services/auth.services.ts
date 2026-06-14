@@ -94,7 +94,6 @@ export const authService = {
       params: { email, excludeId }
     });
   },
-
   /**
    * Check if email exists (public, no auth required) — used by forgot-password
    */

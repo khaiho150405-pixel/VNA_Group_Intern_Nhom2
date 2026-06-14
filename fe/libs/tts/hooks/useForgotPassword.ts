@@ -61,7 +61,6 @@ export const useForgotPassword = () => {
       triggerToast("error", VALIDATION_MESSAGES.EMAIL_INVALID);
       return;
     }
-
     try {
       // Check if email exists in the system first
       const checkRes = await authService.checkEmailPublic(state.email);
@@ -109,7 +108,6 @@ export const useForgotPassword = () => {
       triggerToast("error", 'Mật khẩu mới quá yếu. Cần chứa ít nhất chữ và số.');
       return;
     }
-
     if (!validate.otp(state.otp)) {
       triggerToast("error", VALIDATION_MESSAGES.OTP_INVALID);
       return;

@@ -1,6 +1,15 @@
 import React from 'react';
 import SettingsIcon from '@mui/icons-material/Settings';
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
+import HomeIcon from '@mui/icons-material/Home';
+import HelpIcon from '@mui/icons-material/HelpOutlined';
+import MailIcon from '@mui/icons-material/MailOutlined';
+import AppsIcon from '@mui/icons-material/Apps';
+import PeopleIcon from '@mui/icons-material/People';
+import GroupIcon from '@mui/icons-material/Group';
+import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
+import ChartIcon from '@mui/icons-material/BarChart';
+import CircleIcon from '@mui/icons-material/RadioButtonUnchecked';
 
 export interface NavItem {
   id: string;

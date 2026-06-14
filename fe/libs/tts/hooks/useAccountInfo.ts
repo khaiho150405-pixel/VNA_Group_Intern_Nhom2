@@ -198,7 +198,6 @@ export const useAccountInfo = () => {
       // Find selected district name from fetched districts list
       const selectedDistrict = state.districts.find(d => String(d.code) === String(state.district));
       const districtVal = selectedDistrict ? selectedDistrict.name : (state.district === 'GV' ? 'Phường Gò Vấp' : state.district);
-
       const payload: Record<string, any> = {
         fullName: state.displayName,
         dateOfBirth: state.birthday ? new Date(state.birthday) : null,

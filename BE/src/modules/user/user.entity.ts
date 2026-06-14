@@ -26,6 +26,7 @@ export class User extends BaseAddressEntity {
       "fullName",
       "realRole",
       "role",
+      "roleId",
       "gender",
       "avatar",
       "email",
@@ -90,13 +91,18 @@ export class User extends BaseAddressEntity {
   @Column({ nullable: true })
   doet_id!: number;
 
+  @Column({ nullable: true })
+  roleId!: number;
+
   @ManyToOne(() => Role, (role: Role) => role.users)
   @JoinColumn({ name: "roleId" })
   role!: Role;
 
   @BeforeInsert()
   async hashPassword() {
-    this.password = await argon.hash(this.password);
+    if (this.password && !this.password.startsWith("$argon2")) {
+      this.password = await argon.hash(this.password);
+    }
   }
 
   @Column({ nullable: true })

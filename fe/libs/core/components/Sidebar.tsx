@@ -42,19 +42,39 @@ export const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [showPassModal, setShowPassModal] = useState(false);
 
+  const roleObj = user && typeof (user as any).role === 'object' && (user as any).role !== null ? (user as any).role : null;
+  const userRoleId = user ? ((user as any).roleId || roleObj?.id) : undefined;
   const rawRole = user
-    ? ((user as any).realRole || (typeof user.role === 'object' && user.role !== null ? (user.role as any).role : user.role))
+    ? ((user as any).realRole || roleObj?.role || (typeof user.role === 'string' ? user.role : ''))
     : undefined;
 
   let userRole = rawRole;
-  if (rawRole === 'Admin' || rawRole === 'ROLE_ADMIN') {
+  if (
+    userRoleId === 4 || 
+    userRoleId === 3 || 
+    userRoleId === 2 || 
+    rawRole === 'Admin' || 
+    rawRole === 'ROLE_ADMIN' || 
+    rawRole === 'superAdmin' || 
+    rawRole === 'leader' || 
+    rawRole === 'expert' || 
+    rawRole === 'ROLE_SO'
+  ) {
     userRole = 'ROLE_SO';
-  } else if (rawRole === 'User' || rawRole === 'ROLE_USER') {
+  } else if (
+    userRoleId === 1 || 
+    rawRole === 'User' || 
+    rawRole === 'ROLE_USER' || 
+    rawRole === 'employee' || 
+    rawRole === 'ROLE_DN'
+  ) {
     userRole = 'ROLE_DN';
   }
 
-  // Filter items based on user role - REMOVED AS REQUESTED
-  const filteredItems = NAVIGATION_ITEMS;
+  // Filter items based on user role
+  const filteredItems = NAVIGATION_ITEMS.filter(item => 
+    item.roles.includes(userRole as any)
+  );
 
   const handleToggle = (id: string) => {
     if (isCollapsed) {
