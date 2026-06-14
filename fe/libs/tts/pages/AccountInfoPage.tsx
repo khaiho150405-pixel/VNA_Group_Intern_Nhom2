@@ -1,5 +1,6 @@
 "use client";
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   Box, 
   Typography, 
@@ -23,11 +24,13 @@ import { CustomCalendar } from '@core/components/CustomCalendar';
 
 export const AccountInfoPage = () => {
   const classes = useAccountInfoStyles();
+  const router = useRouter();
   const { 
     state, 
     dispatch, 
     handleInputChange, 
-    handleSave 
+    handleSave,
+    hasChanges
   } = useAccountInfo();
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -49,7 +52,9 @@ export const AccountInfoPage = () => {
     avatarUrl,
     loading,
     toast,
-    roles
+    roles,
+    provinces,
+    districts
   } = state;
 
   const handleAvatarClick = () => {
@@ -109,14 +114,22 @@ export const AccountInfoPage = () => {
       <Box className={classes.pageHeader}>
         <Typography className={classes.headerTitle}>Chi tiết người dùng</Typography>
         <Box className={classes.actions}>
-          <Button className={classes.cancelBtn} disableRipple disabled={loading}>Hủy bỏ</Button>
+          <Button className={classes.cancelBtn} disableRipple disabled={loading} onClick={() => router.push('/')}>Hủy bỏ</Button>
           <Button 
             variant="contained" 
             startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Save fontSize="small" />} 
             className={classes.saveBtn}
             disableElevation
             onClick={handleSave}
-            disabled={loading}
+            disabled={loading || !hasChanges}
+            sx={{
+              ...(!hasChanges && !loading ? {
+                backgroundColor: '#b0b0b0 !important',
+                color: '#fff !important',
+                '&:hover': { backgroundColor: '#b0b0b0 !important' },
+                cursor: 'not-allowed',
+              } : {})
+            }}
           >
             {loading ? 'Đang lưu...' : 'Lưu'}
           </Button>
@@ -295,14 +308,10 @@ export const AccountInfoPage = () => {
                     disabled={loading}
                   >
                     {roles && roles.length > 0 ? (
-                      [
-                        <MenuItem key="placeholder" value="">-- Chọn vai trò --</MenuItem>,
-                        ...roles.map((r) => (
-                          <MenuItem key={r.id} value={r.role}>{r.name}</MenuItem>
-                        ))
-                      ]
+                      roles.map((r) => (
+                        <MenuItem key={r.id} value={r.role}>{r.name}</MenuItem>
+                      ))
                     ) : [
-                      <MenuItem key="placeholder" value="">-- Chọn vai trò --</MenuItem>,
                       <MenuItem key="superAdmin" value="superAdmin">Quản trị viên</MenuItem>,
                       <MenuItem key="leader" value="leader">Lãnh đạo</MenuItem>,
                       <MenuItem key="expert" value="expert">Chuyên viên</MenuItem>,
@@ -352,8 +361,10 @@ export const AccountInfoPage = () => {
                     }}
                     disabled={loading}
                   >
-                    <MenuItem value="">--Chọn tỉnh/ thành phố--</MenuItem>
-                    <MenuItem value="HCM">Thành phố Hồ Chí Minh</MenuItem>
+                    <MenuItem value="">--Chọn tỉnh/ Thành phố--</MenuItem>
+                    {provinces && provinces.map((p) => (
+                      <MenuItem key={p.code} value={String(p.code)}>{p.name}</MenuItem>
+                    ))}
                   </TextField>
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
@@ -369,7 +380,9 @@ export const AccountInfoPage = () => {
                     disabled={loading || !city}
                   >
                     <MenuItem value="">--Chọn phường xã--</MenuItem>
-                    <MenuItem value="GV">Phường Gò Vấp</MenuItem>
+                    {districts && districts.map((d) => (
+                      <MenuItem key={d.code} value={String(d.code)}>{d.name}</MenuItem>
+                    ))}
                   </TextField>
                 </Grid>
                 <Grid size={{ xs: 12 }}>

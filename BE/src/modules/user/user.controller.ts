@@ -18,6 +18,7 @@ import {
   GetAllDto,
   ResponseInterceptor
 } from "src/commons";
+import Response from "src/commons/response";
 import { AuthGuard } from "src/commons/guards/authGuard";
 import { User } from "./user.entity";
 import { UserService } from "./user.service";
@@ -95,6 +96,7 @@ export class UserController extends BaseController<User, UserService> {
         throw new BadRequestException(errorMsg);
       }
     }
-    return await this.userService.updateUser(id, body);
+    const updatedUser = await this.userService.updateUser(id, body);
+    return Response.get(updatedUser);
   }
 }

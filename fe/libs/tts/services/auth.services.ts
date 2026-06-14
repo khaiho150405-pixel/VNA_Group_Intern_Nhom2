@@ -1,4 +1,4 @@
-﻿import axiosClient from '@core/services/axiosClient';
+import axiosClient from '@core/services/axiosClient';
 import {
   ILoginResponse,
   IApiResponse,
@@ -92,6 +92,15 @@ export const authService = {
   checkEmail: async (email: string, excludeId?: string): Promise<{ email: string; existed: boolean }> => {
     return axiosClient.get(API_ENDPOINTS.USER.CHECK_EMAIL, {
       params: { email, excludeId }
+    });
+  },
+
+  /**
+   * Check if email exists (public, no auth required) — used by forgot-password
+   */
+  checkEmailPublic: async (email: string): Promise<{ email: string; existed: boolean }> => {
+    return axiosClient.get('/auth/check-email', {
+      params: { email }
     });
   },
 

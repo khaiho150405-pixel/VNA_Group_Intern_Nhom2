@@ -56,13 +56,20 @@ export const useForgotPassword = () => {
       triggerToast("error", VALIDATION_MESSAGES.FULL_INFO_REQUIRED);
       return;
     }
-    
+
     if (!validate.email(state.email)) {
       triggerToast("error", VALIDATION_MESSAGES.EMAIL_INVALID);
       return;
     }
-    
+
     try {
+      // Check if email exists in the system first
+      const checkRes = await authService.checkEmailPublic(state.email);
+      if (checkRes && !checkRes.existed) {
+        triggerToast("error", "Email chưa đăng ký trong hệ thống. Vui lòng kiểm tra lại.");
+        return;
+      }
+
       const response = await authService.sendOtp(state.email);
       if (response.success) {
         triggerToast("success", translate("notifications.otpSentSuccess"));
@@ -72,8 +79,11 @@ export const useForgotPassword = () => {
         }, 1000);
       }
     } catch (error: any) {
-      const errorMsg = error.response?.data?.errors || error.response?.data?.message || error.message || translate("notifications.error");
-      triggerToast("error", errorMsg);
+      let errorMsg = error.response?.data?.errors || error.response?.data?.message || error.message || translate("notifications.error");
+      if (typeof errorMsg === 'object' && errorMsg !== null) {
+        errorMsg = errorMsg.message || JSON.stringify(errorMsg);
+      }
+      triggerToast("error", String(errorMsg));
     }
   };
 
@@ -106,10 +116,10 @@ export const useForgotPassword = () => {
     }
 
     try {
-      const response = await authService.resetPassword({ 
-        email: state.email, 
-        otp: state.otp, 
-        newPassword: state.newPassword 
+      const response = await authService.resetPassword({
+        email: state.email,
+        otp: state.otp,
+        newPassword: state.newPassword
       });
       if (response && response.success) {
         triggerToast("success", translate("notifications.forgotPasswordSuccess"));

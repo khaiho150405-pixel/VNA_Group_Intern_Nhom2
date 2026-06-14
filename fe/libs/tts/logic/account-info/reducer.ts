@@ -1,4 +1,4 @@
-﻿export const initialAccountInfoState = {
+export const initialAccountInfoState = {
   active: true,
   showEmailModal: false,
   username: '',
@@ -14,12 +14,16 @@
   avatarUrl: '',
   avatarFile: null as File | null,
   roles: [] as any[],
+  provinces: [] as any[],
+  districts: [] as any[],
   loading: false,
   toast: {
     show: false,
     message: '',
     type: 'success' as 'success' | 'error'
-  }
+  },
+  // Snapshot of initial form values for dirty-checking
+  initialSnapshot: null as Record<string, any> | null,
 };
 
 export type AccountInfoState = typeof initialAccountInfoState;
@@ -57,11 +61,18 @@ export const accountInfoReducer = (state: AccountInfoState, action: AccountInfoA
         ...state,
         showEmailModal: action.value,
       };
-    case 'setInitialData':
+    case 'setInitialData': {
+      const snapshot: Record<string, any> = {};
+      const editableKeys = ['displayName', 'birthday', 'gender', 'title', 'role', 'city', 'district', 'address', 'avatarUrl', 'active'];
+      editableKeys.forEach((key) => {
+        snapshot[key] = (action.data as any)[key] !== undefined ? (action.data as any)[key] : (state as any)[key];
+      });
       return {
         ...state,
         ...action.data,
+        initialSnapshot: snapshot,
       };
+    }
     case 'setLoading':
       return {
         ...state,

@@ -185,7 +185,7 @@ export const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
         sx={{
           display: 'flex',
           alignItems: 'center',
-          padding: isCollapsed ? '16px 0' : '16px 15px',
+          padding: isCollapsed ? '16px 0' : '16px 6px',
           borderBottom: '1px solid rgba(255,255,255,0.2)',
           minHeight: 80,
           justifyContent: isCollapsed ? 'center' : 'flex-start',
@@ -198,35 +198,35 @@ export const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
               src="/static/mock-images/logo.png" 
               alt="Logo" 
               sx={{
-                height: 40,
-                width: 40,
-                marginRight: 1,
+                height: 32,
+                width: 32,
+                marginRight: 0.5,
                 flexShrink: 0
               }}
             />
-            <Box sx={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', mr: 1 }}>
+            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', mr: 0.5, overflow: 'hidden' }}>
               <Typography 
                 sx={{
-                  fontSize: '0.75rem',
+                  fontSize: '0.74rem',
                   fontWeight: 600,
-                  lineHeight: 1.2,
-                  color: 'rgba(255,255,255,0.9)',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  alignItems: 'center',
+                  lineHeight: 1.3,
+                  color: '#fff',
+                  textAlign: 'center',
+                  whiteSpace: 'nowrap',
+                  width: '100%',
                 }}
               >
                 Ủy ban nhân dân thành phố
               </Typography>
               <Typography 
                 sx={{
-                  fontSize: '0.75rem',
+                  fontSize: '0.74rem',
                   fontWeight: 600,
-                  lineHeight: 1.2,
-                  color: 'rgba(255,255,255,0.9)',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  alignItems: 'center',
+                  lineHeight: 1.3,
+                  color: '#fff',
+                  textAlign: 'center',
+                  whiteSpace: 'nowrap',
+                  width: '100%',
                 }}
               >
                 Hồ Chí Minh

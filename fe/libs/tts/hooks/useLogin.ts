@@ -19,19 +19,12 @@ export const useLogin = () => {
     const t = setTimeout(() => setVisible(true), 20);
     // Load remembered credentials
     const rememberedUser = localStorage.getItem("rememberedUser");
-    const rememberedPasswordBase64 = localStorage.getItem("rememberedPassword");
     const rememberedMemory = localStorage.getItem("isMemory") === "true";
 
     if (rememberedMemory && rememberedUser) {
-      let decodedPassword = "";
-      if (rememberedPasswordBase64) {
-        try {
-          decodedPassword = atob(rememberedPasswordBase64);
-        } catch (e) {}
-      }
       dispatch({
         type: "setValues",
-        values: { userName: rememberedUser, password: decodedPassword, isMemory: true }
+        values: { userName: rememberedUser, password: "", isMemory: true }
       });
     }
 
@@ -97,7 +90,7 @@ export const useLogin = () => {
         // Handle "Remember Me"
         if (state.isMemory) {
           localStorage.setItem("rememberedUser", state.userName);
-          localStorage.setItem("rememberedPassword", btoa(state.password));
+          localStorage.removeItem("rememberedPassword");
           localStorage.setItem("isMemory", "true");
         } else {
           localStorage.removeItem("rememberedUser");

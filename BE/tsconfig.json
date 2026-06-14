@@ -17,8 +17,9 @@
       "./types",
       "./node_modules/@types"
     ],
-    "types": ["jest"],
-    "ignoreDeprecations": "6.0",
+    "types": [
+      "jest"
+    ],
     "skipLibCheck": true
   }
 }

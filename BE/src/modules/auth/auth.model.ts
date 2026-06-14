@@ -22,11 +22,31 @@ export class CurrentUser {
   role!: Role;
   unitId?: number;
   workUnit?: any;
+  gender?: number;
+  dateOfBirth?: Date;
+  province?: any;
+  district?: any;
+  address?: string;
 
   constructor(
     doet: number | null,
     user?: Partial<CurrentUser>,
-    keys: string[] = ['id', 'username', 'fullName', 'email', 'realRole', 'role', 'avatar', 'unitId', 'workUnit'],
+    keys: string[] = [
+      'id',
+      'username',
+      'fullName',
+      'email',
+      'realRole',
+      'role',
+      'avatar',
+      'unitId',
+      'workUnit',
+      'gender',
+      'dateOfBirth',
+      'province',
+      'district',
+      'address'
+    ],
   ) {
     user &&
       keys.forEach((key) => {

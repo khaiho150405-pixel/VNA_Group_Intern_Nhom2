@@ -40,6 +40,17 @@ export class AuthController {
     return this.authService.login(req.user, req.doet);
   }
 
+  @Get("check-email")
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
+  @ApiOperation({
+    summary: "Check if email exists in the system (public, no auth required)"
+  })
+  async checkEmail(
+    @Query("email") email: string
+  ): Promise<{ email: string; existed: boolean }> {
+    return this.authService.checkEmailExists(email);
+  }
+
   @Post("forgot-password")
   @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
   @ApiOperation({

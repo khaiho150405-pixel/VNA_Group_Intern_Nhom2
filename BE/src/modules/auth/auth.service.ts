@@ -58,6 +58,18 @@ export class AuthService {
     }
   }
 
+  async checkEmailExists(email: string): Promise<{ email: string; existed: boolean }> {
+    try {
+      const manage = getManager();
+      const user = await manage.findOne(User, {
+        where: { email: email.trim() }
+      });
+      return { email, existed: !!user };
+    } catch (error) {
+      throw Response.errorInternal(error);
+    }
+  }
+
   async forgotPassword(email: string, domain: string) {
     try {
       const manage = getManager();
