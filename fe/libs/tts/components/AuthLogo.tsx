@@ -1,38 +1,7 @@
-"use client";
+﻿"use client";
 import React from "react";
 import { Typography, Box } from "@mui/material";
-import { makeStyles } from "@material-ui/styles";
-import { Theme } from "@mui/material/styles";
 import { VNA_COLORS, VNA_TYPOGRAPHY } from "@core/theme";
-
-const useStyles = makeStyles((theme: Theme) => ({
-  logoContainer: {
-    display: "flex",
-    justifyContent: "center",
-    marginBottom: theme.spacing(2),
-  },
-  logo: {
-    width: 90,
-    height: "auto",
-  },
-  mainTitle: {
-    fontSize: VNA_TYPOGRAPHY.mainTitleSize,
-    fontWeight: 700,
-    textAlign: "center",
-    marginBottom: theme.spacing(2),
-    lineHeight: 1.45,
-    color: VNA_COLORS.black
-  },
-  subTitle: {
-    width: "100%",
-    fontSize: VNA_TYPOGRAPHY.subTitleSize,
-    fontWeight: 700,
-    color: VNA_COLORS.primary, 
-    marginBottom: theme.spacing(2.5),
-    textTransform: "uppercase",
-    textAlign: "center",
-  },
-}));
 
 interface AuthLogoProps {
   title?: string;
@@ -41,14 +10,25 @@ interface AuthLogoProps {
 }
 
 export const AuthLogo: React.FC<AuthLogoProps> = ({ title, subTitle, subTitleAlign }) => {
-  const classes = useStyles();
   return (
-    <Box display="flex" flexDirection="column" alignItems="center">
-      <div className={classes.logoContainer}>
-        <img src="/static/mock-images/logo.png" alt="Logo" className={classes.logo} />
-      </div>
+    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
+        <Box 
+          component="img" 
+          src="/static/mock-images/logo.png" 
+          alt="Logo" 
+          sx={{ width: 90, height: "auto" }} 
+        />
+      </Box>
       {title && (
-        <Typography className={classes.mainTitle}>
+        <Typography sx={{ 
+          fontSize: VNA_TYPOGRAPHY.mainTitleSize, 
+          fontWeight: 700, 
+          textAlign: "center", 
+          mb: 2, 
+          lineHeight: 1.45, 
+          color: VNA_COLORS.black 
+        }}>
           {title.split('<br/>').map((line, i) => (
             <React.Fragment key={i}>
               {line}
@@ -59,8 +39,15 @@ export const AuthLogo: React.FC<AuthLogoProps> = ({ title, subTitle, subTitleAli
       )}
       {subTitle && (
         <Typography 
-          className={classes.subTitle} 
-          style={subTitleAlign ? { textAlign: subTitleAlign } : {}}
+          sx={{ 
+            width: "100%", 
+            fontSize: VNA_TYPOGRAPHY.subTitleSize, 
+            fontWeight: 700, 
+            color: VNA_COLORS.primary, 
+            mb: 2.5, 
+            textTransform: "uppercase", 
+            textAlign: subTitleAlign || "center" 
+          }}
         >
           {subTitle}
         </Typography>
@@ -68,3 +55,5 @@ export const AuthLogo: React.FC<AuthLogoProps> = ({ title, subTitle, subTitleAli
     </Box>
   );
 };
+
+

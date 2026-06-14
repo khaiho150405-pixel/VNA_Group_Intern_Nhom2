@@ -28,8 +28,8 @@ export class AuthService {
       const tokenPayload = { ...user };
       delete tokenPayload.avatar;
       const [views, token] = await Promise.all([
-        await this.viewService.getViewsByRoleId(user.role.id),
-        await this.jwtService.sign(tokenPayload)
+        this.viewService.getViewsByRoleId(user.role?.id as any),
+        this.jwtService.signAsync(tokenPayload)
       ]);
       const rs = new LoginModel({
         token,
@@ -46,13 +46,25 @@ export class AuthService {
     try {
       const _doet = doet && doet.id ? doet.id : null;
       const user = new CurrentUser(_doet, await this.jwtService.verifyAsync(token));
-      const views = await this.viewService.getViewsByRoleId(user.role.id);
+      const views = await this.viewService.getViewsByRoleId(user.role?.id as any);
       const rs = new LoginModel({
         user,
         views: get(views, "data.items", [])
       });
 
       return Response.get<LoginModel>(rs);
+    } catch (error) {
+      throw Response.errorInternal(error);
+    }
+  }
+
+  async checkEmailExists(email: string): Promise<{ email: string; existed: boolean }> {
+    try {
+      const manage = getManager();
+      const user = await manage.findOne(User, {
+        where: { email: email.trim() }
+      });
+      return { email, existed: !!user };
     } catch (error) {
       throw Response.errorInternal(error);
     }
@@ -67,7 +79,7 @@ export class AuthService {
         }
       });
       if (!user) {
-        return Response.errorNotFound("Not found email");
+        throw Response.errorNotFound("Email chưa đăng ký trong hệ thống. Xin vui lòng thử lại sau");
       }
       
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -78,7 +90,7 @@ export class AuthService {
       const template = fs.readFileSync(
         path.resolve(
           __dirname,
-          `${process.env.dirTemp}/forgot-password.html`
+          `${process.env.dirTemp || ''}/forgot-password.html`
         ), {
           encoding: "utf-8"
         });
@@ -104,7 +116,7 @@ export class AuthService {
         }
       });
       if (!user) {
-        return Response.errorNotFound("Not found email");
+        throw Response.errorNotFound("Email chưa đăng ký trong hệ thống. Xin vui lòng thử lại sau");
       }
       if (!user.otp || user.otp !== otp) {
         return Response.errorBad("Mã OTP không chính xác");
@@ -115,8 +127,8 @@ export class AuthService {
 
       const _newPassword = await argon.hash(passwordNew);
       user.password = _newPassword;
-      user.otp = null;
-      user.otpExpired = null;
+      user.otp = null as any;
+      user.otpExpired = null as any;
       await manage.save(user);
 
       return Response.SUCCESSFULLY;
@@ -134,7 +146,7 @@ export class AuthService {
         }
       });
       if (!user) {
-        return Response.errorNotFound("Not found email");
+        throw Response.errorNotFound("Email chưa đăng ký trong hệ thống. Xin vui lòng thử lại sau");
       }
       if (!user.otp || user.otp !== otp) {
         return Response.errorBad("Mã OTP không chính xác");
@@ -143,8 +155,8 @@ export class AuthService {
         return Response.errorBad("Mã OTP đã hết hạn");
       }
 
-      user.otp = null;
-      user.otpExpired = null;
+      user.otp = null as any;
+      user.otpExpired = null as any;
       await manage.save(user);
 
       return Response.SUCCESSFULLY;
@@ -165,6 +177,12 @@ export class AuthService {
       const match = await argon.verify(user.password, oldPassword);
       if (!match) {
         return Response.errorBad('Mật khẩu cũ không đúng');
+      }
+
+      // Check if new password is the same as old password
+      const isSame = await argon.verify(user.password, newPassword);
+      if (isSame) {
+        return Response.errorBad('Mật khẩu mới không được trùng với mật khẩu cũ');
       }
 
       const _newPassword = await argon.hash(newPassword);

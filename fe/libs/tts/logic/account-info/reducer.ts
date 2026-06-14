@@ -3,22 +3,27 @@ export const initialAccountInfoState = {
   showEmailModal: false,
   username: '',
   displayName: '',
-  birthday: '01/06/1995',
+  birthday: '1995-06-01',
   gender: '',
   title: '',
-  role: 'Admin',
+  role: '',
   email: '',
-  city: 'HCM',
-  district: 'GV',
+  city: '',
+  district: '',
   address: '',
   avatarUrl: '',
   avatarFile: null as File | null,
+  roles: [] as any[],
+  provinces: [] as any[],
+  districts: [] as any[],
   loading: false,
   toast: {
     show: false,
     message: '',
     type: 'success' as 'success' | 'error'
-  }
+  },
+  // Snapshot of initial form values for dirty-checking
+  initialSnapshot: null as Record<string, any> | null,
 };
 
 export type AccountInfoState = typeof initialAccountInfoState;
@@ -29,6 +34,7 @@ export type AccountInfoAction =
   | { type: 'toggleEmailModal'; value: boolean }
   | { type: 'setInitialData'; data: Partial<AccountInfoState> }
   | { type: 'setLoading'; value: boolean }
+  | { type: 'removeAvatar' }
   | { type: 'showToast'; message: string; toastType: 'success' | 'error' }
   | { type: 'hideToast' };
 
@@ -38,6 +44,12 @@ export const accountInfoReducer = (state: AccountInfoState, action: AccountInfoA
       return {
         ...state,
         [action.name]: action.value,
+      };
+    case 'removeAvatar':
+      return {
+        ...state,
+        avatarUrl: '',
+        avatarFile: null,
       };
     case 'toggleActive':
       return {
@@ -49,11 +61,18 @@ export const accountInfoReducer = (state: AccountInfoState, action: AccountInfoA
         ...state,
         showEmailModal: action.value,
       };
-    case 'setInitialData':
+    case 'setInitialData': {
+      const snapshot: Record<string, any> = {};
+      const editableKeys = ['displayName', 'birthday', 'gender', 'title', 'role', 'city', 'district', 'address', 'avatarUrl', 'active'];
+      editableKeys.forEach((key) => {
+        snapshot[key] = (action.data as any)[key] !== undefined ? (action.data as any)[key] : (state as any)[key];
+      });
       return {
         ...state,
         ...action.data,
+        initialSnapshot: snapshot,
       };
+    }
     case 'setLoading':
       return {
         ...state,
@@ -80,3 +99,4 @@ export const accountInfoReducer = (state: AccountInfoState, action: AccountInfoA
       return state;
   }
 };
+

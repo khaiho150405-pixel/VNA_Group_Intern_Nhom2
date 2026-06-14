@@ -1,5 +1,6 @@
 "use client";
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   Box, 
   Typography, 
@@ -9,24 +10,31 @@ import {
   Switch, 
   MenuItem,
   InputAdornment,
-  CircularProgress
+  CircularProgress,
+  IconButton
 } from '@mui/material';
-import { PhotoCamera, Save, Event } from '@material-ui/icons';
+import { PhotoCamera, Save, Event, Delete } from '@mui/icons-material';
 import { ChangeEmailModal } from '@core/components/ChangeEmailModal';
+import { RequiredLabel } from '@core/components/RequiredLabel';
 import { AppToast } from '@tts/components/AppToast';
 import { useAccountInfoStyles } from '../logic/account-info/style';
 import { useAccountInfo } from '@tts/hooks/useAccountInfo';
 
+import { CustomCalendar } from '@core/components/CustomCalendar';
+
 export const AccountInfoPage = () => {
   const classes = useAccountInfoStyles();
+  const router = useRouter();
   const { 
     state, 
     dispatch, 
     handleInputChange, 
-    handleSave 
+    handleSave,
+    hasChanges
   } = useAccountInfo();
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [calendarAnchor, setCalendarAnchor] = React.useState<null | HTMLElement>(null);
 
   const {
     active,
@@ -43,7 +51,10 @@ export const AccountInfoPage = () => {
     address,
     avatarUrl,
     loading,
-    toast
+    toast,
+    roles,
+    provinces,
+    districts
   } = state;
 
   const handleAvatarClick = () => {
@@ -71,6 +82,25 @@ export const AccountInfoPage = () => {
     }
   };
 
+  const handleInputFocus = () => {
+    dispatch({ type: 'hideToast' });
+  };
+
+  const formatDateDisplay = (dateStr: string) => {
+    if (!dateStr) return '';
+    const [y, m, d] = dateStr.split('-');
+    if (!y || !m || !d) return dateStr;
+    return `${d}/${m}/${y}`;
+  };
+
+  const handleCalendarOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setCalendarAnchor(event.currentTarget);
+  };
+
+  const handleCalendarClose = () => {
+    setCalendarAnchor(null);
+  };
+
   return (
     <Box className={classes.root}>
       <AppToast 
@@ -80,23 +110,26 @@ export const AccountInfoPage = () => {
         onClose={() => dispatch({ type: 'hideToast' })} 
       />
 
-      {/* Top Grey Bar */}
-      <Box className={classes.topTitleBar}>
-        Thông tin tài khoản
-      </Box>
-
       {/* Page Header */}
       <Box className={classes.pageHeader}>
         <Typography className={classes.headerTitle}>Chi tiết người dùng</Typography>
         <Box className={classes.actions}>
-          <Button className={classes.cancelBtn} disableRipple disabled={loading}>Hủy bỏ</Button>
+          <Button className={classes.cancelBtn} disableRipple disabled={loading} onClick={() => router.push('/')}>Hủy bỏ</Button>
           <Button 
             variant="contained" 
             startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Save fontSize="small" />} 
             className={classes.saveBtn}
             disableElevation
             onClick={handleSave}
-            disabled={loading}
+            disabled={loading || !hasChanges}
+            sx={{
+              ...(!hasChanges && !loading ? {
+                backgroundColor: '#b0b0b0 !important',
+                color: '#fff !important',
+                '&:hover': { backgroundColor: '#b0b0b0 !important' },
+                cursor: 'not-allowed',
+              } : {})
+            }}
           >
             {loading ? 'Đang lưu...' : 'Lưu'}
           </Button>
@@ -107,8 +140,18 @@ export const AccountInfoPage = () => {
       <Box className={classes.mainContent}>
         <Grid container spacing={3}>
           {/* Left Column: Avatar & Activation */}
-          <Grid item xs={12} md={3}>
+
+          <Grid size={{ xs: 12, md: 3 }}>
             <Box className={classes.leftCard}>
+              <IconButton 
+                className={classes.deleteAvatarBtn} 
+                onClick={() => dispatch({ type: 'removeAvatar' })}
+                disabled={loading || !avatarUrl}
+                size="small"
+                title="Xóa ảnh"
+              >
+                <Delete fontSize="small" />
+              </IconButton>
               <input
                 type="file"
                 hidden
@@ -153,6 +196,7 @@ export const AccountInfoPage = () => {
                 <Switch 
                   checked={active} 
                   onChange={() => dispatch({ type: 'toggleActive' })} 
+                  onFocus={handleInputFocus}
                   color="primary" 
                   size="small"
                   disabled={loading}
@@ -162,78 +206,120 @@ export const AccountInfoPage = () => {
           </Grid>
 
           {/* Right Column: Forms */}
-          <Grid item xs={12} md={9}>
+          <Grid size={{ xs: 12, md: 9 }}>
             <Box className={classes.rightCard}>
               {/* Personal Information Section */}
               <Typography className={classes.sectionTitle}>Thông tin cá nhân</Typography>
               <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <TextField 
-                    fullWidth label="Tên đăng nhập (*)" variant="outlined" size="small" 
+                    fullWidth label={<RequiredLabel label="Tên đăng nhập" />} variant="outlined" size="small" 
                     className={classes.field} value={username} 
-                    disabled InputLabelProps={{ shrink: true }}
+                    onFocus={handleInputFocus}
+                    disabled slotProps={{ inputLabel: { shrink: true } }}
                   />
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <TextField 
-                    fullWidth label="Họ và tên (*)" variant="outlined" size="small" 
+                    fullWidth label={<RequiredLabel label="Họ và tên" />} variant="outlined" size="small" 
                     className={classes.field} value={displayName} 
                     onChange={(e) => handleInputChange('displayName', e.target.value)}
-                    InputLabelProps={{ shrink: true }}
+                    onFocus={handleInputFocus}
+                    slotProps={{ inputLabel: { shrink: true } }}
                     disabled={loading}
                   />
                 </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField 
-                    fullWidth label="Ngày tháng năm sinh" variant="outlined" size="small" 
-                    className={classes.field} value={birthday}
-                    onChange={(e) => handleInputChange('birthday', e.target.value)}
-                    InputLabelProps={{ shrink: true }}
-                    disabled={loading}
-                    InputProps={{
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <Event fontSize="small" style={{ color: '#999' }} />
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Box sx={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+                    <TextField 
+                      fullWidth label="Ngày tháng năm sinh" variant="outlined" size="small" 
+                      className={classes.field} value={formatDateDisplay(birthday)}
+                      onFocus={handleInputFocus}
+                      placeholder="DD/MM/YYYY"
+                      autoComplete="off"
+                      disabled={loading}
+                      onClick={handleCalendarOpen}
+                      sx={{ '& .MuiOutlinedInput-root': { pr: '4px' } }}
+                      slotProps={{
+                        inputLabel: { shrink: true },
+                        input: {
+                          readOnly: true,
+                          endAdornment: (
+                            <InputAdornment position="end">
+                              <IconButton 
+                                size="small" 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCalendarOpen(e);
+                                }}
+                                disabled={loading}
+                                sx={{ padding: '4px' }}
+                              >
+                                <Event fontSize="small" style={{ color: '#999' }} />
+                              </IconButton>
+                            </InputAdornment>
+                          ),
+                        }
+                      }}
+                    />
+                    <CustomCalendar
+                      open={Boolean(calendarAnchor)}
+                      anchorEl={calendarAnchor}
+                      value={birthday}
+                      onChange={(val) => handleInputChange('birthday', val)}
+                      onClose={handleCalendarClose}
+                    />
+                  </Box>
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <TextField 
                     select fullWidth label="Giới tính" variant="outlined" size="small" 
                     className={classes.field} value={gender}
                     onChange={(e) => handleInputChange('gender', e.target.value)}
-                    InputLabelProps={{ shrink: true }}
+                    onFocus={handleInputFocus}
+                    slotProps={{ inputLabel: { shrink: true } }}
                     disabled={loading}
                   >
                     <MenuItem value="Nam">Nam</MenuItem>
                     <MenuItem value="Nữ">Nữ</MenuItem>
                   </TextField>
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <TextField 
                     fullWidth label="Chức danh" variant="outlined" size="small" 
                     className={classes.field} placeholder="Nhập chức danh" 
                     value={title}
                     onChange={(e) => handleInputChange('title', e.target.value)}
-                    InputLabelProps={{ shrink: true }}
+                    onFocus={handleInputFocus}
+                    slotProps={{ inputLabel: { shrink: true } }}
                     disabled={loading}
                   />
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <TextField 
-                    select fullWidth label="Vai trò (*)" variant="outlined" size="small" 
+                    select fullWidth label={<RequiredLabel label="Vai trò" />} variant="outlined" size="small" 
                     className={classes.field} value={role}
                     onChange={(e) => handleInputChange('role', e.target.value)}
-                    InputLabelProps={{ shrink: true }}
+                    onFocus={handleInputFocus}
+                    slotProps={{ 
+                      inputLabel: { shrink: true },
+                      select: { displayEmpty: true }
+                    }}
                     disabled={loading}
                   >
-                    <MenuItem value="Admin">Quản trị viên</MenuItem>
-                    <MenuItem value="User">Người dùng</MenuItem>
+                    {roles && roles.length > 0 ? (
+                      roles.map((r) => (
+                        <MenuItem key={r.id} value={r.role}>{r.name}</MenuItem>
+                      ))
+                    ) : [
+                      <MenuItem key="superAdmin" value="superAdmin">Quản trị viên</MenuItem>,
+                      <MenuItem key="leader" value="leader">Lãnh đạo</MenuItem>,
+                      <MenuItem key="expert" value="expert">Chuyên viên</MenuItem>,
+                      <MenuItem key="employee" value="employee">Nhân viên</MenuItem>
+                    ]}
                   </TextField>
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <TextField 
                     fullWidth 
                     label="Email" 
@@ -241,14 +327,16 @@ export const AccountInfoPage = () => {
                     size="small" 
                     className={classes.field}
                     value={email} 
+                    onFocus={handleInputFocus}
                     disabled 
-                    InputLabelProps={{ shrink: true }}
+                    slotProps={{ inputLabel: { shrink: true } }}
                   />
                 </Grid>
-                <Grid item xs={12} md={6} style={{ display: 'flex', alignItems: 'center' }}>
+                <Grid size={{ xs: 12, md: 6 }} style={{ display: 'flex', alignItems: 'center' }}>
                   <Button 
                     className={classes.changeLink} 
                     onClick={() => dispatch({ type: 'toggleEmailModal', value: true })}
+                    onFocus={handleInputFocus}
                     disableRipple
                     disabled={loading}
                     style={{ marginBottom: '20px', marginLeft: 0 }}
@@ -261,36 +349,51 @@ export const AccountInfoPage = () => {
               {/* Contact Information Section */}
               <Typography className={classes.sectionTitle} style={{ marginTop: '24px' }}>Thông tin liên hệ</Typography>
               <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <TextField 
                     select fullWidth label="Tỉnh / Thành phố" variant="outlined" size="small" 
                     className={classes.field} value={city}
                     onChange={(e) => handleInputChange('city', e.target.value)}
-                    InputLabelProps={{ shrink: true }}
+                    onFocus={handleInputFocus}
+                    slotProps={{ 
+                      inputLabel: { shrink: true },
+                      select: { displayEmpty: true }
+                    }}
                     disabled={loading}
                   >
-                    <MenuItem value="HCM">Thành phố Hồ Chí Minh</MenuItem>
+                    <MenuItem value="">--Chọn tỉnh/ Thành phố--</MenuItem>
+                    {provinces && provinces.map((p) => (
+                      <MenuItem key={p.code} value={String(p.code)}>{p.name}</MenuItem>
+                    ))}
                   </TextField>
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <TextField 
-                    select fullWidth label="Quận / Huyện" variant="outlined" size="small" 
+                    select fullWidth label="Phường xã" variant="outlined" size="small" 
                     className={classes.field} value={district}
                     onChange={(e) => handleInputChange('district', e.target.value)}
-                    InputLabelProps={{ shrink: true }}
-                    disabled={loading}
+                    onFocus={handleInputFocus}
+                    slotProps={{ 
+                      inputLabel: { shrink: true },
+                      select: { displayEmpty: true }
+                    }}
+                    disabled={loading || !city}
                   >
-                    <MenuItem value="GV">Phường Gò Vấp</MenuItem>
+                    <MenuItem value="">--Chọn phường xã--</MenuItem>
+                    {districts && districts.map((d) => (
+                      <MenuItem key={d.code} value={String(d.code)}>{d.name}</MenuItem>
+                    ))}
                   </TextField>
                 </Grid>
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <TextField 
                     fullWidth label="Địa chỉ" variant="outlined" size="small" 
                     className={classes.field} placeholder="Nhập địa chỉ" 
                     value={address}
                     onChange={(e) => handleInputChange('address', e.target.value)}
-                    InputLabelProps={{ shrink: true }}
-                    disabled={loading}
+                    onFocus={handleInputFocus}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    disabled={loading || !district}
                   />
                 </Grid>
               </Grid>

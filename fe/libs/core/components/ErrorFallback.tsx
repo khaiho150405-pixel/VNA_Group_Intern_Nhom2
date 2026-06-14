@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Typography, Button, Container } from '@mui/material';
-import { makeStyles } from '@material-ui/styles';
+import { makeStyles } from '@mui/styles';
 import { Theme } from '@mui/material/styles';
 import { VNA_COLORS } from '@core/theme';
 
@@ -69,7 +69,7 @@ export const ErrorFallback: React.FC<ErrorFallbackProps> = ({
         <Typography variant="body2" className={classes.message} component="div">
           {message}
           {error && process.env.NODE_ENV === 'development' && (
-            <Box mt={2} p={2} bgcolor="#f8f8f8" textAlign="left" style={{ overflowX: 'auto', fontSize: '12px', border: '1px solid #ddd' }}>
+            <Box sx={{ mt: 2, p: 2, bgcolor: "#f8f8f8", textAlign: "left" }} style={{ overflowX: 'auto', fontSize: '12px', border: '1px solid #ddd' }}>
               <code>{error.message}</code>
             </Box>
           )}

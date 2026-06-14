@@ -15,7 +15,8 @@ export class AuthGuard implements CanActivate {
     try {
       const req = context.switchToHttp().getRequest<any>();
 
-      const jwt = req.headers['authorization']?.split(' ')[1];
+      const authHeader = req.headers['authorization'];
+      const jwt = authHeader ? authHeader.replace(/^Bearer\s+/i, '') : null;
 
       if (!jwt) {
         throw Response.errorBad(Response.WRONG_TOKEN);
@@ -33,7 +34,10 @@ export class AuthGuard implements CanActivate {
 
       Object.assign(req, rs.data);
       return true;
-    } catch (error) {
+    } catch (error: any) {
+      if (error && error.status) {
+        throw error;
+      }
       throw Response.errorInternal(error);
     }
   }

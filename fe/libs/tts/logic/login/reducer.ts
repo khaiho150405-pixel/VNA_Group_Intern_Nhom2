@@ -1,4 +1,4 @@
-export interface LoginState {
+﻿export interface LoginState {
   userName: string;
   password: string;
   email: string;
@@ -6,6 +6,7 @@ export interface LoginState {
   isMemory: boolean;
   forgotPass: boolean;
   errorMessage: string | null;
+  successMessage: string | null;
 }
 
 export const initialLoginState: LoginState = {
@@ -16,6 +17,7 @@ export const initialLoginState: LoginState = {
   isMemory: false,
   forgotPass: false,
   errorMessage: null,
+  successMessage: null,
 };
 
 export type LoginAction =
@@ -24,7 +26,8 @@ export type LoginAction =
   | { type: "showPassword" }
   | { type: "forgotPassword" }
   | { type: "reset" }
-  | { type: "setError"; message: string | null };
+  | { type: "setError"; message: string | null }
+  | { type: "setSuccess"; message: string | null };
 
 export const loginReducer = (state: LoginState, action: LoginAction): LoginState => {
   switch (action.type) {
@@ -32,7 +35,8 @@ export const loginReducer = (state: LoginState, action: LoginAction): LoginState
       return { 
         ...state, 
         [action.name]: action.value, 
-        errorMessage: null 
+        errorMessage: null,
+        successMessage: null
       };
     case "setValues":
       return {
@@ -46,8 +50,11 @@ export const loginReducer = (state: LoginState, action: LoginAction): LoginState
     case "reset":
       return initialLoginState;
     case "setError":
-      return { ...state, errorMessage: action.message };
+      return { ...state, errorMessage: action.message, successMessage: null };
+    case "setSuccess":
+      return { ...state, successMessage: action.message, errorMessage: null };
     default:
       return state;
   }
 };
+

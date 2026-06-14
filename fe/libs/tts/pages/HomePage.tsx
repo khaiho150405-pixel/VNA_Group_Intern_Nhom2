@@ -10,7 +10,7 @@ export const HomePage = () => {
 
   return (
     <MainLayout>
-      <Box p={3}>
+      <Box sx={{ p: 3 }}>
         <Typography variant="h5" style={{ fontWeight: 700, marginBottom: 24 }}>
           Trang chủ
         </Typography>
@@ -22,7 +22,7 @@ export const HomePage = () => {
           <Typography variant="body1" color="textSecondary">
             Bạn đang đăng nhập với vai trò: <strong>{user?.role === 'ROLE_SO' ? 'Cán bộ Sở' : 'Doanh nghiệp'}</strong>
           </Typography>
-          <Box mt={4}>
+          <Box sx={{ mt: 4 }}>
             <Typography variant="body2">
               Đây là giao diện Dashboard tổng quan. Các chức năng cụ thể sẽ hiển thị ở menu bên trái dựa trên quyền hạn của bạn.
             </Typography>

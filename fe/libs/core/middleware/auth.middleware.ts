@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { AUTH_PATHS, PUBLIC_PATHS, DEFAULT_REDIRECT } from '../constants/paths';
 
@@ -27,3 +27,4 @@ export function authMiddleware(request: NextRequest) {
 
   return NextResponse.next();
 }
+

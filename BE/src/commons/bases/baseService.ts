@@ -194,7 +194,7 @@ export class BaseService<T> {
         ...item,
         updatedAt: new Date(),
         updatedBy: currentUser.id
-      });
+      } as any);
 
       return Response.get(result);
     } catch (error) {

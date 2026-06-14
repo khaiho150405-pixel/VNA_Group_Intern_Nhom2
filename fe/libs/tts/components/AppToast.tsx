@@ -1,10 +1,10 @@
-"use client";
+﻿"use client";
 import React from "react";
 import { Box, Typography, IconButton } from "@mui/material";
-import ErrorOutlinedIcon from "@material-ui/icons/ErrorOutlined";
-import CheckCircleOutlineIcon from "@material-ui/icons/CheckCircleOutline";
-import CloseIcon from "@material-ui/icons/Close";
-import { makeStyles } from "@material-ui/styles";
+import ErrorOutlinedIcon from "@mui/icons-material/ErrorOutlined";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutlined";
+import CloseIcon from "@mui/icons-material/Close";
+import { makeStyles } from "@mui/styles";
 import { Theme } from "@mui/material/styles";
 import { VNA_COLORS } from "@core/theme";
 
@@ -63,7 +63,7 @@ export const AppToast: React.FC<AppToastProps> = ({ show, message, type = "error
 
   return (
     <div className={`${classes.toastContainer} ${!show ? classes.toastHidden : ""}`}>
-      <Box display="flex" alignItems="center">
+      <Box sx={{ display: 'flex', alignItems: 'center' }}>
         {isError ? (
           <ErrorOutlinedIcon fontSize="small" style={{ color: VNA_COLORS.error }} />
         ) : (
@@ -77,3 +77,4 @@ export const AppToast: React.FC<AppToastProps> = ({ show, message, type = "error
     </div>
   );
 };
+

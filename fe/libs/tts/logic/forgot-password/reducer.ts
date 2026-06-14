@@ -1,5 +1,5 @@
-export interface ForgotPassState {
-  step: 1 | 2; // Bước 1: Nhập Email, Bước 2: Nhập OTP & Mật khẩu mới
+﻿export interface ForgotPassState {
+  step: 1 | 2; // BÆ°á»›c 1: Nháº­p Email, BÆ°á»›c 2: Nháº­p OTP & Máº­t kháº©u má»›i
   email: string;
   newPassword: string;
   confirmPassword: string;
@@ -56,3 +56,4 @@ export const forgotPassReducer = (state: ForgotPassState, action: ForgotPassActi
       return state;
   }
 };
+

@@ -1,14 +1,16 @@
-
 "use client";
 import { useReducer, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { loginReducer, initialLoginState, LoginState } from "@tts/logic/login/reducer";
 import { useAuth } from "@core/contexts/AuthProvider";
 import { authService } from "@tts/services/auth.services";
+import { validate, VALIDATION_MESSAGES } from "@core/utils/validation";
+import useLocales from "@core/hooks/useLocales";
 
 export const useLogin = () => {
   const { login } = useAuth();
   const router = useRouter();
+  const { translate } = useLocales();
   const [state, dispatch] = useReducer(loginReducer, initialLoginState);
   const [showToast, setShowToast] = useState(false);
   const [visible, setVisible] = useState(false);
@@ -22,7 +24,7 @@ export const useLogin = () => {
     if (rememberedMemory && rememberedUser) {
       dispatch({
         type: "setValues",
-        values: { userName: rememberedUser, isMemory: true }
+        values: { userName: rememberedUser, password: "", isMemory: true }
       });
     }
 
@@ -43,12 +45,33 @@ export const useLogin = () => {
     dispatch({ type: "onChange", name, value });
   };
 
+  const triggerToast = (type: "error" | "success", message: string) => {
+    setShowToast(false);
+    setTimeout(() => {
+      if (type === "error") {
+        dispatch({ type: "setError", message });
+      } else {
+        dispatch({ type: "setSuccess", message });
+      }
+      setShowToast(true);
+    }, 50);
+  };
+
   const handleLoginSubmit = async () => {
     setShowToast(false);
 
-    if (!state.userName || !state.password) {
-      dispatch({ type: "setError", message: "Vui lòng nhập đầy đủ thông tin" });
-      setShowToast(true);
+    if (!validate.required(state.userName) || !validate.required(state.password)) {
+      triggerToast("error", VALIDATION_MESSAGES.FULL_INFO_REQUIRED);
+      return;
+    }
+
+    if (!validate.username(state.userName)) {
+      triggerToast("error", VALIDATION_MESSAGES.USERNAME_INVALID);
+      return;
+    }
+
+    if (!validate.minLength(state.password, 1)) { // Basic check, already covered by required
+      triggerToast("error", VALIDATION_MESSAGES.FULL_INFO_REQUIRED);
       return;
     }
 
@@ -57,37 +80,43 @@ export const useLogin = () => {
         userName: state.userName,
         password: state.password
       });
-
+      console.log('reponse: ', response);
       const apiData = (response as any).data || response;
       const success = response.success;
       const loginUser = apiData.user;
       const loginToken = apiData.token;
 
-      if (success && loginUser) {
+      if (success && loginToken) {
         // Handle "Remember Me"
         if (state.isMemory) {
           localStorage.setItem("rememberedUser", state.userName);
+          localStorage.removeItem("rememberedPassword");
           localStorage.setItem("isMemory", "true");
         } else {
           localStorage.removeItem("rememberedUser");
+          localStorage.removeItem("rememberedPassword");
           localStorage.setItem("isMemory", "false");
         }
 
-        login(loginUser, loginToken || "");
-        dispatch({ type: "reset" });
+        triggerToast("success", translate("notifications.loginSuccess"));
+        setTimeout(() => {
+          login(loginUser, loginToken || "");
+          dispatch({ type: "reset" });
+        }, 1000);
+      } else {
+        triggerToast("error", translate("notifications.tokenError"));
       }
     } catch (error: any) {
-      let message = "Đã có lỗi xảy ra";
+      let message = translate("notifications.error");
       const errorData = error.response?.data;
       if (errorData?.errors?.message === "Wrong password" || errorData?.errors?.message === "Account not found") {
-        message = "Tài khoản hoặc mật khẩu không đúng. Xin vui lòng thử lại";
+        message = translate("notifications.loginError");
       } else if (errorData?.errors?.message) {
         message = errorData.errors.message;
       } else if (error?.message) {
         message = error.message;
       }
-      dispatch({ type: "setError", message });
-      setShowToast(true);
+      triggerToast("error", message);
     }
   };
 

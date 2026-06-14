@@ -3,9 +3,12 @@ import { useReducer, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { forgotPassReducer, initialForgotPassState, ForgotPassState } from "@tts/logic/forgot-password/reducer";
 import { authService } from "@tts/services/auth.services";
+import { validate, VALIDATION_MESSAGES } from "@core/utils/validation";
+import useLocales from "@core/hooks/useLocales";
 
 export const useForgotPassword = () => {
   const router = useRouter();
+  const { translate } = useLocales();
   const [state, dispatch] = useReducer(forgotPassReducer, initialForgotPassState);
   const [showToast, setShowToast] = useState(false);
   const [visible, setVisible] = useState(false);
@@ -49,61 +52,87 @@ export const useForgotPassword = () => {
   };
 
   const handleSendEmail = async () => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!validate.required(state.email)) {
+      triggerToast("error", VALIDATION_MESSAGES.FULL_INFO_REQUIRED);
+      return;
+    }
 
-    if (!state.email) {
-      triggerToast("error", "Vui lòng nhập đầy đủ thông tin");
+    if (!validate.email(state.email)) {
+      triggerToast("error", VALIDATION_MESSAGES.EMAIL_INVALID);
       return;
     }
-    
-    if (!emailRegex.test(state.email)) {
-      triggerToast("error", "Vui lòng nhập đúng định dạng email, định dạng đúng ...@...");
-      return;
-    }
-    
+
     try {
+      // Check if email exists in the system first
+      const checkRes = await authService.checkEmailPublic(state.email);
+      if (checkRes && !checkRes.existed) {
+        triggerToast("error", "Email chưa đăng ký trong hệ thống. Vui lòng kiểm tra lại.");
+        return;
+      }
+
       const response = await authService.sendOtp(state.email);
       if (response.success) {
-        triggerToast("success", response.message || "Gửi email thành công");
+        triggerToast("success", translate("notifications.otpSentSuccess"));
         setTimeout(() => {
           dispatch({ type: "nextStep" });
           setCountdown(60);
         }, 1000);
       }
     } catch (error: any) {
-      triggerToast("error", error.message || "Có lỗi xảy ra khi gửi email.");
+      let errorMsg = error.response?.data?.errors || error.response?.data?.message || error.message || translate("notifications.error");
+      if (typeof errorMsg === 'object' && errorMsg !== null) {
+        errorMsg = errorMsg.message || JSON.stringify(errorMsg);
+      }
+      triggerToast("error", String(errorMsg));
     }
   };
 
   const handleResetPassword = async () => {
-    if (!state.newPassword || !state.confirmPassword || !state.otp) {
-      triggerToast("error", "Vui lòng nhập đầy đủ thông tin");
+    if (!validate.required(state.newPassword) || !validate.required(state.confirmPassword) || !validate.required(state.otp)) {
+      triggerToast("error", VALIDATION_MESSAGES.FULL_INFO_REQUIRED);
+      return;
+    }
+
+    if (!validate.minLength(state.newPassword, 6)) {
+      triggerToast("error", VALIDATION_MESSAGES.PASSWORD_MIN_LENGTH(6));
       return;
     }
 
     if (state.newPassword !== state.confirmPassword) {
-      triggerToast("error", "Mật khẩu xác nhận không khớp. Vui lòng nhập lại");
+      triggerToast("error", VALIDATION_MESSAGES.PASSWORD_CONFIRM_NOT_MATCH);
+      return;
+    }
+
+    const hasLetter = /[a-zA-Z]/.test(state.newPassword);
+    const hasNumber = /[0-9]/.test(state.newPassword);
+    if (!hasLetter || !hasNumber) {
+      triggerToast("error", 'Mật khẩu mới quá yếu. Cần chứa ít nhất chữ và số.');
+      return;
+    }
+
+    if (!validate.otp(state.otp)) {
+      triggerToast("error", VALIDATION_MESSAGES.OTP_INVALID);
       return;
     }
 
     try {
-      const response = await authService.resetPassword({ 
-        email: state.email, 
-        otp: state.otp, 
-        newPassword: state.newPassword 
+      const response = await authService.resetPassword({
+        email: state.email,
+        otp: state.otp,
+        newPassword: state.newPassword
       });
       if (response && response.success) {
-        triggerToast("success", "Khôi phục mật khẩu thành công!");
+        triggerToast("success", translate("notifications.forgotPasswordSuccess"));
         setTimeout(() => {
           dispatch({ type: "reset" });
           router.push("/login");
         }, 1500);
       } else {
-        alert("Mã OTP không chính xác");
+        triggerToast("error", translate("notifications.otpError"));
       }
     } catch (error: any) {
-      const errorMsg = error.response?.data?.errors || error.response?.data?.message || error.message || "Có lỗi xảy ra";
-      alert(errorMsg);
+      const errorMsg = error.response?.data?.errors || error.response?.data?.message || error.message || translate("notifications.error");
+      triggerToast("error", errorMsg);
     }
   };
 

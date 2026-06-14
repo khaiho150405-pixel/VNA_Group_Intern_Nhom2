@@ -5,9 +5,10 @@ import {
   Request,
   UseGuards,
   UseInterceptors,
-  Body, Req, Get, Query
+  Body, Req, Get, Query,
+  BadRequestException
 } from "@nestjs/common";
-import { ApiBody, ApiOperation, ApiTags } from "@nestjs/swagger";
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { ResponseData, ResponseInterceptor } from "src/commons";
 import { LocalAuthGuard } from "src/commons/guards/localAuthGuard";
 import { AuthGuard } from "src/commons/guards/authGuard";
@@ -35,8 +36,19 @@ export class AuthController {
       }
     }
   })
-  async login(@Request() req): Promise<ResponseData<LoginModel>> {
+  async login(@Request() req: any): Promise<ResponseData<LoginModel>> {
     return this.authService.login(req.user, req.doet);
+  }
+
+  @Get("check-email")
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
+  @ApiOperation({
+    summary: "Check if email exists in the system (public, no auth required)"
+  })
+  async checkEmail(
+    @Query("email") email: string
+  ): Promise<{ email: string; existed: boolean }> {
+    return this.authService.checkEmailExists(email);
   }
 
   @Post("forgot-password")
@@ -80,11 +92,20 @@ export class AuthController {
     @Body("otp") otp: string,
     @Body("password") passwordNew: string
   ): Promise<any> {
+    if (passwordNew.length < 6) {
+      throw new BadRequestException('Mật khẩu mới phải có ít nhất 6 kí tự');
+    }
+    const hasLetter = /[a-zA-Z]/.test(passwordNew);
+    const hasNumber = /[0-9]/.test(passwordNew);
+    if (!hasLetter || !hasNumber) {
+      throw new BadRequestException('Mật khẩu mới quá yếu. Cần chứa ít nhất chữ và số.');
+    }
     return this.authService.resetPassword(email, otp, passwordNew);
   }
 
   @Post("change-password")
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
   @ApiOperation({
     summary: "Change password for authenticated user"
@@ -103,6 +124,14 @@ export class AuthController {
     @Body('oldPassword') oldPassword: string,
     @Body('newPassword') newPassword: string
   ): Promise<any> {
+    if (newPassword.length < 6) {
+      throw new BadRequestException('Mật khẩu mới phải có ít nhất 6 kí tự');
+    }
+    const hasLetter = /[a-zA-Z]/.test(newPassword);
+    const hasNumber = /[0-9]/.test(newPassword);
+    if (!hasLetter || !hasNumber) {
+      throw new BadRequestException('Mật khẩu mới quá yếu. Cần chứa ít nhất chữ và số.');
+    }
     return this.authService.changePassword(req.user.id, oldPassword, newPassword);
   }
 
