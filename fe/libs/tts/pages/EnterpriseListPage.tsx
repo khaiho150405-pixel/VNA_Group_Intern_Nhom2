@@ -320,7 +320,7 @@ export const EnterpriseListPage = () => {
                         <Autocomplete
                           size="small"
                           options={Array.isArray(businessLines) ? businessLines : []}
-                          getOptionLabel={(option) => option.tennganh || ""}
+                          getOptionLabel={(option) => option ? `${option.manganh} - ${option.tennganh}` : ""}
                           value={businessLines.find(bl => bl.id === filters.businessLineId) || null}
                           onChange={(_, newValue) => 
                             handleFilterChange("businessLineId", newValue?.id)
@@ -446,7 +446,7 @@ export const EnterpriseListPage = () => {
                               {item.loaiHinhKinhDoanh?.tenloaihinh || "-"}
                             </TableCell>
                             <TableCell className={classes.bodyCell}>
-                              {item.businessLine?.tennganh || "-"}
+                              {item.businessLine ? `${item.businessLine.manganh} - ${item.businessLine.tennganh}` : "-"}
                             </TableCell>
                             <TableCell className={classes.bodyCell}>
                               {item.ward?.value || "-"}

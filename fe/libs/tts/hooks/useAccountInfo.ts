@@ -223,12 +223,23 @@ export const useAccountInfo = () => {
 
       if (response.success) {
         if (user) {
+          const selectedRoleObj = state.roles?.find((r: any) => r.role === state.role);
+          const fallbackRoles: Record<string, { id: number; role: string; name: string }> = {
+            'employee': { id: 1, role: 'employee', name: 'Nhân viên' },
+            'expert': { id: 2, role: 'expert', name: 'Chuyên viên' },
+            'leader': { id: 3, role: 'leader', name: 'Lãnh đạo' },
+            'superAdmin': { id: 4, role: 'superAdmin', name: 'Quản trị viên' }
+          };
+          const mappedRole = selectedRoleObj || fallbackRoles[state.role];
+
           const updatedUser = {
             ...user,
             fullName: state.displayName,
             email: state.email || user.email,
             gender: state.gender === 'Nam' ? 1 : (state.gender === 'Nữ' ? 0 : null),
-            realRole: state.role,
+            realRole: mappedRole ? mappedRole.name : state.role,
+            roleId: mappedRole ? mappedRole.id : (user as any).roleId,
+            role: mappedRole ? mappedRole : (user as any).role,
             province: state.city ? { key: String(state.city), value: provinceVal } : null,
             district: state.district ? { key: String(state.district), value: districtVal } : null,
             address: state.address,

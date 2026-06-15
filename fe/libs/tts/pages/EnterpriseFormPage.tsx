@@ -30,6 +30,7 @@ import { useSnackbar } from 'notistack';
 
 import { MainLayout } from '@core/layouts/MainLayout';
 import { DoetService } from '@tts/services';
+import { CustomCalendar } from '@core/components/CustomCalendar';
 import {
   Doet,
   LoaiHinhKinhDoanh,
@@ -136,6 +137,61 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
   const [activeStep, setActiveStep] = useState(isView ? 1 : 0);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [originalData, setOriginalData] = useState<any>(null);
+
+  const hasChanges = () => {
+    if (mode === 'create') return true;
+    if (!originalData) return false;
+
+    const normalizeString = (val: any) => (val === null || val === undefined ? '' : String(val).trim());
+    const normalizeDate = (val: any) => {
+      if (!val) return '';
+      const d = new Date(val);
+      return isNaN(d.getTime()) ? String(val) : d.toISOString().slice(0, 10);
+    };
+    const normalizeObjKey = (obj: any) => (obj && obj.key ? String(obj.key) : '');
+
+    const stringKeys = ['name', 'name2', 'taxCode', 'address', 'email', 'officePhone', 'operatingAddress', 'headOfEnterprise', 'headPhone'];
+    for (const key of stringKeys) {
+      if (normalizeString((formData as any)[key]) !== normalizeString(originalData[key])) {
+        return true;
+      }
+    }
+
+    const numberKeys = ['loaiHinhId', 'businessLineId'];
+    for (const key of numberKeys) {
+      const v1 = (formData as any)[key];
+      const v2 = originalData[key];
+      if (normalizeString(v1) !== normalizeString(v2)) {
+        return true;
+      }
+    }
+
+    if (normalizeDate(formData.gpkdDate) !== normalizeDate(originalData.gpkdDate)) {
+      return true;
+    }
+
+    const objKeys = ['province', 'ward', 'operatingProvince', 'operatingWard'];
+    for (const key of objKeys) {
+      if (normalizeObjKey((formData as any)[key]) !== normalizeObjKey(originalData[key])) {
+        return true;
+      }
+    }
+
+    const atts1 = formData.attachments || [];
+    const atts2 = originalData.attachments || [];
+    if (atts1.length !== atts2.length) return true;
+    for (let i = 0; i < atts1.length; i++) {
+      const a1 = atts1[i];
+      const a2 = atts2[i];
+      if (normalizeString(a1.fileName) !== normalizeString(a2.fileName) ||
+          normalizeString(a1.fileUrl) !== normalizeString(a2.fileUrl)) {
+        return true;
+      }
+    }
+
+    return false;
+  };
 
   const [formData, setFormData] = useState<Partial<Doet> & { loaiHinhId?: number; businessLineId?: number; }>({
     name: '',
@@ -162,6 +218,16 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
   const [accountDialog, setAccountDialog] = useState({ open: false, username: '', password: '' });
   const [previewFile, setPreviewFile] = useState<FileAttachment | null>(null);
   const fileInputs = useRef<Record<number, HTMLInputElement | null>>({});
+  const [calendarAnchor, setCalendarAnchor] = useState<null | HTMLElement>(null);
+
+  const handleCalendarOpen = (event: React.MouseEvent<HTMLElement>) => {
+    if (isView) return;
+    setCalendarAnchor(event.currentTarget);
+  };
+
+  const handleCalendarClose = () => {
+    setCalendarAnchor(null);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -186,14 +252,16 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
           const enterprise: any = await DoetService.getById(Number(id));
           if (cancelled) return;
           const data = enterprise?.data || enterprise;
-          setFormData({
+          const matchedData = {
             ...data,
             loaiHinhId: data?.loaiHinhKinhDoanh?.id,
             businessLineId: data?.businessLine?.id,
             attachments: Array.isArray(data?.attachments) && data.attachments.length
               ? data.attachments
               : DEFAULT_ATTACHMENTS,
-          });
+          };
+          setFormData(matchedData);
+          setOriginalData(matchedData);
 
           if (data?.province?.key) {
             const wards = await DoetService.getDistricts(String(data.province.key));
@@ -478,7 +546,7 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
         await DoetService.create(buildPayload());
         enqueueSnackbar('Khai báo thành công', { variant: 'success' });
         const username = formData.taxCode || '';
-        const password = (formData.taxCode || '').replace('-', '').slice(-6);
+        const password = '12345678';
         setTimeout(() => {
           setAccountDialog({ open: true, username, password });
         }, 1200);
@@ -643,7 +711,7 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
             options={businessLineOptions}
             value={selectedBusinessLine}
             onChange={(_, v) => setField('businessLineId', v?.id || undefined)}
-            getOptionLabel={(opt) => opt?.tennganh || ''}
+            getOptionLabel={(opt) => opt ? `${opt.manganh} - ${opt.tennganh}` : ''}
             isOptionEqualToValue={(o, v) => o.id === v.id}
             disabled={isView}
             size="small"
@@ -657,29 +725,48 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
               />
             )}
           />
-          <TextField
-            type="date"
-            label="Ngày cấp GPKD"
-            value={formatDateInput(formData.gpkdDate)}
-            onChange={(e) => setField('gpkdDate', e.target.value || null)}
-            disabled={isView}
-            size="small"
-            fullWidth
-            slotProps={{
-              inputLabel: { shrink: true },
-              input: {
-                endAdornment: gpkdFile ? (
-                  <InputAdornment position="end">
-                    <Tooltip title="Xem GPKD">
-                      <IconButton size="small" onClick={() => setPreviewFile(gpkdFile)}>
-                        <ViewIcon fontSize="small" />
+          <Box sx={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+            <TextField
+              fullWidth
+              label="Ngày cấp GPKD"
+              variant="outlined"
+              size="small"
+              value={formData.gpkdDate ? formatDateDisplay(formData.gpkdDate) : ''}
+              placeholder="DD/MM/YYYY"
+              autoComplete="off"
+              disabled={isView}
+              onClick={handleCalendarOpen}
+              sx={{ '& .MuiOutlinedInput-root': { pr: '4px' } }}
+              slotProps={{
+                inputLabel: { shrink: true },
+                input: {
+                  readOnly: true,
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCalendarOpen(e);
+                        }}
+                        disabled={isView}
+                        sx={{ padding: '4px' }}
+                      >
+                        <CalendarIcon fontSize="small" style={{ color: '#999' }} />
                       </IconButton>
-                    </Tooltip>
-                  </InputAdornment>
-                ) : null,
-              },
-            }}
-          />
+                    </InputAdornment>
+                  ),
+                }
+              }}
+            />
+            <CustomCalendar
+              open={Boolean(calendarAnchor)}
+              anchorEl={calendarAnchor}
+              value={formData.gpkdDate ? formatDateInput(formData.gpkdDate) : ''}
+              onChange={(val) => setField('gpkdDate', val ? new Date(val) : null)}
+              onClose={handleCalendarClose}
+            />
+          </Box>
           <Autocomplete
             options={provinceOptions}
             value={selectedProvince}
@@ -825,26 +912,14 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
       ['Tên viết bằng tiếng nước ngoài :', formData.name2],
       [
         'Ngày cấp GPKD:',
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography sx={{ fontSize: 'inherit', fontWeight: 'inherit' }}>
-            {formData.gpkdDate ? formatDateDisplay(formData.gpkdDate) : ''}
-          </Typography>
-          {gpkdFile && (
-            <Tooltip title="Xem GPKD">
-              <IconButton
-                size="small"
-                onClick={() => setPreviewFile(gpkdFile)}
-                sx={{ color: '#2f65f0', p: 0.5 }}
-              >
-                <ViewIcon sx={{ fontSize: 18 }} />
-              </IconButton>
-            </Tooltip>
-          )}
-        </Box>,
+        formData.gpkdDate ? formatDateDisplay(formData.gpkdDate) : '',
       ],
       ['Email', formData.email],
       ['Loại hình kinh doanh:', selectedLoaiHinh?.tenloaihinh || ''],
-      ['Ngành nghề kinh doanh', selectedBusinessLine?.tennganh || ''],
+      [
+        'Ngành nghề kinh doanh',
+        selectedBusinessLine ? `${selectedBusinessLine.manganh} - ${selectedBusinessLine.tennganh}` : '',
+      ],
       [
         'Địa chỉ đăng kí giấy phép kinh doanh :',
         [formData.address, formData.ward?.value, formData.province?.value]
@@ -939,6 +1014,15 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
               onClick={handleNext}
               className={classes.primaryBtn}
               disableElevation
+              disabled={isEdit && !hasChanges()}
+              sx={{
+                ...((isEdit && !hasChanges()) && {
+                  backgroundColor: '#b0b0b0 !important',
+                  color: '#fff !important',
+                  '&:hover': { backgroundColor: '#b0b0b0 !important' },
+                  cursor: 'not-allowed',
+                })
+              }}
             >
               Tiếp tục
             </Button>
@@ -949,8 +1033,16 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
                 startIcon={submitting ? <CircularProgress size={18} color="inherit" /> : <DoneAllIcon />}
                 onClick={handleSubmit}
                 className={classes.primaryBtn}
-                disabled={submitting}
+                disabled={submitting || (isEdit && !hasChanges())}
                 disableElevation
+                sx={{
+                  ...((submitting || (isEdit && !hasChanges())) && {
+                    backgroundColor: '#b0b0b0 !important',
+                    color: '#fff !important',
+                    '&:hover': { backgroundColor: '#b0b0b0 !important' },
+                    cursor: 'not-allowed',
+                  })
+                }}
               >
                 {submitting ? 'Đang lưu...' : 'Xác nhận'}
               </Button>

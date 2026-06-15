@@ -32,3 +32,6 @@ ormconfig.json
 
 # typescript
 *.tsbuildinfo
+
+# Uploaded files
+uploads/

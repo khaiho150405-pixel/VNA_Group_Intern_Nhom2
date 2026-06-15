@@ -32,6 +32,28 @@ export const UserEditPage = () => {
         handleSave,
     } = useEditUser();
 
+    const hasChanges = () => {
+        if (!state.initialSnapshot) return false;
+        if (state.avatarFile !== null) return true;
+        
+        const normalizeDate = (val: any) => {
+            if (!val) return '';
+            const d = new Date(val);
+            return isNaN(d.getTime()) ? String(val) : d.toISOString().slice(0, 10);
+        };
+
+        const keys = ['displayName', 'birthday', 'gender', 'title', 'role', 'city', 'district', 'address', 'avatarUrl', 'active'];
+        return keys.some(key => {
+            const val1 = (state as any)[key];
+            const val2 = state.initialSnapshot?.[key];
+            if (key === 'birthday') {
+                return normalizeDate(val1) !== normalizeDate(val2);
+            }
+            const normalize = (v: any) => (v === null || v === undefined ? '' : String(v));
+            return normalize(val1) !== normalize(val2);
+        });
+    };
+
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const [calendarAnchor, setCalendarAnchor] = React.useState<null | HTMLElement>(null);
 
@@ -115,9 +137,9 @@ export const UserEditPage = () => {
                             className={classes.saveBtn}
                             disableElevation
                             onClick={handleSave}
-                            disabled={loading}
+                            disabled={loading || !hasChanges()}
                             sx={{
-                                ...(loading && {
+                                ...((loading || !hasChanges()) && {
                                     backgroundColor: '#b0b0b0 !important',
                                     color: '#fff !important',
                                     '&:hover': { backgroundColor: '#b0b0b0 !important' },

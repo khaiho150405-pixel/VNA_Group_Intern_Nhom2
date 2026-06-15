@@ -99,18 +99,19 @@ export const EnterpriseAttachmentsTable = ({
                 )}
               </TableCell>
               <TableCell sx={{ ...cellSx, textAlign: 'right' }}>
-                <Tooltip title="Xem">
-                  <span>
-                    <IconButton
-                      size="small"
-                      disabled={!file.fileUrl && !file.localFile && !file.fileName}
-                      onClick={() => onPreview(file)}
-                      sx={{ color: file.fileName || file.fileUrl || file.localFile ? '#2f65f0' : '#6b7280' }}
-                    >
-                      <ViewIcon fontSize="small" />
-                    </IconButton>
-                  </span>
-                </Tooltip>
+                {file.fileUrl ? (
+                  <Tooltip title="Xem">
+                    <span>
+                      <IconButton
+                        size="small"
+                        onClick={() => onPreview(file)}
+                        sx={{ color: '#2f65f0' }}
+                      >
+                        <ViewIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                ) : null}
                 {!readOnly && (
                   <>
                     <Tooltip title="Tải lên">
