@@ -154,9 +154,12 @@ export class BaseService<T> {
     itemDto: any
   ): Promise<ResponseData<UpdateResult>> {
     try {
-      // Prevent normal users from updating 'status' (which means account locked when true)
+      // Prevent non-admin users from updating 'status'
       if (itemDto && Object.prototype.hasOwnProperty.call(itemDto, 'status')) {
-        const isAdmin = currentUser && ((currentUser.realRole && currentUser.realRole === 'Admin') || (currentUser.role && (currentUser.role.role === 'ROLE_ADMIN' || currentUser.role.role === 'ADMIN')));
+        const roleName = (currentUser?.realRole || '').toUpperCase();
+        const roleCode = (currentUser?.role?.role || '').toUpperCase();
+        const isAdmin = roleName.includes('ADMIN') || roleCode.includes('ADMIN');
+        
         if (!isAdmin) {
           delete itemDto.status;
         }
@@ -165,14 +168,15 @@ export class BaseService<T> {
       if (itemDto.password) {
         itemDto.password = await argon.hash(itemDto.password);
       }
-      const result = await this.baseRepository.update(
-        id,
-        this.newEntity({
-          ...itemDto,
-          updatedAt: new Date(),
-          updatedBy: currentUser.id
-        })
-      );
+
+      // Ensure we only update the fields provided in itemDto
+      const updateData = {
+        ...itemDto,
+        updatedAt: new Date(),
+        updatedBy: currentUser?.id
+      };
+
+      const result = await this.baseRepository.update(id, updateData);
 
       return Response.get<UpdateResult>(result);
     } catch (error) {

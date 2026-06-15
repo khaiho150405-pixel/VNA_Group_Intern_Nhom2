@@ -22,7 +22,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js --config ormconfig.json",
     "typeorm:create": "typeorm migration:create -n",
-    "typeorm:migrate": "typeorm migration:generate -n",
+    "typeorm:migrate": "typeorm migration:generate -n UpdateEnterpriseFields",
     "typeorm:run": "yarn typeorm migration:run",
     "typeorm:revert": "yarn typeorm migration:revert"
   },

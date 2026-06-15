@@ -1,10 +1,9 @@
 import { BaseAddressEntity, KeyValue } from "src/commons/bases/baseAddressEntity";
-import { Column, Entity, PrimaryGeneratedColumn, ManyToOne, JoinColumn, BeforeInsert, BeforeUpdate, AfterInsert, getManager } from "typeorm";
+import { Column, Entity, PrimaryGeneratedColumn, ManyToOne, JoinColumn, BeforeInsert, BeforeUpdate, getManager } from "typeorm";
 import { LoaiHinhKinhDoanh } from "../loai-hinh-kinh-doanh/loai-hinh-kinh-doanh.entity";
 import { BusinessLine } from "../business-line/business-line.entity";
 import { IsEmail, IsNotEmpty, Matches, validate } from "class-validator";
 import { BadRequestException } from "@nestjs/common";
-import * as argon from "argon2";
 
 @Entity("doets")
 export class Doet extends BaseAddressEntity {
@@ -27,6 +26,15 @@ export class Doet extends BaseAddressEntity {
       "email",
       "otp",
       "otpExpired",
+      "gpkdDate",
+      "officePhone",
+      "headOfEnterprise",
+      "headPhone",
+      "operatingAddress",
+      "operatingWard",
+      "operatingDistrict",
+      "operatingProvince",
+      "attachments",
     ];
     doet &&
     keys.forEach((key) => {
@@ -38,6 +46,9 @@ export class Doet extends BaseAddressEntity {
   @BeforeInsert()
   @BeforeUpdate()
   async validateData() {
+    // Nếu không có taxCode, có thể đây là dữ liệu cũ hoặc nút cha trong cây, cho phép bỏ qua validate chặt
+    if (!this.taxCode) return;
+
     const errors = await validate(this);
     
     // Bỏ qua lỗi của trường phone (do kế thừa từ BaseAddressEntity)
@@ -49,34 +60,10 @@ export class Doet extends BaseAddressEntity {
     }
 
     // Ràng buộc Mã số thuế không được trùng lặp
-    if (this.taxCode) {
-      const manager = getManager();
-      const existing = await manager.findOne(Doet, { where: { taxCode: this.taxCode } });
-      if (existing && existing.id !== this.id) {
-        throw new BadRequestException(["Mã số thuế này đã tồn tại trong hệ thống"]);
-      }
-    }
-  }
-
-  // Tự động tạo tài khoản sau khi lưu thành công Doanh nghiệp mới
-  @AfterInsert()
-  async createDefaultUser() {
-    if (this.taxCode && this.id) {
-      try {
-        const manager = getManager();
-        
-        // Loại bỏ dấu '-' (nếu có ở đuôi chi nhánh) và lấy 6 số cuối cùng làm mật khẩu
-        const plainTaxCode = this.taxCode.replace('-', '');
-        const defaultPassword = plainTaxCode.slice(-6);
-        const hashedPassword = await argon.hash(defaultPassword);
-        
-        await manager.query(
-          `INSERT INTO users (username, password, email, doet_id) VALUES ($1, $2, $3, $4)`,
-          [this.taxCode, hashedPassword, this.email, this.id]
-        );
-      } catch (error) {
-        console.error("Lỗi khi tự động tạo tài khoản doanh nghiệp:", error);
-      }
+    const manager = getManager();
+    const existing = await manager.findOne(Doet, { where: { taxCode: this.taxCode } });
+    if (existing && existing.id !== this.id) {
+      throw new BadRequestException(["Mã số thuế này đã tồn tại trong hệ thống"]);
     }
   }
 
@@ -133,6 +120,33 @@ export class Doet extends BaseAddressEntity {
 
   @IsNotEmpty({ message: 'Phường/xã không được để trống' })
   ward: KeyValue;
+
+  @Column({ name: 'gpkd_date', type: 'timestamp', nullable: true })
+  gpkdDate: Date;
+
+  @Column({ name: 'office_phone', type: 'varchar', length: 50, nullable: true })
+  officePhone: string;
+
+  @Column({ name: 'head_of_enterprise', type: 'varchar', length: 255, nullable: true })
+  headOfEnterprise: string;
+
+  @Column({ name: 'head_phone', type: 'varchar', length: 50, nullable: true })
+  headPhone: string;
+
+  @Column({ name: 'operating_address', type: 'varchar', length: 255, nullable: true })
+  operatingAddress: string;
+
+  @Column({ name: 'operating_ward', type: 'jsonb', nullable: true })
+  operatingWard: KeyValue;
+
+  @Column({ name: 'operating_district', type: 'jsonb', nullable: true })
+  operatingDistrict: KeyValue;
+
+  @Column({ name: 'operating_province', type: 'jsonb', nullable: true })
+  operatingProvince: KeyValue;
+
+  @Column({ name: 'attachments', type: 'jsonb', nullable: true })
+  attachments: any[];
 
   @Column({ nullable: true })
   otp: string;

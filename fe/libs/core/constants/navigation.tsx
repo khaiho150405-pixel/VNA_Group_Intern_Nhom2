@@ -27,9 +27,9 @@ export const NAVIGATION_ITEMS: NavItem[] = [
     icon: <SettingsIcon fontSize="small" />,
     roles: ['ROLE_SO', 'ROLE_DN'],
     children: [
-      { id: 'account', label: 'Quản lý người dùng', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO', 'ROLE_DN'] },
-      { id: 'company-mgmt', label: 'Quản lý doanh nghiệp', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO', 'ROLE_DN'] },
-      { id: 'report-period', label: 'Kỳ báo cáo', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO', 'ROLE_DN'] },
+      { id: 'account', label: 'Quản lý người dùng', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO', 'ROLE_DN'], path: '/accounts' },
+      { id: 'company-mgmt', label: 'Quản lý doanh nghiệp', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO', 'ROLE_DN'], path: '/doets' },
+      { id: 'report-period', label: 'Kỳ báo cáo', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO', 'ROLE_DN'], path: '/report-periods' },
     ]
   },
   { 

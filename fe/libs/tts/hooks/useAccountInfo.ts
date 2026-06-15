@@ -29,7 +29,7 @@ export const useAccountInfo = () => {
     // Fetch provinces
     const fetchProvinces = async () => {
       try {
-        const res = await fetch('https://esgoo.net/api-tinhthanh/1/0.htm');
+        const res = await fetch('https://esgoo.net/api-tinhthanh-new/1/0.htm');
         const data = await res.json();
         if (data && Array.isArray(data.data)) {
           const mapped = data.data.map((p: any) => ({
@@ -53,7 +53,7 @@ export const useAccountInfo = () => {
     if (state.city) {
       const fetchDistricts = async () => {
         try {
-          const res = await fetch(`https://esgoo.net/api-tinhthanh/2/${state.city}.htm`);
+          const res = await fetch(`https://esgoo.net/api-tinhthanh-new/2/${state.city}.htm`);
           const data = await res.json();
           if (data && Array.isArray(data.data)) {
             const mapped = data.data.map((d: any) => ({
