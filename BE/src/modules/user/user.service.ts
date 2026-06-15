@@ -80,6 +80,26 @@ export class UserService extends BaseService<User> {
         const username = user.username ? user.username.trim() : '';
         const email = user.email ? user.email.trim() : '';
 
+        // Map realRole to roleId if present
+        if (user.realRole) {
+          const roleKey = String(user.realRole).toLowerCase().trim();
+          const roleMap: Record<string, { id: number; name: string }> = {
+            'employee': { id: 1, name: 'Nhân viên' },
+            'expert': { id: 2, name: 'Chuyên viên' },
+            'leader': { id: 3, name: 'Lãnh đạo' },
+            'superadmin': { id: 4, name: 'Quản trị viên' },
+            'nhân viên': { id: 1, name: 'Nhân viên' },
+            'chuyên viên': { id: 2, name: 'Chuyên viên' },
+            'lãnh đạo': { id: 3, name: 'Lãnh đạo' },
+            'quản trị viên': { id: 4, name: 'Quản trị viên' },
+          };
+          const mappedRole = roleMap[roleKey];
+          if (mappedRole) {
+            user.roleId = mappedRole.id;
+            user.realRole = mappedRole.name;
+          }
+        }
+
         const [existedUsername, existedEmail] = await Promise.all([
           this.userRepository.createQueryBuilder("u")
             .where("TRIM(u.username) = :username", { username })
