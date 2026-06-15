@@ -161,10 +161,6 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (errorMsg || successMsg) {
-      // Don't auto-dismiss the permanent info messages in step 1 if needed, 
-      // but here they are used for feedback, so auto-dismiss is fine.
-      // Exception: "Đang gửi..." or "Đã gửi..." might want to stay longer or be cleared by next action.
-      // For simplicity, we'll auto-dismiss unless it's a loading-like message.
       if (successMsg !== 'Đang gửi mã OTP...' && successMsg !== 'Đang gửi lại mã OTP...') {
         timer = setTimeout(() => {
           setErrorMsg(null);

@@ -1,6 +1,15 @@
 import React from 'react';
 import SettingsIcon from '@mui/icons-material/Settings';
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
+import HomeIcon from '@mui/icons-material/Home';
+import HelpIcon from '@mui/icons-material/HelpOutlined';
+import MailIcon from '@mui/icons-material/MailOutlined';
+import AppsIcon from '@mui/icons-material/Apps';
+import PeopleIcon from '@mui/icons-material/People';
+import GroupIcon from '@mui/icons-material/Group';
+import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
+import ChartIcon from '@mui/icons-material/BarChart';
+import CircleIcon from '@mui/icons-material/RadioButtonUnchecked';
 
 export interface NavItem {
   id: string;
@@ -12,20 +21,20 @@ export interface NavItem {
 }
 
 export const NAVIGATION_ITEMS: NavItem[] = [
-  { 
-    id: 'system', 
-    label: 'Quản trị phần mềm', 
+  {
+    id: 'system',
+    label: 'Quản trị phần mềm',
     icon: <SettingsIcon fontSize="small" />,
     roles: ['ROLE_SO', 'ROLE_DN'],
     children: [
-      { id: 'account', label: 'Quản lý người dùng', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO', 'ROLE_DN'] },
-      { id: 'company-mgmt', label: 'Quản lý doanh nghiệp', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO', 'ROLE_DN'] },
-      { id: 'report-period', label: 'Kỳ báo cáo', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO', 'ROLE_DN'] },
+      { id: 'account', label: 'Quản lý người dùng', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO', 'ROLE_DN'], path: '/users' },
+      { id: 'company-mgmt', label: 'Quản lý doanh nghiệp', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO', 'ROLE_DN'], path: '/doets' },
+      { id: 'report-period', label: 'Kỳ báo cáo', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO', 'ROLE_DN'], path: '/report-periods' },
     ]
   },
-  { 
-    id: 'accident', 
-    label: 'Tai nạn lao động', 
+  {
+    id: 'accident',
+    label: 'Tai nạn lao động',
     icon: <SettingsIcon fontSize="small" />,
     roles: ['ROLE_SO', 'ROLE_DN'],
     children: [

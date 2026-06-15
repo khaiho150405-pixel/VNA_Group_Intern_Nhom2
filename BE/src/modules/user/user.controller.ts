@@ -2,6 +2,7 @@ import {
   Body,
   ClassSerializerInterceptor,
   Controller,
+  Delete,
   Get, Param,
   Post,
   Put,
@@ -51,6 +52,7 @@ export class UserController extends BaseController<User, UserService> {
   }
 
   @Get()
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
   @ApiOperation({ summary: "Get items" })
   async getAll(@Query() query: GetAllDto): Promise<any> {
     return await this.userService.getAll(query);
@@ -61,9 +63,9 @@ export class UserController extends BaseController<User, UserService> {
   @ApiOperation({ summary: "Get items" })
   async import(
     @Req() req: any,
-    @Body("users") users: any
+    @Body() body: any
   ): Promise<{ success: number; err: number; username: [] }> {
-    return await this.userService.import(req.user, users);
+    return await this.userService.import(req.user, body);
   }
 
   @Post("recovery")
@@ -82,10 +84,20 @@ export class UserController extends BaseController<User, UserService> {
     return await this.userService.resetPassword(id);
   }
 
+  @Post(":id/reset-password")
+  @ApiOperation({ summary: "reset password account with custom password" })
+  async resetPasswordCustom(
+    @Param("id") id: string,
+    @Body("password") password?: string
+  ): Promise<{ success: boolean }> {
+    return await this.userService.resetPasswordCustom(id, password);
+  }
+
   @Put(":id")
   @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
   @ApiOperation({ summary: "Cập nhật thông tin user" })
   async updateProfile(
+    @Req() req: any,
     @Param("id") id: string,
     @Body() body: any
   ): Promise<any> {
@@ -96,7 +108,22 @@ export class UserController extends BaseController<User, UserService> {
         throw new BadRequestException(errorMsg);
       }
     }
-    const updatedUser = await this.userService.updateUser(id, body);
+    const updatedUser = await this.userService.updateUser(id, body, req.user);
     return Response.get(updatedUser);
+  }
+
+  @Delete('destroys')
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
+  @ApiOperation({ summary: 'Destroy items' })
+  async destroys(
+    @Req() req: any,
+    @Body('ids') ids: string[]
+  ): Promise<any> {
+    return await this.userService.destroys(req.user, ids, req.doet);
+  }
+
+  @Delete(':id')
+  async delete(@Req() req: any, @Param('id') id: string) {
+    return await this.userService.delete(req.user, id);
   }
 }

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { makeStyles } from '@mui/styles';
 import { Theme } from '@mui/material/styles';
 
@@ -140,16 +140,6 @@ export const useAccountInfoStyles = makeStyles((theme: Theme) => ({
     marginBottom: theme.spacing(3),
     color: '#333',
     position: 'relative',
-    '&:after': {
-      content: '""',
-      position: 'absolute',
-      bottom: -8,
-      left: 0,
-      width: 40,
-      height: 2,
-      backgroundColor: '#2f65f0',
-      borderRadius: 1,
-    }
   },
   field: {
     marginBottom: theme.spacing(2.5),

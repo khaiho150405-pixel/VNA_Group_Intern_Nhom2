@@ -26,6 +26,7 @@ export class User extends BaseAddressEntity {
       "fullName",
       "realRole",
       "role",
+      "roleId",
       "gender",
       "avatar",
       "email",
@@ -35,14 +36,15 @@ export class User extends BaseAddressEntity {
       "doet_id",
       "deletedAt",
       "otp",
-      "otpExpired"
+      "otpExpired",
+      "workUnit"
     ]
   ) {
     super(users as any);
     users &&
-    keys.forEach((key) => {
-      (users as any)[key] !== undefined && ((this as any)[key] = (users as any)[key]);
-    });
+      keys.forEach((key) => {
+        (users as any)[key] !== undefined && ((this as any)[key] = (users as any)[key]);
+      });
   }
 
   @PrimaryGeneratedColumn("uuid")
@@ -90,13 +92,18 @@ export class User extends BaseAddressEntity {
   @Column({ nullable: true })
   doet_id!: number;
 
+  @Column({ nullable: true })
+  roleId!: number;
+
   @ManyToOne(() => Role, (role: Role) => role.users)
   @JoinColumn({ name: "roleId" })
   role!: Role;
 
   @BeforeInsert()
   async hashPassword() {
-    this.password = await argon.hash(this.password);
+    if (this.password && !this.password.startsWith("$argon2")) {
+      this.password = await argon.hash(this.password);
+    }
   }
 
   @Column({ nullable: true })

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Box, 
   List, 
@@ -42,28 +42,69 @@ export const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [showPassModal, setShowPassModal] = useState(false);
 
+  useEffect(() => {
+    const activeParentIds: string[] = [];
+    NAVIGATION_ITEMS.forEach(item => {
+      if (item.children) {
+        const hasActiveChild = item.children.some(child => {
+          if (!child.path) return false;
+          return pathname.startsWith(child.path);
+        });
+        if (hasActiveChild) {
+          activeParentIds.push(item.id);
+        }
+      }
+    });
+    if (activeParentIds.length > 0) {
+      setOpenItems(prev => {
+        const merged = [...prev];
+        activeParentIds.forEach(id => {
+          if (!merged.includes(id)) {
+            merged.push(id);
+          }
+        });
+        return merged;
+      });
+    }
+  }, [pathname]);
+
+  const roleObj = user && typeof (user as any).role === 'object' && (user as any).role !== null ? (user as any).role : null;
+  const userRoleId = user ? ((user as any).roleId || roleObj?.id) : undefined;
   const rawRole = user
-    ? ((user as any).realRole || (typeof user.role === 'object' && user.role !== null ? (user.role as any).role : user.role))
+    ? ((user as any).realRole || roleObj?.role || (typeof user.role === 'string' ? user.role : ''))
     : undefined;
 
   let userRole = rawRole;
-  if (rawRole === 'Admin' || rawRole === 'ROLE_ADMIN') {
+  if (
+    userRoleId === 4 || 
+    userRoleId === 3 || 
+    userRoleId === 2 || 
+    rawRole === 'Admin' || 
+    rawRole === 'ROLE_ADMIN' || 
+    rawRole === 'superAdmin' || 
+    rawRole === 'leader' || 
+    rawRole === 'expert' || 
+    rawRole === 'ROLE_SO'
+  ) {
     userRole = 'ROLE_SO';
-  } else if (rawRole === 'User' || rawRole === 'ROLE_USER') {
+  } else if (
+    userRoleId === 1 || 
+    rawRole === 'User' || 
+    rawRole === 'ROLE_USER' || 
+    rawRole === 'employee' || 
+    rawRole === 'ROLE_DN'
+  ) {
     userRole = 'ROLE_DN';
   }
 
-  // Filter items based on user role - REMOVED AS REQUESTED
-  const filteredItems = NAVIGATION_ITEMS;
+  // Filter items based on user role
+  const filteredItems = NAVIGATION_ITEMS.filter(item => 
+    item.roles.includes(userRole as any)
+  );
 
   const handleToggle = (id: string) => {
-    if (isCollapsed) {
-      onToggle();
-      setOpenItems([id]);
-      return;
-    }
     setOpenItems(prev => 
-      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+      prev.includes(id) ? prev : [...prev, id]
     );
   };
 
@@ -124,14 +165,14 @@ export const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
           {!isCollapsed && hasChildren ? (isOpen ? <ExpandMore fontSize="small" sx={{ opacity: 0.8 }} /> : <ExpandMore fontSize="small" sx={{ opacity: 0.8, transform: 'rotate(-90deg)' }} />) : null}
         </ListItemButton>
         
-        {!isCollapsed && hasChildren && (
+        {hasChildren && (
           <Collapse in={isOpen} timeout="auto" unmountOnExit>
             <List component="div" disablePadding>
               {item.children?.map(child => (
                 <ListItemButton
                   key={child.id}
                   sx={{
-                    paddingLeft: (theme) => theme.spacing(5),
+                    paddingLeft: (theme) => theme.spacing(isCollapsed ? 0 : 5),
                     paddingTop: (theme) => theme.spacing(1),
                     paddingBottom: (theme) => theme.spacing(1),
                     '&:hover': {
@@ -140,10 +181,17 @@ export const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
                     ...(pathname === child.path && {
                       backgroundColor: 'rgba(255,255,255,0.12)',
                     }),
+                    justifyContent: isCollapsed ? 'center' : 'flex-start',
                   }}
                   onClick={() => handleNavigate(child.path)}
                 >
-                  <ListItemIcon sx={{ minWidth: 28, color: 'rgba(255,255,255,0.7)' }}>
+                  <ListItemIcon 
+                    sx={{ 
+                      minWidth: isCollapsed ? 40 : 28, 
+                      color: 'rgba(255,255,255,0.7)',
+                      justifyContent: 'center'
+                    }}
+                  >
                     {child.icon}
                   </ListItemIcon>
                   <ListItemText 
@@ -152,7 +200,10 @@ export const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
                       '& span': {
                         fontSize: '0.85rem',
                         color: 'rgba(255,255,255,0.8)',
-                      }
+                      },
+                      opacity: isCollapsed ? 0 : 1, 
+                      width: isCollapsed ? 0 : 'auto',
+                      display: isCollapsed ? 'none' : 'block'
                     }}
                   />
                 </ListItemButton>

@@ -40,7 +40,7 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
         throw new NotFoundException('Account not found');
       }
       if (user.status === true) {
-        throw new NotAcceptableException('Account is locked');
+        throw new NotAcceptableException({ message: 'Account is locked' });
       }
       const isMatch = await argon.verify(user.password, password);
       if (!isMatch) {

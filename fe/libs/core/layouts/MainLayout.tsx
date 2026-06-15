@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import React, { useEffect } from 'react';
 import { Box, CircularProgress } from '@mui/material';
 import { Sidebar } from '@core/components/Sidebar';

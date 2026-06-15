@@ -30,6 +30,7 @@ export const LoginPage = () => {
 
   return (
     <>
+
       <AuthLayout visible={visible}>
         <AuthLogo
           title="Phần Mềm Quản Lý - Tạo Lập Cơ Sở Dữ Liệu<br/>An Toàn Vệ Sinh Lao Động"
@@ -75,7 +76,6 @@ export const LoginPage = () => {
               </Typography>
             </Box>
           </Collapse>
-
           <TextField
             id="login-username"
             fullWidth

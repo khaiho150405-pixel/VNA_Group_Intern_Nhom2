@@ -12,8 +12,8 @@
   },
   "dependencies": {
     "@emotion/cache": "^11.4.0",
-    "@emotion/react": "^11.5.0",
-    "@emotion/styled": "^11.6.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
     "@iconify/icons-eva": "^1.1.0",
     "@iconify/icons-ic": "^1.1.6",
     "@iconify/icons-mdi": "^1.1.21",
@@ -35,7 +35,8 @@
     "simplebar": "^5.3.4",
     "simplebar-react": "^2.3.4",
     "stylis": "^4.0.10",
-    "stylis-plugin-rtl": "^2.1.0"
+    "stylis-plugin-rtl": "^2.1.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

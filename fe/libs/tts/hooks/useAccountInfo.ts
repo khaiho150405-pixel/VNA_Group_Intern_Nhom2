@@ -5,7 +5,6 @@ import { useAuth } from "@core/contexts/AuthProvider";
 import { authService } from "@tts/services/auth.services";
 import { validate, VALIDATION_MESSAGES } from "@core/utils/validation";
 import useLocales from "@core/hooks/useLocales";
-
 import { getCookie } from '@core/services/cookies';
 
 export const useAccountInfo = () => {
@@ -29,7 +28,7 @@ export const useAccountInfo = () => {
     // Fetch provinces
     const fetchProvinces = async () => {
       try {
-        const res = await fetch('https://esgoo.net/api-tinhthanh/1/0.htm');
+        const res = await fetch('https://esgoo.net/api-tinhthanh-new/1/0.htm');
         const data = await res.json();
         if (data && Array.isArray(data.data)) {
           const mapped = data.data.map((p: any) => ({
@@ -53,7 +52,7 @@ export const useAccountInfo = () => {
     if (state.city) {
       const fetchDistricts = async () => {
         try {
-          const res = await fetch(`https://esgoo.net/api-tinhthanh/2/${state.city}.htm`);
+          const res = await fetch(`https://esgoo.net/api-tinhthanh-new/2/${state.city}.htm`);
           const data = await res.json();
           if (data && Array.isArray(data.data)) {
             const mapped = data.data.map((d: any) => ({
@@ -77,11 +76,11 @@ export const useAccountInfo = () => {
     if (user) {
       const roleObj = typeof (user as any).role === 'object' && (user as any).role !== null ? (user as any).role : null;
       const userRoleId = (user as any).roleId || roleObj?.id;
-      let userRoleKey = userRoleId === 4 ? 'superAdmin' 
-                       : userRoleId === 3 ? 'leader' 
-                       : userRoleId === 2 ? 'expert' 
-                       : userRoleId === 1 ? 'employee' 
-                       : (user as any).realRole || roleObj?.role || (typeof (user as any).role === 'string' ? (user as any).role : '');
+      let userRoleKey = userRoleId === 4 ? 'superAdmin'
+        : userRoleId === 3 ? 'leader'
+          : userRoleId === 2 ? 'expert'
+            : userRoleId === 1 ? 'employee'
+              : (user as any).realRole || roleObj?.role || (typeof (user as any).role === 'string' ? (user as any).role : '');
 
       if (userRoleKey === 'Admin' || userRoleKey === 'ROLE_ADMIN') {
         userRoleKey = 'superAdmin';
@@ -89,7 +88,7 @@ export const useAccountInfo = () => {
         userRoleKey = 'employee';
       }
 
-      let formattedBirthday = '1995-06-01';
+      let formattedBirthday = '';
       const rawBirthday = (user as any).dateOfBirth || (user as any).birthday;
       if (rawBirthday) {
         const date = new Date(rawBirthday);
@@ -122,6 +121,8 @@ export const useAccountInfo = () => {
           city: initialCity,
           district: initialDistrict,
           role: userRoleKey,
+          title: (user as any).workUnit || '',
+          active: (user as any).status === false || (user as any).status === null || (user as any).status === undefined,
         }
       });
     }
@@ -198,7 +199,6 @@ export const useAccountInfo = () => {
       // Find selected district name from fetched districts list
       const selectedDistrict = state.districts.find(d => String(d.code) === String(state.district));
       const districtVal = selectedDistrict ? selectedDistrict.name : (state.district === 'GV' ? 'Phường Gò Vấp' : state.district);
-
       const payload: Record<string, any> = {
         fullName: state.displayName,
         dateOfBirth: state.birthday ? new Date(state.birthday) : null,
@@ -207,9 +207,10 @@ export const useAccountInfo = () => {
         province: state.city ? { key: String(state.city), value: provinceVal } : null,
         district: state.district ? { key: String(state.district), value: districtVal } : null,
         address: state.address,
+        workUnit: state.title,
         // NOTE: Do NOT send 'status' here — in the DB status=true means "account locked"
       };
-      
+
       // If email changed, include it in payload
       if (state.email && state.email !== user?.email) {
         payload.email = state.email;
@@ -231,6 +232,7 @@ export const useAccountInfo = () => {
             province: state.city ? { key: String(state.city), value: provinceVal } : null,
             district: state.district ? { key: String(state.district), value: districtVal } : null,
             address: state.address,
+            workUnit: state.title,
             avatar: state.avatarUrl || '',
           };
           const token = getCookie('accessToken') || '';
