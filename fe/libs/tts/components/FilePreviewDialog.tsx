@@ -18,10 +18,25 @@ interface FilePreviewDialogProps {
   file?: FileAttachment | null;
 }
 
+const getFullUrl = (file?: FileAttachment | null) => {
+  if (!file) return '';
+  const url = file.fileUrl;
+  if (url && (url.startsWith('blob:') || url.startsWith('http') || url.startsWith('data:'))) return url;
+  
+  const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3333/api/v1').replace('/api/v1', '');
+  
+  if (url) return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+  
+  // Fallback: If URL is missing but filename exists, assume it's in a standard uploads directory
+  if (file.fileName) return `${baseUrl}/uploads/${file.fileName}`;
+  
+  return '';
+};
+
 export const FilePreviewDialog = ({ open, onClose, file }: FilePreviewDialogProps) => {
   if (!file) return null;
 
-  const url = file.fileUrl;
+  const url = getFullUrl(file);
   const name = file.fileName || 'Tệp đính kèm';
   const isImage = (file.mimeType || '').startsWith('image/') ||
     /\.(png|jpe?g|gif|webp)$/i.test(name);

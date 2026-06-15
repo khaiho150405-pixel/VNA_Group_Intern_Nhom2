@@ -12,6 +12,8 @@ import {
   CircularProgress,
   Autocomplete,
   InputAdornment,
+  Tooltip,
+  IconButton,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import {
@@ -21,6 +23,7 @@ import {
   CalendarToday as CalendarIcon,
   KeyboardArrowRight as ChevronRightIcon,
   DoneAll as DoneAllIcon,
+  Visibility as ViewIcon,
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
 import { useSnackbar } from 'notistack';
@@ -473,20 +476,42 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
     router.push('/doets');
   };
 
-  const handleAttachmentUpload = (index: number, file: File) => {
-    const url = URL.createObjectURL(file);
+  const handleAttachmentUpload = async (index: number, file: File) => {
+    // 1. Create a local blob URL for immediate preview
+    const localUrl = URL.createObjectURL(file);
+
     setFormData((prev) => {
       const next = [...(prev.attachments || DEFAULT_ATTACHMENTS)];
       next[index] = {
         ...next[index],
         fileName: file.name,
-        fileUrl: url,
+        fileUrl: localUrl, // Set blob URL immediately
         mimeType: file.type,
         size: file.size,
-        localFile: file,
       };
       return { ...prev, attachments: next };
     });
+
+    try {
+      // 2. Upload to server in the background
+      const res: any = await DoetService.uploadFile(file);
+      const uploaded = res?.data || res;
+
+      // 3. Update with server URL once finished
+      setFormData((prev) => {
+        const next = [...(prev.attachments || DEFAULT_ATTACHMENTS)];
+        // Ensure we are updating the same slot (in case user changed it)
+        if (next[index].fileName === uploaded.fileName) {
+          next[index] = {
+            ...next[index],
+            fileUrl: uploaded.fileUrl,
+          };
+        }
+        return { ...prev, attachments: next };
+      });
+    } catch (error) {
+      // Silent catch: local preview still works even if server upload fails temporarily
+    }
   };
 
   const handleAttachmentRemove = (index: number) => {
@@ -532,6 +557,11 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
   const addressDisabled = !formData.ward?.key || isView;
   const opWardDisabled = !formData.operatingProvince?.key || isView;
 
+  const gpkdFile = useMemo(
+    () => (formData.attachments || []).find((a) => a.type === 'GPKD' && (a.fileUrl || a.localFile || a.fileName)),
+    [formData.attachments],
+  );
+
   const titleByMode = isEdit
     ? 'Cập nhật doanh nghiệp'
     : isView
@@ -541,7 +571,7 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
   const renderStep1 = () => (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       <Box className={classes.card}>
-        <Typography className={classes.sectionTitle}>Thêm mới doanh nghiệp</Typography>
+        <Typography className={classes.sectionTitle}>{titleByMode}</Typography>
         <Box className={classes.formGrid}>
           <TextField
             label={<RequiredLabel text="Tên doanh nghiệp" />}
@@ -609,6 +639,17 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
             fullWidth
             slotProps={{
               inputLabel: { shrink: true },
+              input: {
+                endAdornment: gpkdFile ? (
+                  <InputAdornment position="end">
+                    <Tooltip title="Xem GPKD">
+                      <IconButton size="small" onClick={() => setPreviewFile(gpkdFile)}>
+                        <ViewIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </InputAdornment>
+                ) : null,
+              },
             }}
           />
           <Autocomplete
@@ -750,16 +791,44 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
   );
 
   const renderStep2 = () => {
-    const rows = [
+    const rows: [string, React.ReactNode, boolean?][] = [
       ['Mã số thuế :', formData.taxCode, true],
       ['Tên doanh nghiệp :', formData.name],
       ['Tên viết bằng tiếng nước ngoài :', formData.name2],
-      ['Ngày cấp GPKD:', formData.gpkdDate ? formatDateDisplay(formData.gpkdDate) : ''],
+      [
+        'Ngày cấp GPKD:',
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography sx={{ fontSize: 'inherit', fontWeight: 'inherit' }}>
+            {formData.gpkdDate ? formatDateDisplay(formData.gpkdDate) : ''}
+          </Typography>
+          {gpkdFile && (
+            <Tooltip title="Xem GPKD">
+              <IconButton
+                size="small"
+                onClick={() => setPreviewFile(gpkdFile)}
+                sx={{ color: '#2f65f0', p: 0.5 }}
+              >
+                <ViewIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>,
+      ],
       ['Email', formData.email],
       ['Loại hình kinh doanh:', selectedLoaiHinh?.tenloaihinh || ''],
       ['Ngành nghề kinh doanh', selectedBusinessLine?.tennganh || ''],
-      ['Địa chỉ đăng kí giấy phép kinh doanh :', [formData.address, formData.ward?.value, formData.province?.value].filter(Boolean).join(', ')],
-      ['Địa điểm kinh doanh :', [formData.operatingAddress, formData.operatingWard?.value, formData.operatingProvince?.value].filter(Boolean).join(', ')],
+      [
+        'Địa chỉ đăng kí giấy phép kinh doanh :',
+        [formData.address, formData.ward?.value, formData.province?.value]
+          .filter(Boolean)
+          .join(', '),
+      ],
+      [
+        'Địa điểm kinh doanh :',
+        [formData.operatingAddress, formData.operatingWard?.value, formData.operatingProvince?.value]
+          .filter(Boolean)
+          .join(', '),
+      ],
       ['Người đứng đầu doanh nghiệp', formData.headOfEnterprise],
       ['SĐT người đứng đầu', formData.headPhone],
     ];
@@ -772,12 +841,16 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
             {rows.map(([label, value, isBoldValue]) => (
               <Box key={label as string} className={classes.summaryRow}>
                 <Typography className={classes.summaryLabel}>{label as string}</Typography>
-                <Typography
+                <Box
                   className={classes.summaryValue}
-                  sx={{ fontWeight: isBoldValue ? 700 : 500 }}
+                  sx={{
+                    fontWeight: isBoldValue ? 700 : 500,
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
                 >
-                  {value as string || '-'}
-                </Typography>
+                  {value || '-'}
+                </Box>
               </Box>
             ))}
           </Box>
@@ -806,7 +879,7 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
               <StepLabel slots={{ stepIcon: CustomStepIcon }}>Thông tin doanh nghiệp</StepLabel>
             </Step>
             <Step>
-              <StepLabel slots={{ stepIcon: CustomStepIcon }}>Xác nhận đăng ký</StepLabel>
+              <StepLabel slots={{ stepIcon: CustomStepIcon }}>Xác nhận thông tin</StepLabel>
             </Step>
           </Stepper>
         </Box>

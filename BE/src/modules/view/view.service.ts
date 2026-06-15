@@ -18,6 +18,9 @@ export class ViewService extends BaseService<View> {
 
   async getViewsByRoleId(roleId: number): Promise<ResponseData<List<View[]>>> {
     try {
+      if (!roleId) {
+        return Response.getList<View>({ items: [], count: 0 });
+      }
       const data = await this.manager.query(`
         select * from views v, jsonb_array_elements(
           case 

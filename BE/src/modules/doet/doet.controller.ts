@@ -31,7 +31,7 @@ export class DoetController extends BaseController<Doet, DoetService> {
   }
 
   @Get("check-email")
-  @ApiOperation({ summary: "Ki?m tra email ?? t?n t?i trong h? th?ng" })
+  @ApiOperation({ summary: "Kiểm tra email đã tồn tại trong hệ thống" })
   async checkEmail(@Query("email") email: string, @Query("id") id?: string) {
     return await this.doetService.checkEmailExists(email, id ? Number(id) : undefined);
   }

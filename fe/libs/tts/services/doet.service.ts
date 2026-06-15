@@ -42,6 +42,14 @@ const DoetService = {
     });
   },
 
+  uploadFile: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return axiosClient.post('/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+
   adminResetPassword: (id: number, newPassword: string) => {
     return axiosClient.post(`/doets/${id}/admin-reset-password`, { newPassword });
   },

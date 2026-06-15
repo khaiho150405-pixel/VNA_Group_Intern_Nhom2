@@ -2,6 +2,7 @@
   active: true,
   showEmailModal: false,
   username: '',
+  password: '',
   displayName: '',
   birthday: '1995-06-01',
   gender: '',

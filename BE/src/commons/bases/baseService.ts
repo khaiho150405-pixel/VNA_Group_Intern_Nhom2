@@ -39,50 +39,68 @@ export class BaseService<T> {
 
   async get(getAllDto: GetAllDto, doet: Doet | null = null): Promise<ResponseData<List<T[]>>> {
     try {
-      let { pageSize, pageNumber, order } = getAllDto;
-      const select = (getAllDto.select && JSON.parse(getAllDto.select)) || null;
-      const relations =
-        (getAllDto.relation && JSON.parse(getAllDto.relation)) || null;
-      const where = (getAllDto.where && JSON.parse(getAllDto.where)) || {};
+      const pageSize = getAllDto.pageSize ? +getAllDto.pageSize : 10;
+      const pageNumber = getAllDto.pageNumber ? +getAllDto.pageNumber : 0;
+      const orderStr = getAllDto.order || "{}";
+      
+      const select = (getAllDto.select && typeof getAllDto.select === 'string') 
+        ? JSON.parse(getAllDto.select) 
+        : (getAllDto.select || null);
+        
+      const relations = (getAllDto.relation && typeof getAllDto.relation === 'string')
+        ? JSON.parse(getAllDto.relation)
+        : (getAllDto.relation || null);
+        
+      const where = (getAllDto.where && typeof getAllDto.where === 'string')
+        ? JSON.parse(getAllDto.where)
+        : (getAllDto.where || {});
+
       if (where instanceof Array) {
         for (const item of where) {
           Object.keys(item).forEach((key) => {
-            if (item[key].operation === "like") {
-              item[key] = ILike(item[key].value);
-            } else if (item[key].operation === "in") {
-              item[key] = In(item[key].value);
-            } else if (item[key].operation === "notIn") {
-              item[key] = Not(In(item[key].value));
-            } else if (item[key].operation === "=") {
-              item[key] = item[key].value;
-            } else if (item[key].operation === "between") {
-              item[key] = Between(item[key].value[0], item[key].value[1]);
+            if (item[key] && typeof item[key] === 'object') {
+              if (item[key].operation === "like") {
+                item[key] = ILike(item[key].value);
+              } else if (item[key].operation === "in") {
+                item[key] = In(item[key].value);
+              } else if (item[key].operation === "notIn") {
+                item[key] = Not(In(item[key].value));
+              } else if (item[key].operation === "=") {
+                item[key] = item[key].value;
+              } else if (item[key].operation === "between") {
+                item[key] = Between(item[key].value[0], item[key].value[1]);
+              }
             }
           });
         }
       } else {
         Object.keys(where).forEach((key) => {
-          if (where[key]?.operation === "like") {
-            where[key] = ILike(where[key].value);
-          } else if (where[key]?.operation === "in") {
-            where[key] = In(where[key].value);
-          } else if (where[key]?.operation === "notIn") {
-            where[key] = Not(In(where[key].value));
-          } else if (where[key]?.operation === "=") {
-            where[key] = where[key].value;
-          } else if (where[key]?.operation === "between") {
-            where[key] = Between(where[key].value[0], where[key].value[1]);
+          if (where[key] && typeof where[key] === 'object') {
+            if (where[key].operation === "like") {
+              where[key] = ILike(where[key].value);
+            } else if (where[key].operation === "in") {
+              where[key] = In(where[key].value);
+            } else if (where[key].operation === "notIn") {
+              where[key] = Not(In(where[key].value));
+            } else if (where[key].operation === "=") {
+              where[key] = where[key].value;
+            } else if (where[key].operation === "between") {
+              where[key] = Between(where[key].value[0], where[key].value[1]);
+            }
           }
         });
       }
       if (doet && doet.id && !ignoreDoet.includes(this.baseRepository.metadata.tableName) && !where.doet_id) {
         where.doet_id = doet.id;
       }
+
+      const parsedOrder = typeof orderStr === 'string' ? JSON.parse(orderStr) : orderStr;
+
       let [items, count] = await this.baseRepository.findAndCount({
         where,
         relations,
         select,
-        order: { ...JSON.parse(order || "{}") },
+        order: { ...parsedOrder },
         skip: pageSize * pageNumber,
         take: pageSize
       });
@@ -158,7 +176,8 @@ export class BaseService<T> {
       if (itemDto && Object.prototype.hasOwnProperty.call(itemDto, 'status')) {
         const roleName = (currentUser?.realRole || '').toUpperCase();
         const roleCode = (currentUser?.role?.role || '').toUpperCase();
-        const isAdmin = roleName.includes('ADMIN') || roleCode.includes('ADMIN');
+        const isAdmin = roleName.includes('ADMIN') || roleCode.includes('ADMIN') || 
+                        roleName.includes('QUẢN TRỊ') || roleName.includes('QUAN TRI');
         
         if (!isAdmin) {
           delete itemDto.status;
@@ -169,14 +188,27 @@ export class BaseService<T> {
         itemDto.password = await argon.hash(itemDto.password);
       }
 
-      // Ensure we only update the fields provided in itemDto
+      // Convert ID to number if the repository expects a number
+      const primaryKeyType = this.baseRepository.metadata.primaryColumns[0]?.type;
+      const parsedId = (primaryKeyType === Number || typeof primaryKeyType === 'function' && primaryKeyType.name === 'Number') 
+        ? Number(id) : id;
+
       const updateData = {
         ...itemDto,
+        id: parsedId,
         updatedAt: new Date(),
         updatedBy: currentUser?.id
       };
 
-      const result = await this.baseRepository.update(id, updateData);
+      // Use save() instead of update() to handle relations and partial updates more robustly
+      const saved = await this.baseRepository.save(updateData as any);
+
+      // Return a compatible UpdateResult
+      const result: UpdateResult = {
+        raw: saved,
+        affected: 1,
+        generatedMaps: []
+      };
 
       return Response.get<UpdateResult>(result);
     } catch (error) {

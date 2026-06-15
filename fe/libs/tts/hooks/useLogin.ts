@@ -109,10 +109,14 @@ export const useLogin = () => {
     } catch (error: any) {
       let message = translate("notifications.error");
       const errorData = error.response?.data;
-      if (errorData?.errors?.message === "Wrong password" || errorData?.errors?.message === "Account not found") {
+      const errorMessage = errorData?.errors?.message || errorData?.errors || errorData?.message;
+
+      if (errorMessage === "Wrong password" || errorMessage === "Account not found") {
         message = translate("notifications.loginError");
-      } else if (errorData?.errors?.message) {
-        message = errorData.errors.message;
+      } else if (errorMessage === "Account is locked") {
+        message = translate("notifications.accountLocked");
+      } else if (errorMessage) {
+        message = errorMessage;
       } else if (error?.message) {
         message = error.message;
       }

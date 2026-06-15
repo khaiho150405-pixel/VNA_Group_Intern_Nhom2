@@ -23,7 +23,7 @@ export class AuthService {
 
   async login(data: any, doet: Doet | null): Promise<ResponseData<LoginModel>> {
     try {
-      const _doet = doet && doet.id ? doet.id : null;
+      const _doet = (doet && doet.id) ? doet.id : (data.doet_id || null);
       const user = new CurrentUser(_doet, data);
       const tokenPayload = { ...user };
       delete tokenPayload.avatar;
@@ -44,8 +44,9 @@ export class AuthService {
 
   async validateToken(token: string, doet: Doet | null): Promise<ResponseData<LoginModel>> {
     try {
-      const _doet = doet && doet.id ? doet.id : null;
-      const user = new CurrentUser(_doet, await this.jwtService.verifyAsync(token));
+      const payload = await this.jwtService.verifyAsync(token);
+      const _doet = (doet && doet.id) ? doet.id : (payload.doet || null);
+      const user = new CurrentUser(_doet, payload);
       const views = await this.viewService.getViewsByRoleId(user.role?.id as any);
       const rs = new LoginModel({
         user,

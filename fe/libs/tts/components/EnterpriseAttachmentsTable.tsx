@@ -103,9 +103,9 @@ export const EnterpriseAttachmentsTable = ({
                   <span>
                     <IconButton
                       size="small"
-                      disabled={!file.fileUrl && !file.localFile}
+                      disabled={!file.fileUrl && !file.localFile && !file.fileName}
                       onClick={() => onPreview(file)}
-                      sx={{ color: '#6b7280' }}
+                      sx={{ color: file.fileName || file.fileUrl || file.localFile ? '#2f65f0' : '#6b7280' }}
                     >
                       <ViewIcon fontSize="small" />
                     </IconButton>

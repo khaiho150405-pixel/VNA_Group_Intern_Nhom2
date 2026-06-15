@@ -100,7 +100,46 @@ export class DoetService extends BaseService<Doet> {
   }
 
   async put(currentUser: any, id: string, itemDto: any) {
-    return await super.put(currentUser, id, this.normalizeDoetPayload(itemDto));
+    try {
+      const normalizedData = this.normalizeDoetPayload(itemDto);
+      
+      // Admin check for status field
+      if (normalizedData && normalizedData.status !== undefined) {
+        const roleName = (currentUser?.realRole || '').toUpperCase();
+        const roleCode = (currentUser?.role?.role || '').toUpperCase();
+        const isAdmin = roleName.includes('ADMIN') || roleCode.includes('ADMIN') || 
+                        roleName.includes('QUẢN TRỊ') || roleName.includes('QUAN TRI');
+        
+        if (!isAdmin) {
+          delete normalizedData.status;
+        }
+      }
+
+      const updateData = {
+        ...normalizedData,
+        id: Number(id),
+        updatedAt: new Date(),
+        updatedBy: currentUser?.id
+      };
+
+      // Use save() instead of super.put()'s update() to handle relations correctly
+      const saved = await this.doetRepository.save(updateData);
+      
+      // Sync status to associated users (asynchronous, don't block the response)
+      if (itemDto && itemDto.status !== undefined) {
+        const isActive = (itemDto.status === true || itemDto.status === 'true' || itemDto.status === 'ACTIVE');
+        this.userRepository.update(
+          { doet_id: Number(id) as any },
+          { status: isActive }
+        ).catch(err => {
+          console.error(`Lỗi khi đồng bộ trạng thái sang tài khoản người dùng của doanh nghiệp ${id}:`, err);
+        });
+      }
+      
+      return Response.get(saved);
+    } catch (error) {
+      throw Response.errorInternal(error);
+    }
   }
 
   async delete(currentUser: any, id: string) {
@@ -266,7 +305,7 @@ export class DoetService extends BaseService<Doet> {
   async sendOtp(email: string) {
     const doet = await this.doetRepository.findOne({ where: { email } });
     if (!doet) {
-      throw Response.errorNotFound("Kh?ng t?m th?y doanh nghi?p v?i email n?y");
+      throw Response.errorNotFound("Không tìm thấy doanh nghiệp với email này");
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -275,52 +314,52 @@ export class DoetService extends BaseService<Doet> {
 
     await this.doetRepository.update(doet.id, { otp, otpExpired });
 
-    console.log(`[SIMULATED EMAIL] M? OTP ??i m?t kh?u cho ${doet.name} l?: ${otp}`);
+    console.log(`[SIMULATED EMAIL] Mã OTP đổi mật khẩu cho ${doet.name} là: ${otp}`);
 
-    return { success: true, message: "?? g?i m? OTP th?nh c?ng", otp: otp };
+    return { success: true, message: "Đã gửi mã OTP thành công", otp: otp };
   }
 
   async changePassword(id: number, oldPassword: string, otp: string, newPassword: string) {
     const users = await this.manager.query(`SELECT * FROM users WHERE doet_id = $1`, [id]);
-    if (!users || users.length === 0) throw Response.errorNotFound("Kh?ng t?m th?y t?i kho?n c?a doanh nghi?p");
+    if (!users || users.length === 0) throw Response.errorNotFound("Không tìm thấy tài khoản của doanh nghiệp");
 
     const user = users[0];
     const isMatch = await argon.verify(user.password, oldPassword);
-    if (!isMatch) throw Response.errorBad("M?t kh?u c? kh?ng ch?nh x?c");
+    if (!isMatch) throw Response.errorBad("Mật khẩu cũ không chính xác");
 
     const doet = await this.doetRepository.findOne({ where: { id } });
-    if (!doet) throw Response.errorNotFound("Kh?ng t?m th?y doanh nghi?p");
-    if (!doet.otp || doet.otp !== otp) throw Response.errorBad("M? OTP kh?ng ch?nh x?c");
-    if (new Date() > new Date(doet.otpExpired)) throw Response.errorBad("M? OTP ?? h?t h?n");
+    if (!doet) throw Response.errorNotFound("Không tìm thấy doanh nghiệp");
+    if (!doet.otp || doet.otp !== otp) throw Response.errorBad("Mã OTP không chính xác");
+    if (new Date() > new Date(doet.otpExpired)) throw Response.errorBad("Mã OTP đã hết hạn");
 
     const hashedPassword = await argon.hash(newPassword);
     await this.manager.query(`UPDATE users SET password = $1 WHERE doet_id = $2`, [hashedPassword, id]);
 
     await this.doetRepository.update(id, { otp: null, otpExpired: null });
-    return { success: true, message: "??i m?t kh?u th?nh c?ng" };
+    return { success: true, message: "Đổi mật khẩu thành công" };
   }
 
   async resetPassword(email: string, otp: string, newPassword: string) {
     const doet = await this.doetRepository.findOne({ where: { email } });
-    if (!doet) throw Response.errorNotFound("Kh?ng t?m th?y doanh nghi?p v?i email n?y");
-    if (!doet.otp || doet.otp !== otp) throw Response.errorBad("M? OTP kh?ng ch?nh x?c");
-    if (new Date() > new Date(doet.otpExpired)) throw Response.errorBad("M? OTP ?? h?t h?n");
+    if (!doet) throw Response.errorNotFound("Không tìm thấy doanh nghiệp với email này");
+    if (!doet.otp || doet.otp !== otp) throw Response.errorBad("Mã OTP không chính xác");
+    if (new Date() > new Date(doet.otpExpired)) throw Response.errorBad("Mã OTP đã hết hạn");
 
     const hashedPassword = await argon.hash(newPassword);
     await this.manager.query(`UPDATE users SET password = $1 WHERE doet_id = $2`, [hashedPassword, doet.id]);
 
     await this.doetRepository.update(doet.id, { otp: null, otpExpired: null });
-    return { success: true, message: "Kh?i ph?c m?t kh?u th?nh c?ng" };
+    return { success: true, message: "Khôi phục mật khẩu thành công" };
   }
 
   async adminResetPassword(id: number, newPassword: string) {
     const users = await this.manager.query(`SELECT id FROM users WHERE doet_id = $1`, [id]);
-    if (!users || users.length === 0) throw Response.errorNotFound("Kh?ng t?m th?y t?i kho?n c?a doanh nghi?p");
+    if (!users || users.length === 0) throw Response.errorNotFound("Không tìm thấy tài khoản của doanh nghiệp");
 
     const hashedPassword = await argon.hash(newPassword);
     await this.manager.query(`UPDATE users SET password = $1 WHERE doet_id = $2`, [hashedPassword, id]);
 
-    return { success: true, message: "C?p l?i m?t kh?u th?nh c?ng" };
+    return { success: true, message: "Cấp lại mật khẩu thành công" };
   }
 
   async importExcel(buffer: Buffer) {

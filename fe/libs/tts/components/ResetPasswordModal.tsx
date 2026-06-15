@@ -39,7 +39,7 @@ export const ResetPasswordModal = ({
 
   const handleSave = async () => {
     if (!newPassword.trim()) {
-      enqueueSnackbar('Vui l?ng nh?p m?t kh?u m?i', { variant: 'warning' });
+      enqueueSnackbar('Vui lòng nhập mật khẩu mới', { variant: 'warning' });
       return;
     }
     if (!enterpriseId) return;
@@ -47,10 +47,10 @@ export const ResetPasswordModal = ({
     setSubmitting(true);
     try {
       await DoetService.adminResetPassword(enterpriseId, newPassword);
-      enqueueSnackbar('C?p l?i m?t kh?u th?nh c?ng', { variant: 'success' });
+      enqueueSnackbar('Cấp lại mật khẩu thành công', { variant: 'success' });
       onClose();
     } catch (error) {
-      enqueueSnackbar('L?i khi c?p l?i m?t kh?u', { variant: 'error' });
+      enqueueSnackbar('Lỗi khi cấp lại mật khẩu', { variant: 'error' });
     } finally {
       setSubmitting(false);
     }
@@ -76,16 +76,16 @@ export const ResetPasswordModal = ({
           fontSize: '1rem',
         }}
       >
-        X?c nh?n
+        Xác nhận
       </Box>
       <DialogContent sx={{ p: 3 }}>
         <Typography sx={{ mb: 2, fontSize: '0.95rem' }}>
-          Kh?i t?o m?t kh?u cho t?i kho?n <strong>{accountLabel}</strong>
+          Khởi tạo mật khẩu cho tài khoản <strong>{accountLabel}</strong>
         </Typography>
         <TextField
           fullWidth
           size="small"
-          placeholder="Nh?p m?t kh?u m?i mong mu?n"
+          placeholder="Nhập mật khẩu mới mong muốn"
           type="password"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
@@ -97,7 +97,7 @@ export const ResetPasswordModal = ({
             disabled={submitting}
             sx={{ color: '#666', textTransform: 'none', fontWeight: 500 }}
           >
-            Hu? b?
+            Huỷ bỏ
           </Button>
           <Button
             variant="contained"
@@ -113,7 +113,7 @@ export const ResetPasswordModal = ({
               px: 2,
             }}
           >
-            L?u
+            Lưu
           </Button>
         </Box>
       </DialogContent>

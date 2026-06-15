@@ -41,9 +41,9 @@ export class User extends BaseAddressEntity {
   ) {
     super(users as any);
     users &&
-    keys.forEach((key) => {
-      (users as any)[key] !== undefined && ((this as any)[key] = (users as any)[key]);
-    });
+      keys.forEach((key) => {
+        (users as any)[key] !== undefined && ((this as any)[key] = (users as any)[key]);
+      });
   }
 
   @PrimaryGeneratedColumn("uuid")

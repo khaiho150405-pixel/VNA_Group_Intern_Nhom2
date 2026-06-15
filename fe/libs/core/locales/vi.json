@@ -21,6 +21,7 @@
     "otpSentSuccess": "Mã OTP đã được gửi đến email của bạn!",
     "error": "Đã có lỗi xảy ra!",
     "loginError": "Tài khoản hoặc mật khẩu không đúng. Xin vui lòng thử lại",
+    "accountLocked": "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.",
     "tokenError": "Đăng nhập thất bại. Không nhận được Token từ Server.",
     "otpError": "Mã OTP không chính xác"
   }

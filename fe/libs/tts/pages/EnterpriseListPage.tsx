@@ -45,9 +45,8 @@ import {
 import { useEnterpriseListStyles } from "../logic/enterprise/style";
 
 interface WardOption {
-  id: string;
-  full_name?: string;
-  name?: string;
+  key: string;
+  value: string;
 }
 
 const normalizeListResponse = (raw: any): any[] => {
@@ -109,26 +108,14 @@ export const EnterpriseListPage = () => {
 
   const fetchDropdowns = async () => {
     try {
-      const [lh, bl] = await Promise.all([
+      const [lh, bl, w] = await Promise.all([
         DoetService.getLoaiHinhKinhDoanh(),
         DoetService.getBusinessLines(),
+        DoetService.getDistinctWards(),
       ]);
       setLoaiHinhs(normalizeListResponse(lh));
       setBusinessLines(normalizeListResponse(bl));
-
-      // Lấy danh sách phường/xã đã có trong dữ liệu doanh nghiệp (distinct)
-      try {
-        const wardRes: any = await DoetService.getDistinctWards();
-        const wards = normalizeListResponse(wardRes).map((w: any) => ({
-          id: w.key,
-          name: w.value,
-          full_name: w.value,
-        }));
-        setWards(wards);
-      } catch (error) {
-        console.error("Error fetching distinct wards", error);
-        setWards([]);
-      }
+      setWards(normalizeListResponse(w));
     } catch (error) {
       console.error("Error fetching dropdowns", error);
     }
@@ -347,13 +334,13 @@ export const EnterpriseListPage = () => {
                         <Autocomplete
                           size="small"
                           options={Array.isArray(wards) ? wards : []}
-                          getOptionLabel={(option: any) => option.full_name || option.name || ""}
-                          isOptionEqualToValue={(opt: any, val: any) => opt.id === val.id}
-                          value={wards.find((w: any) => String(w.id) === filters.wardId) || null}
-                          onChange={(_, newValue: any) =>
+                          getOptionLabel={(option: WardOption) => option.value || ""}
+                          isOptionEqualToValue={(opt: WardOption, val: WardOption) => opt.key === val.key}
+                          value={wards.find((w: WardOption) => String(w.key) === filters.wardId) || null}
+                          onChange={(_, newValue: WardOption | null) =>
                             handleFilterChange(
                               "wardId",
-                              newValue?.id ? String(newValue.id) : undefined,
+                              newValue?.key ? String(newValue.key) : undefined,
                             )
                           }
                           renderInput={(params) => (
@@ -431,7 +418,7 @@ export const EnterpriseListPage = () => {
                                   <IconButton
                                     size="small"
                                     className={classes.actionIcon}
-                                    onClick={() => router.push(`/doets/${item.id}/edit`)}
+                                    onClick={() => router.push(`/doets/edit/${item.id}`)}
                                   >
                                     <EditIcon fontSize="small" />
                                   </IconButton>

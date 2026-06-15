@@ -60,17 +60,26 @@ export class UserService extends BaseService<User> {
     }
   }
 
-  async import(currentUser: CurrentUser, users: any): Promise<any> {
+  async import(currentUser: CurrentUser, inputData: any): Promise<any> {
     try {
+      console.log("Dữ liệu gốc từ Frontend gửi xuống:", inputData);
+      let users = inputData;
+      if (inputData && typeof inputData === 'object' && !Array.isArray(inputData)) {
+        users = inputData.data || inputData.users || inputData.items || Object.values(inputData)[0] || [];
+      }
+      if (!users || !Array.isArray(users)) {
+        throw new Error("Dữ liệu gửi lên không đúng định dạng mảng (Array)!");
+      }
       let result = {
         success: 0,
         err: 0,
         username: [] as string[]
       };
+
       for (const user of users) {
         const username = user.username ? user.username.trim() : '';
         const email = user.email ? user.email.trim() : '';
-        
+
         const [existedUsername, existedEmail] = await Promise.all([
           this.userRepository.createQueryBuilder("u")
             .where("TRIM(u.username) = :username", { username })
@@ -84,21 +93,25 @@ export class UserService extends BaseService<User> {
           result.err += 1;
           result.username.push(user.username);
         } else {
-          await this.userRepository.save(
-            new User({
-              ...user,
-              username,
-              email,
-              password: user.password,
-              createdBy: currentUser.id,
-              createdAt: new Date()
-            })
-          );
+          const rawPassword = user.password || '12345678';
+          const hashedPassword = await argon.hash(rawPassword);
+
+          const newUser = this.userRepository.create({
+            ...user,
+            username,
+            email,
+            password: hashedPassword,
+            createdBy: currentUser?.id || null,
+            createdAt: new Date(),
+          });
+
+          await this.userRepository.save(newUser);
           result.success += 1;
         }
       }
       return result;
     } catch (error) {
+      console.error("LỖI KHI LƯU DB (HÀM IMPORT):", error);
       throw Response.errorInternal(error);
     }
   }
@@ -140,11 +153,11 @@ export class UserService extends BaseService<User> {
         where.roleId = +query.roleId;
       }
       if (query.status !== undefined && query.status !== "") {
-        // ACTIVE status matches status = false or status is null
-        if (query.status === "ACTIVE" || query.status === "false" || query.status === false || query.status === "0") {
-          where.status = Raw(alias => `${alias} IS NULL OR ${alias} = false`);
-        } else if (query.status === "INACTIVE" || query.status === "true" || query.status === true || query.status === "1") {
-          where.status = true;
+        // ACTIVE status matches status = true or status is null
+        if (query.status === "ACTIVE" || query.status === "true" || query.status === true || query.status === "1") {
+          where.status = Raw(alias => `${alias} IS NULL OR ${alias} = true`);
+        } else if (query.status === "INACTIVE" || query.status === "false" || query.status === false || query.status === "0") {
+          where.status = false;
         }
       }
 
@@ -184,7 +197,6 @@ export class UserService extends BaseService<User> {
         order: { ...order },
         skip: pageNumber * pageSize,
         take: pageSize,
-        withDeleted: true
       });
 
       if (!!province) {
@@ -212,7 +224,7 @@ export class UserService extends BaseService<User> {
           .where("TRIM(u.email) = :email", { email })
           .andWhere("u.id != :id", { id })
           .getOne();
-        
+
         if (existedEmail) {
           throw Response.errorBad("Email này đã được sử dụng bởi một tài khoản khác");
         }
@@ -226,7 +238,7 @@ export class UserService extends BaseService<User> {
           .where("TRIM(u.username) = :username", { username })
           .andWhere("u.id != :id", { id })
           .getOne();
-        
+
         if (existedUsername) {
           throw Response.errorBad("Tên đăng nhập đã tồn tại");
         }
@@ -316,71 +328,85 @@ export class UserService extends BaseService<User> {
 
   async updateUser(id: string, data: any, currentUser?: any): Promise<any> {
     try {
+      const user = await this.userRepository.findOne({ where: { id: id as any }, relations: ["role"] });
+      if (!user) throw Response.errorNotFound("Không tìm thấy người dùng");
+
       const updateData = { ...data };
-      delete updateData.id; // Xóa id để TypeORM không báo lỗi cập nhật khoá chính
+      delete updateData.id;
 
-      const isAdmin = currentUser && (
-        currentUser.realRole === 'Admin' || 
-        currentUser.realRole === 'ROLE_ADMIN' ||
-        (currentUser.role && (currentUser.role.role === 'ROLE_ADMIN' || currentUser.role.role === 'ADMIN'))
-      );
+      const roleName = (currentUser?.realRole || '').toUpperCase();
+      const roleCode = (currentUser?.role?.role || '').toUpperCase();
+      const isAdmin = roleName.includes('ADMIN') || roleCode.includes('ADMIN') || 
+                      roleName.includes('QUẢN TRỊ') || roleName.includes('QUAN TRI');
 
-      // Differentiate between Personal Profile Edit vs Admin User List Edit
       if (currentUser) {
         if (id === currentUser.id) {
-          // Case 1: Editing own profile -> Lock down privilege escalation fields
           delete updateData.roleId;
           delete updateData.realRole;
           delete updateData.status;
-        } else {
-          // Case 2: Editing other user -> Requires Admin privilege
-          if (!isAdmin) {
-            throw Response.errorForBidden("Bạn không có quyền chỉnh sửa thông tin người dùng này");
-          }
+        } else if (!isAdmin) {
+          throw Response.errorForBidden("Bạn không có quyền chỉnh sửa thông tin người dùng này");
         }
       }
 
-      // Hash password if updating password
       if (updateData.password) {
         updateData.password = await argon.hash(updateData.password);
       }
 
-      // Check email uniqueness if email is changed
       if (updateData.email) {
-        updateData.email = updateData.email.trim();
-        const email = updateData.email;
+        const email = updateData.email.trim();
         const existedEmail = await this.userRepository.createQueryBuilder("u")
           .where("TRIM(u.email) = :email", { email })
           .andWhere("u.id != :id", { id })
           .getOne();
-        
-        if (existedEmail) {
-          throw Response.errorBad("Email này đã được sử dụng bởi một tài khoản khác");
-        }
+        if (existedEmail) throw Response.errorBad("Email này đã được sử dụng bởi một tài khoản khác");
+        user.email = email;
       }
 
-      // Check username uniqueness if username is changed
       if (updateData.username) {
-        updateData.username = updateData.username.trim();
-        const username = updateData.username;
+        const username = updateData.username.trim();
         const existedUsername = await this.userRepository.createQueryBuilder("u")
           .where("TRIM(u.username) = :username", { username })
           .andWhere("u.id != :id", { id })
           .getOne();
-        
-        if (existedUsername) {
-          throw Response.errorBad("Tên đăng nhập đã tồn tại");
-        }
+        if (existedUsername) throw Response.errorBad("Tên đăng nhập đã tồn tại");
+        user.username = username;
       }
 
       if (updateData.roleId) {
-        updateData.roleId = +updateData.roleId;
+        user.roleId = +updateData.roleId;
       }
 
-      await this.userRepository.update(id, updateData);
+      // Explicitly update status if provided and allowed
+      if (Object.prototype.hasOwnProperty.call(updateData, 'status')) {
+        user.status = updateData.status === true || updateData.status === "true";
+      }
+
+      // Merge other fields
+      Object.assign(user, updateData);
+
+      await this.userRepository.save(user);
       return await this.userRepository.findOne({ where: { id: id as any }, relations: ["role"] });
     } catch (error) {
       if (error?.status) throw error;
+      throw Response.errorInternal(error);
+    }
+  }
+
+  async delete(currentUser: any, id: string): Promise<any> {
+    try {
+      await this.manager.query(`
+        UPDATE users 
+        SET "deletedBy" = '${currentUser?.id}', 
+            "deletedAt" = NOW() 
+        WHERE id = '${id}'
+      `);
+
+      return {
+        success: true,
+        message: "Xoá người dùng thành công"
+      };
+    } catch (error) {
       throw Response.errorInternal(error);
     }
   }

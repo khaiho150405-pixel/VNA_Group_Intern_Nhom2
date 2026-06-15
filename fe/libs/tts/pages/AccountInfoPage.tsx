@@ -1,13 +1,13 @@
 "use client";
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  Box, 
-  Typography, 
-  Grid, 
-  TextField, 
-  Button, 
-  Switch, 
+import {
+  Box,
+  Typography,
+  Grid,
+  TextField,
+  Button,
+  Switch,
   MenuItem,
   InputAdornment,
   CircularProgress,
@@ -25,10 +25,10 @@ import { CustomCalendar } from '@core/components/CustomCalendar';
 export const AccountInfoPage = () => {
   const classes = useAccountInfoStyles();
   const router = useRouter();
-  const { 
-    state, 
-    dispatch, 
-    handleInputChange, 
+  const {
+    state,
+    dispatch,
+    handleInputChange,
     handleSave,
     hasChanges
   } = useAccountInfo();
@@ -65,10 +65,10 @@ export const AccountInfoPage = () => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
-        dispatch({ 
-          type: 'showToast', 
-          message: 'Kích thước ảnh tối đa là 5MB', 
-          toastType: 'error' 
+        dispatch({
+          type: 'showToast',
+          message: 'Kích thước ảnh tối đa là 5MB',
+          toastType: 'error'
         });
         return;
       }
@@ -103,11 +103,11 @@ export const AccountInfoPage = () => {
 
   return (
     <Box className={classes.root}>
-      <AppToast 
-        show={toast.show} 
-        message={toast.message} 
-        type={toast.type} 
-        onClose={() => dispatch({ type: 'hideToast' })} 
+      <AppToast
+        show={toast.show}
+        message={toast.message}
+        type={toast.type}
+        onClose={() => dispatch({ type: 'hideToast' })}
       />
 
       {/* Page Header */}
@@ -115,9 +115,9 @@ export const AccountInfoPage = () => {
         <Typography className={classes.headerTitle}>Chi tiết người dùng</Typography>
         <Box className={classes.actions}>
           <Button className={classes.cancelBtn} disableRipple disabled={loading} onClick={() => router.push('/')}>Hủy bỏ</Button>
-          <Button 
-            variant="contained" 
-            startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Save fontSize="small" />} 
+          <Button
+            variant="contained"
+            startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Save fontSize="small" />}
             className={classes.saveBtn}
             disableElevation
             onClick={handleSave}
@@ -143,8 +143,8 @@ export const AccountInfoPage = () => {
 
           <Grid size={{ xs: 12, md: 3 }}>
             <Box className={classes.leftCard}>
-              <IconButton 
-                className={classes.deleteAvatarBtn} 
+              <IconButton
+                className={classes.deleteAvatarBtn}
                 onClick={() => dispatch({ type: 'removeAvatar' })}
                 disabled={loading || !avatarUrl}
                 size="small"
@@ -159,7 +159,7 @@ export const AccountInfoPage = () => {
                 accept="image/*"
                 onChange={handleFileChange}
               />
-              <Box className={classes.avatarCircle} onClick={handleAvatarClick} style={{ 
+              <Box className={classes.avatarCircle} onClick={handleAvatarClick} style={{
                 backgroundImage: avatarUrl ? `url(${avatarUrl})` : 'none',
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
@@ -173,11 +173,11 @@ export const AccountInfoPage = () => {
                   </>
                 )}
                 {avatarUrl && (
-                  <Box style={{ 
-                    position: 'absolute', 
-                    top: 0, left: 0, width: '100%', height: '100%', 
-                    backgroundColor: 'rgba(0,0,0,0.3)', 
-                    display: 'flex', flexDirection: 'column', 
+                  <Box style={{
+                    position: 'absolute',
+                    top: 0, left: 0, width: '100%', height: '100%',
+                    backgroundColor: 'rgba(0,0,0,0.3)',
+                    display: 'flex', flexDirection: 'column',
                     alignItems: 'center', justifyContent: 'center',
                     opacity: 0, transition: 'opacity 0.2s',
                     color: '#fff'
@@ -187,17 +187,17 @@ export const AccountInfoPage = () => {
                 )}
               </Box>
               <Typography className={classes.avatarNote}>
-                *.jpeg, *.jpg, *.png.<br/>
+                *.jpeg, *.jpg, *.png.<br />
                 Kích thước tối đa 5 MB
               </Typography>
-              
+
               <Box className={classes.activation}>
                 <Typography style={{ fontWeight: 600, fontSize: '0.85rem', color: '#333' }}>Kích hoạt</Typography>
-                <Switch 
-                  checked={active} 
-                  onChange={() => dispatch({ type: 'toggleActive' })} 
+                <Switch
+                  checked={active}
+                  onChange={() => dispatch({ type: 'toggleActive' })}
                   onFocus={handleInputFocus}
-                  color="primary" 
+                  color="primary"
                   size="small"
                   disabled={loading}
                 />
@@ -212,17 +212,17 @@ export const AccountInfoPage = () => {
               <Typography className={classes.sectionTitle}>Thông tin cá nhân</Typography>
               <Grid container spacing={3}>
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField 
-                    fullWidth label={<RequiredLabel label="Tên đăng nhập" />} variant="outlined" size="small" 
-                    className={classes.field} value={username} 
+                  <TextField
+                    fullWidth label={<RequiredLabel label="Tên đăng nhập" />} variant="outlined" size="small"
+                    className={classes.field} value={username}
                     onFocus={handleInputFocus}
                     disabled slotProps={{ inputLabel: { shrink: true } }}
                   />
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField 
-                    fullWidth label={<RequiredLabel label="Họ và tên" />} variant="outlined" size="small" 
-                    className={classes.field} value={displayName} 
+                  <TextField
+                    fullWidth label={<RequiredLabel label="Họ và tên" />} variant="outlined" size="small"
+                    className={classes.field} value={displayName}
                     onChange={(e) => handleInputChange('displayName', e.target.value)}
                     onFocus={handleInputFocus}
                     slotProps={{ inputLabel: { shrink: true } }}
@@ -231,8 +231,8 @@ export const AccountInfoPage = () => {
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
                   <Box sx={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
-                    <TextField 
-                      fullWidth label="Ngày tháng năm sinh" variant="outlined" size="small" 
+                    <TextField
+                      fullWidth label="Ngày tháng năm sinh" variant="outlined" size="small"
                       className={classes.field} value={formatDateDisplay(birthday)}
                       onFocus={handleInputFocus}
                       placeholder="DD/MM/YYYY"
@@ -246,8 +246,8 @@ export const AccountInfoPage = () => {
                           readOnly: true,
                           endAdornment: (
                             <InputAdornment position="end">
-                              <IconButton 
-                                size="small" 
+                              <IconButton
+                                size="small"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleCalendarOpen(e);
@@ -272,8 +272,8 @@ export const AccountInfoPage = () => {
                   </Box>
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField 
-                    select fullWidth label="Giới tính" variant="outlined" size="small" 
+                  <TextField
+                    select fullWidth label="Giới tính" variant="outlined" size="small"
                     className={classes.field} value={gender}
                     onChange={(e) => handleInputChange('gender', e.target.value)}
                     onFocus={handleInputFocus}
@@ -285,9 +285,9 @@ export const AccountInfoPage = () => {
                   </TextField>
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField 
-                    fullWidth label="Chức danh" variant="outlined" size="small" 
-                    className={classes.field} placeholder="Nhập chức danh" 
+                  <TextField
+                    fullWidth label="Chức danh" variant="outlined" size="small"
+                    className={classes.field} placeholder="Nhập chức danh"
                     value={title}
                     onChange={(e) => handleInputChange('title', e.target.value)}
                     onFocus={handleInputFocus}
@@ -296,17 +296,18 @@ export const AccountInfoPage = () => {
                   />
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField 
-                    select fullWidth label={<RequiredLabel label="Vai trò" />} variant="outlined" size="small" 
+                  <TextField
+                    select fullWidth label={<RequiredLabel label="Vai trò" />} variant="outlined" size="small"
                     className={classes.field} value={role}
                     onChange={(e) => handleInputChange('role', e.target.value)}
                     onFocus={handleInputFocus}
-                    slotProps={{ 
+                    slotProps={{
                       inputLabel: { shrink: true },
                       select: { displayEmpty: true }
                     }}
                     disabled={loading}
                   >
+                    <MenuItem value="" disabled selected>Chọn vai trò</MenuItem>
                     {roles && roles.length > 0 ? (
                       roles.map((r) => (
                         <MenuItem key={r.id} value={r.role}>{r.name}</MenuItem>
@@ -320,21 +321,21 @@ export const AccountInfoPage = () => {
                   </TextField>
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField 
-                    fullWidth 
-                    label="Email" 
-                    variant="outlined" 
-                    size="small" 
+                  <TextField
+                    fullWidth
+                    label="Email"
+                    variant="outlined"
+                    size="small"
                     className={classes.field}
-                    value={email} 
+                    value={email}
                     onFocus={handleInputFocus}
-                    disabled 
+                    disabled
                     slotProps={{ inputLabel: { shrink: true } }}
                   />
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }} style={{ display: 'flex', alignItems: 'center' }}>
-                  <Button 
-                    className={classes.changeLink} 
+                  <Button
+                    className={classes.changeLink}
                     onClick={() => dispatch({ type: 'toggleEmailModal', value: true })}
                     onFocus={handleInputFocus}
                     disableRipple
@@ -350,45 +351,45 @@ export const AccountInfoPage = () => {
               <Typography className={classes.sectionTitle} style={{ marginTop: '24px' }}>Thông tin liên hệ</Typography>
               <Grid container spacing={3}>
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField 
-                    select fullWidth label="Tỉnh / Thành phố" variant="outlined" size="small" 
+                  <TextField
+                    select fullWidth label="Tỉnh / Thành phố" variant="outlined" size="small"
                     className={classes.field} value={city}
                     onChange={(e) => handleInputChange('city', e.target.value)}
                     onFocus={handleInputFocus}
-                    slotProps={{ 
+                    slotProps={{
                       inputLabel: { shrink: true },
                       select: { displayEmpty: true }
                     }}
                     disabled={loading}
                   >
-                    <MenuItem value="">--Chọn tỉnh/ Thành phố--</MenuItem>
+                    <MenuItem value="" disabled selected>Chọn tỉnh/ Thành phố</MenuItem>
                     {provinces && provinces.map((p) => (
                       <MenuItem key={p.code} value={String(p.code)}>{p.name}</MenuItem>
                     ))}
                   </TextField>
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField 
-                    select fullWidth label="Phường xã" variant="outlined" size="small" 
+                  <TextField
+                    select fullWidth label="Phường xã" variant="outlined" size="small"
                     className={classes.field} value={district}
                     onChange={(e) => handleInputChange('district', e.target.value)}
                     onFocus={handleInputFocus}
-                    slotProps={{ 
+                    slotProps={{
                       inputLabel: { shrink: true },
                       select: { displayEmpty: true }
                     }}
                     disabled={loading || !city}
                   >
-                    <MenuItem value="">--Chọn phường xã--</MenuItem>
+                    <MenuItem value="" disabled selected>Chọn phường xã</MenuItem>
                     {districts && districts.map((d) => (
                       <MenuItem key={d.code} value={String(d.code)}>{d.name}</MenuItem>
                     ))}
                   </TextField>
                 </Grid>
                 <Grid size={{ xs: 12 }}>
-                  <TextField 
-                    fullWidth label="Địa chỉ" variant="outlined" size="small" 
-                    className={classes.field} placeholder="Nhập địa chỉ" 
+                  <TextField
+                    fullWidth label="Địa chỉ" variant="outlined" size="small"
+                    className={classes.field} placeholder="Nhập địa chỉ"
                     value={address}
                     onChange={(e) => handleInputChange('address', e.target.value)}
                     onFocus={handleInputFocus}
@@ -401,7 +402,7 @@ export const AccountInfoPage = () => {
           </Grid>
         </Grid>
       </Box>
-      
+
       <ChangeEmailModal open={showEmailModal} onClose={() => dispatch({ type: 'toggleEmailModal', value: false })} />
     </Box>
   );

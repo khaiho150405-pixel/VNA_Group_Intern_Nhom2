@@ -5,7 +5,6 @@ import { useAuth } from "@core/contexts/AuthProvider";
 import { authService } from "@tts/services/auth.services";
 import { validate, VALIDATION_MESSAGES } from "@core/utils/validation";
 import useLocales from "@core/hooks/useLocales";
-
 import { getCookie } from '@core/services/cookies';
 
 export const useAccountInfo = () => {
@@ -77,11 +76,11 @@ export const useAccountInfo = () => {
     if (user) {
       const roleObj = typeof (user as any).role === 'object' && (user as any).role !== null ? (user as any).role : null;
       const userRoleId = (user as any).roleId || roleObj?.id;
-      let userRoleKey = userRoleId === 4 ? 'superAdmin' 
-                       : userRoleId === 3 ? 'leader' 
-                       : userRoleId === 2 ? 'expert' 
-                       : userRoleId === 1 ? 'employee' 
-                       : (user as any).realRole || roleObj?.role || (typeof (user as any).role === 'string' ? (user as any).role : '');
+      let userRoleKey = userRoleId === 4 ? 'superAdmin'
+        : userRoleId === 3 ? 'leader'
+          : userRoleId === 2 ? 'expert'
+            : userRoleId === 1 ? 'employee'
+              : (user as any).realRole || roleObj?.role || (typeof (user as any).role === 'string' ? (user as any).role : '');
 
       if (userRoleKey === 'Admin' || userRoleKey === 'ROLE_ADMIN') {
         userRoleKey = 'superAdmin';
@@ -208,7 +207,7 @@ export const useAccountInfo = () => {
         address: state.address,
         // NOTE: Do NOT send 'status' here — in the DB status=true means "account locked"
       };
-      
+
       // If email changed, include it in payload
       if (state.email && state.email !== user?.email) {
         payload.email = state.email;
