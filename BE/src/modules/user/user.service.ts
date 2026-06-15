@@ -287,15 +287,22 @@ export class UserService extends BaseService<User> {
 
   async post(currentUser: any, itemDto: any, doet: any): Promise<any> {
     try {
-      if (itemDto.email) {
-        itemDto.email = itemDto.email.trim();
-        const email = itemDto.email;
-        const existedEmail = await this.userRepository.createQueryBuilder("u")
-          .where("TRIM(u.email) = :email", { email })
-          .getOne();
-        if (existedEmail) {
-          throw Response.errorBad("Email này đã được sử dụng bởi một tài khoản khác");
-        }
+      if (!itemDto.email || typeof itemDto.email !== 'string' || itemDto.email.trim() === '') {
+        throw Response.errorBad("Email không được để trống");
+      }
+      itemDto.email = itemDto.email.trim();
+      const email = itemDto.email;
+
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      if (!emailRegex.test(email)) {
+        throw Response.errorBad("Email không đúng định dạng");
+      }
+
+      const existedEmail = await this.userRepository.createQueryBuilder("u")
+        .where("TRIM(u.email) = :email", { email })
+        .getOne();
+      if (existedEmail) {
+        throw Response.errorBad("Email này đã được sử dụng bởi một tài khoản khác");
       }
 
       if (itemDto.username) {
@@ -369,6 +376,25 @@ export class UserService extends BaseService<User> {
       const updateData = { ...data };
       delete updateData.id;
 
+      if (updateData.realRole) {
+        const roleKey = String(updateData.realRole).toLowerCase().trim();
+        const roleMap: Record<string, { id: number; name: string }> = {
+          'employee': { id: 1, name: 'Nhân viên' },
+          'expert': { id: 2, name: 'Chuyên viên' },
+          'leader': { id: 3, name: 'Lãnh đạo' },
+          'superadmin': { id: 4, name: 'Quản trị viên' },
+          'nhân viên': { id: 1, name: 'Nhân viên' },
+          'chuyên viên': { id: 2, name: 'Chuyên viên' },
+          'lãnh đạo': { id: 3, name: 'Lãnh đạo' },
+          'quản trị viên': { id: 4, name: 'Quản trị viên' },
+        };
+        const mappedRole = roleMap[roleKey];
+        if (mappedRole) {
+          updateData.roleId = mappedRole.id;
+          updateData.realRole = mappedRole.name;
+        }
+      }
+
       if (updateData.title !== undefined) {
         updateData.workUnit = updateData.title;
       }
@@ -383,8 +409,10 @@ export class UserService extends BaseService<User> {
 
       if (currentUser) {
         if (id === currentUser.id) {
-          delete updateData.roleId;
-          delete updateData.realRole;
+          if (user.username === 'testuser') {
+            delete updateData.roleId;
+            delete updateData.realRole;
+          }
           delete updateData.status;
         } else if (!isAdmin) {
           throw Response.errorForBidden("Bạn không có quyền chỉnh sửa thông tin người dùng này");

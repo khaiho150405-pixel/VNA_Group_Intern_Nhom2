@@ -10,7 +10,7 @@ export const VALIDATION_PATTERNS = {
   PHONE: /^(0[2|3|5|7|8|9])([0-9]{8})$/,
   
   // Username: 3-50 characters, alphanumeric, underscore and hyphen
-  USERNAME: /^[a-zA-Z0-9_-]{3,50}$/,
+  USERNAME: /^[a-zA-Z0-9_.-]{3,50}$/,
   
   // OTP: 6 digits
   OTP: /^[0-9]{6}$/,

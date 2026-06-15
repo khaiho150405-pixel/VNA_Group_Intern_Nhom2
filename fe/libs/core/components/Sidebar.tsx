@@ -104,7 +104,7 @@ export const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
 
   const handleToggle = (id: string) => {
     setOpenItems(prev => 
-      prev.includes(id) ? prev : [...prev, id]
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
   };
 

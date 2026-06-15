@@ -80,7 +80,7 @@ export const useCreateUser = () => {
     };
 
     const handleSave = async () => {
-        if (!validate.required(state.username) || !validate.required(state.password) || !validate.required(state.displayName)) {
+        if (!validate.required(state.username) || !validate.required(state.password) || !validate.required(state.displayName) || !validate.required(state.email)) {
             dispatch({
                 type: 'showToast',
                 message: VALIDATION_MESSAGES.FULL_INFO_REQUIRED || 'Vui lòng nhập đầy đủ thông tin bắt buộc',
@@ -115,7 +115,7 @@ export const useCreateUser = () => {
             });
             return;
         }
-        if (state.email && !validate.email(state.email)) {
+        if (!validate.email(state.email)) {
             dispatch({
                 type: 'showToast',
                 message: VALIDATION_MESSAGES.EMAIL_INVALID || 'Email không hợp lệ',

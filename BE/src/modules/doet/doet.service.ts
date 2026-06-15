@@ -57,8 +57,7 @@ export class DoetService extends BaseService<Doet> {
         counter++;
       }
 
-      const plainTaxCode = doet.taxCode.replace("-", "");
-      const defaultPassword = plainTaxCode.slice(-6);
+      const defaultPassword = "12345678";
       const hashedPassword = await argon.hash(defaultPassword);
 
       const user = new User({

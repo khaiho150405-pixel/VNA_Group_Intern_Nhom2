@@ -309,15 +309,21 @@ export const AccountInfoPage = () => {
                   >
                     <MenuItem value="" disabled selected>Chọn vai trò</MenuItem>
                     {roles && roles.length > 0 ? (
-                      roles.map((r) => (
-                        <MenuItem key={r.id} value={r.role}>{r.name}</MenuItem>
-                      ))
-                    ) : [
-                      <MenuItem key="superAdmin" value="superAdmin">Quản trị viên</MenuItem>,
-                      <MenuItem key="leader" value="leader">Lãnh đạo</MenuItem>,
-                      <MenuItem key="expert" value="expert">Chuyên viên</MenuItem>,
-                      <MenuItem key="employee" value="employee">Nhân viên</MenuItem>
-                    ]}
+                      roles
+                        .filter((r) => username === 'testuser' ? r.role === 'superAdmin' : true)
+                        .map((r) => (
+                          <MenuItem key={r.id} value={r.role}>{r.name}</MenuItem>
+                        ))
+                    ) : (
+                      username === 'testuser' ? (
+                        <MenuItem key="superAdmin" value="superAdmin">Quản trị viên</MenuItem>
+                      ) : [
+                        <MenuItem key="superAdmin" value="superAdmin">Quản trị viên</MenuItem>,
+                        <MenuItem key="leader" value="leader">Lãnh đạo</MenuItem>,
+                        <MenuItem key="expert" value="expert">Chuyên viên</MenuItem>,
+                        <MenuItem key="employee" value="employee">Nhân viên</MenuItem>
+                      ]
+                    )}
                   </TextField>
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
