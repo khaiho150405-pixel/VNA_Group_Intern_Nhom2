@@ -86,8 +86,9 @@ export const useEditUser = () => {
                         city: userData.province?.key || '',
                         district: userData.district?.key || '',
                         address: userData.address || '',
-                        active: userData.status !== false && userData.isActive !== false,
-                        avatarUrl: userData.avatar || ''
+                        active: userData.status === false || userData.status === null || userData.status === undefined,
+                        avatarUrl: userData.avatar || '',
+                        title: userData.workUnit || ''
                     }
                 });
 
@@ -102,7 +103,7 @@ export const useEditUser = () => {
         fetchInitialData();
     }, [userId]);
 
-    const handleInputChange = (name: string, value: any) => {
+    const handleInputChange = (name: keyof AccountInfoState, value: any) => {
         dispatch({ type: "onChange", name, value });
     };
 
@@ -141,13 +142,14 @@ export const useEditUser = () => {
                 gender: state.gender === 'Nam' ? 1 : (state.gender === 'Nữ' ? 0 : null),
 
                 realRole: roleNameToSave,
+                roleId: selectedRoleObj ? Number(selectedRoleObj.id) : null,
 
                 province: state.city ? { key: String(state.city), value: selectedProvince?.name || state.city } : null,
                 district: state.district ? { key: String(state.district), value: selectedDistrict?.name || state.district } : null,
                 address: state.address || null,
                 avatar: state.avatarUrl || null,
-
-                status: state.active ? true : false
+                workUnit: state.title,
+                status: state.active ? false : true
             };
 
 

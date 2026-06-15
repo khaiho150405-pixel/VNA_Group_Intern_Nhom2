@@ -90,8 +90,8 @@ export const UserManagementPage = () => {
     const handleStatusChange = async (id: string, currentStatus: any) => {
         try {
             // Support both boolean and string "false"
-            const isCurrentlyActive = currentStatus !== false && currentStatus !== "false";
-            const nextStatus = !isCurrentlyActive;
+            const isCurrentlyActive = currentStatus === false || currentStatus === null || currentStatus === undefined || currentStatus === "false";
+            const nextStatus = isCurrentlyActive ? true : false;
             
             // Optimistic update
             setData((prev) =>
@@ -133,8 +133,8 @@ export const UserManagementPage = () => {
             "Tên đăng nhập": user.username || '',
             "Email": user.email || '',
             "Vai trò": user.realRole || 'Chưa phân quyền',
-            "Chức danh": user.jobTitle || 'Chuyên viên',
-            "Trạng thái": user.status !== false ? 'Hoạt động' : 'Đã khóa'
+            "Chức danh": user.workUnit || '-',
+            "Trạng thái": (user.status === false || user.status === null || user.status === undefined) ? 'Hoạt động' : 'Đã khóa'
         }));
 
         const worksheet = XLSX.utils.json_to_sheet(dataToExport);
@@ -319,25 +319,20 @@ export const UserManagementPage = () => {
                                                     onChange={(e) => handleFilterChange("role", e.target.value)}
                                                 >
                                                     <MenuItem value="">Tất cả</MenuItem>
-                                                    <MenuItem value="Quản trị viên">Quản trị viên</MenuItem>
                                                     <MenuItem value="Chuyên viên">Chuyên viên</MenuItem>
                                                     <MenuItem value="Lãnh đạo">Lãnh đạo</MenuItem>
                                                     <MenuItem value="Nhân viên">Nhân viên</MenuItem>
                                                 </Select>
                                             </TableCell>
                                             <TableCell className={classes.filterCell}>
-                                                <Select
+                                                <TextField
                                                     fullWidth
                                                     size="small"
-                                                    displayEmpty
                                                     className={classes.filterField}
+                                                    placeholder="Tìm kiếm..."
                                                     value={filters.jobTitle}
                                                     onChange={(e) => handleFilterChange("jobTitle", e.target.value)}
-                                                >
-                                                    <MenuItem value="">Tất cả</MenuItem>
-                                                    <MenuItem value="Chuyên viên">Chuyên viên</MenuItem>
-                                                    <MenuItem value="Quản lý">Quản lý</MenuItem>
-                                                </Select>
+                                                />
                                             </TableCell>
                                             <TableCell className={classes.filterCell}>
                                                 <Select
@@ -416,11 +411,11 @@ export const UserManagementPage = () => {
                                                         <TableCell className={classes.bodyCell}>{item.username || '--'}</TableCell>
                                                         <TableCell className={classes.bodyCell}>{item.email || '--'}</TableCell>
                                                         <TableCell className={classes.bodyCell}>{item.realRole || 'Chưa phân quyền'}</TableCell>
-                                                        <TableCell className={classes.bodyCell}>{item.jobTitle || 'Chuyên viên'}</TableCell>
+                                                        <TableCell className={classes.bodyCell}>{item.workUnit || '-'}</TableCell>
                                                         <TableCell className={classes.bodyCell} align="center">
                                                             <Switch
                                                                 size="small"
-                                                                checked={item.status !== false}
+                                                                checked={item.status === false || item.status === null || item.status === undefined}
                                                                 onChange={() => handleStatusChange(item.id, item.status)}
                                                             />
                                                         </TableCell>

@@ -85,8 +85,8 @@ export class UserService extends BaseService<User> {
             .where("TRIM(u.username) = :username", { username })
             .getOne(),
           email ? this.userRepository.createQueryBuilder("u")
-             .where("TRIM(u.email) = :email", { email })
-             .getOne() : null
+            .where("TRIM(u.email) = :email", { email })
+            .getOne() : null
         ]);
 
         if (existedUsername || existedEmail) {
@@ -148,16 +148,37 @@ export class UserService extends BaseService<User> {
       }
       if (query.workUnit) {
         where.workUnit = ILike(`%${query.workUnit.trim()}%`);
+      } else if (query.jobTitle) {
+        where.workUnit = ILike(`%${query.jobTitle.trim()}%`);
+      }
+      if (query.role) {
+        const roleMap: Record<string, number> = {
+          'Nhân viên': 1,
+          'Chuyên viên': 2,
+          'Lãnh đạo': 3,
+          'Quản trị viên': 4,
+        };
+        const mappedRoleId = roleMap[query.role];
+        if (mappedRoleId) {
+          query.roleId = mappedRoleId;
+        }
       }
       if (query.roleId) {
-        where.roleId = +query.roleId;
+        if (+query.roleId === 4) {
+          where.roleId = Not(4);
+        } else {
+          where.roleId = +query.roleId;
+        }
+      } else {
+        where.roleId = Not(4);
       }
       if (query.status !== undefined && query.status !== "") {
-        // ACTIVE status matches status = true or status is null
+        // ACTIVE status matches status = false or status is null
         if (query.status === "ACTIVE" || query.status === "true" || query.status === true || query.status === "1") {
-          where.status = Raw(alias => `${alias} IS NULL OR ${alias} = true`);
+          where.status = Raw(alias => `(${alias} IS NULL OR ${alias} = false)`);
         } else if (query.status === "INACTIVE" || query.status === "false" || query.status === false || query.status === "0") {
-          where.status = false;
+          // LOCKED status matches status = true
+          where.status = true;
         }
       }
 
@@ -244,6 +265,13 @@ export class UserService extends BaseService<User> {
         }
       }
 
+      if (itemDto.title !== undefined) {
+        itemDto.workUnit = itemDto.title;
+      }
+      if (itemDto.jobTitle !== undefined) {
+        itemDto.workUnit = itemDto.jobTitle;
+      }
+
       // 3. Map roleId directly if present
       if (itemDto.roleId) {
         itemDto.roleId = +itemDto.roleId;
@@ -279,6 +307,13 @@ export class UserService extends BaseService<User> {
         if (existedUsername) {
           throw Response.errorBad("Tên đăng nhập đã tồn tại");
         }
+      }
+
+      if (itemDto.title !== undefined) {
+        itemDto.workUnit = itemDto.title;
+      }
+      if (itemDto.jobTitle !== undefined) {
+        itemDto.workUnit = itemDto.jobTitle;
       }
 
       // Map roleId if present
@@ -334,10 +369,17 @@ export class UserService extends BaseService<User> {
       const updateData = { ...data };
       delete updateData.id;
 
+      if (updateData.title !== undefined) {
+        updateData.workUnit = updateData.title;
+      }
+      if (updateData.jobTitle !== undefined) {
+        updateData.workUnit = updateData.jobTitle;
+      }
+
       const roleName = (currentUser?.realRole || '').toUpperCase();
       const roleCode = (currentUser?.role?.role || '').toUpperCase();
-      const isAdmin = roleName.includes('ADMIN') || roleCode.includes('ADMIN') || 
-                      roleName.includes('QUẢN TRỊ') || roleName.includes('QUAN TRI');
+      const isAdmin = roleName.includes('ADMIN') || roleCode.includes('ADMIN') ||
+        roleName.includes('QUẢN TRỊ') || roleName.includes('QUAN TRI');
 
       if (currentUser) {
         if (id === currentUser.id) {
@@ -375,6 +417,7 @@ export class UserService extends BaseService<User> {
 
       if (updateData.roleId) {
         user.roleId = +updateData.roleId;
+        user.role = { id: +updateData.roleId } as any;
       }
 
       // Explicitly update status if provided and allowed
@@ -396,11 +439,9 @@ export class UserService extends BaseService<User> {
   async delete(currentUser: any, id: string): Promise<any> {
     try {
       await this.manager.query(`
-        UPDATE users 
-        SET "deletedBy" = '${currentUser?.id}', 
-            "deletedAt" = NOW() 
-        WHERE id = '${id}'
-      `);
+        DELETE FROM users 
+        WHERE id = $1
+      `, [id]);
 
       return {
         success: true,

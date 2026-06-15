@@ -72,3 +72,18 @@ values ('6201', 'Lập trình máy vi tính', 4);
 
 insert into business_line (ma_nganh, ten_nganh, cap)
 values ('6202', 'Tư vấn máy vi tính và quản trị hệ thống máy vi tính', 4);
+
+insert into business_line (ma_nganh, ten_nganh, cap)
+values ('6203', 'Thiết kế website', 4);
+
+insert into business_line (ma_nganh, ten_nganh, cap)
+values ('6204', 'Dịch vụ lưu trữ đám mây', 4);
+
+insert into business_line (ma_nganh, ten_nganh, cap)
+values ('6205', 'Phát triển phần mềm AI', 4);
+
+insert into business_line (ma_nganh, ten_nganh, cap)
+values ('6206', 'Dịch vụ an toàn thông tin mạng', 4);
+
+insert into business_line (ma_nganh, ten_nganh, cap)
+values ('6207', 'Tư vấn chuyển đổi số', 4);

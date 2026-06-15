@@ -3,6 +3,7 @@ import {
   Post,
   UploadedFile,
   UseInterceptors,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -25,6 +26,12 @@ export class UploadController {
           return cb(null, `${randomName}${extname(file.originalname)}`);
         },
       }),
+      fileFilter: (req, file, cb) => {
+        if (!file.originalname.match(/\.(pdf)$/i)) {
+          return cb(new BadRequestException('Chỉ chấp nhận file định dạng PDF'), false);
+        }
+        cb(null, true);
+      },
     }),
   )
   @ApiOperation({ summary: 'Tải lên một file' })

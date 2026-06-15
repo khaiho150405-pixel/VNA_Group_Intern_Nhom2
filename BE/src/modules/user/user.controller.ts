@@ -52,6 +52,7 @@ export class UserController extends BaseController<User, UserService> {
   }
 
   @Get()
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
   @ApiOperation({ summary: "Get items" })
   async getAll(@Query() query: GetAllDto): Promise<any> {
     return await this.userService.getAll(query);
@@ -109,6 +110,16 @@ export class UserController extends BaseController<User, UserService> {
     }
     const updatedUser = await this.userService.updateUser(id, body, req.user);
     return Response.get(updatedUser);
+  }
+
+  @Delete('destroys')
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
+  @ApiOperation({ summary: 'Destroy items' })
+  async destroys(
+    @Req() req: any,
+    @Body('ids') ids: string[]
+  ): Promise<any> {
+    return await this.userService.destroys(req.user, ids, req.doet);
   }
 
   @Delete(':id')

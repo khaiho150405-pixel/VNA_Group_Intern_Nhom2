@@ -110,7 +110,7 @@ export const UserCreatePage = () => {
                 <Box className={classes.pageHeader}>
                     <Typography className={classes.headerTitle}>Chi tiết người dùng</Typography>
                     <Box className={classes.actions}>
-                        <Button className={classes.cancelBtn} disableRipple disabled={loading} onClick={() => router.push('/')}>Hủy bỏ</Button>
+                        <Button className={classes.cancelBtn} disableRipple disabled={loading} onClick={() => router.push('/users')}>Hủy bỏ</Button>
                         <Button
                             variant="contained"
                             startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Save fontSize="small" />}
@@ -214,9 +214,9 @@ export const UserCreatePage = () => {
                                     <Grid size={{ xs: 12, md: 6 }}>
                                         <Box sx={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
                                             <TextField
-                                                fullWidth label={<RequiredLabel label="Ngày tháng năm sinh" />} variant="outlined" size="small"
+                                                fullWidth label="Ngày tháng năm sinh" variant="outlined" size="small"
                                                 className={classes.field} value={formatDateDisplay(birthday)}
-                                                placeholder="DD/MM/YYYY"
+                                                placeholder="Ngày tháng năm sinh"
                                                 autoComplete="off"
                                                 disabled={loading}
                                                 onClick={handleCalendarOpen}
@@ -284,11 +284,13 @@ export const UserCreatePage = () => {
                                         >
                                             <MenuItem value="" disabled selected>Chọn vai trò</MenuItem>
                                             {state.roles && state.roles.length > 0 ? (
-                                                state.roles.map((r: any) => (
-                                                    <MenuItem key={r.id} value={r.id}>
-                                                        {r.name}
-                                                    </MenuItem>
-                                                ))
+                                                state.roles
+                                                    .filter((r: any) => r.id !== 4 && r.name !== 'Quản trị viên')
+                                                    .map((r: any) => (
+                                                        <MenuItem key={r.id} value={r.id}>
+                                                            {r.name}
+                                                        </MenuItem>
+                                                    ))
                                             ) : (
                                                 <MenuItem value="" disabled>
                                                     Đang tải dữ liệu...

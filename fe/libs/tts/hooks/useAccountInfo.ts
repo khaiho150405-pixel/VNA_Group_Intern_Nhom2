@@ -88,7 +88,7 @@ export const useAccountInfo = () => {
         userRoleKey = 'employee';
       }
 
-      let formattedBirthday = '1995-06-01';
+      let formattedBirthday = '';
       const rawBirthday = (user as any).dateOfBirth || (user as any).birthday;
       if (rawBirthday) {
         const date = new Date(rawBirthday);
@@ -121,6 +121,8 @@ export const useAccountInfo = () => {
           city: initialCity,
           district: initialDistrict,
           role: userRoleKey,
+          title: (user as any).workUnit || '',
+          active: (user as any).status === false || (user as any).status === null || (user as any).status === undefined,
         }
       });
     }
@@ -205,6 +207,7 @@ export const useAccountInfo = () => {
         province: state.city ? { key: String(state.city), value: provinceVal } : null,
         district: state.district ? { key: String(state.district), value: districtVal } : null,
         address: state.address,
+        workUnit: state.title,
         // NOTE: Do NOT send 'status' here — in the DB status=true means "account locked"
       };
 
@@ -229,6 +232,7 @@ export const useAccountInfo = () => {
             province: state.city ? { key: String(state.city), value: provinceVal } : null,
             district: state.district ? { key: String(state.district), value: districtVal } : null,
             address: state.address,
+            workUnit: state.title,
             avatar: state.avatarUrl || '',
           };
           const token = getCookie('accessToken') || '';

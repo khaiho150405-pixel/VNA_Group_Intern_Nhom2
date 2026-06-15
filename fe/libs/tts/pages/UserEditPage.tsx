@@ -135,6 +135,15 @@ export const UserEditPage = () => {
 
                         <Grid size={{ xs: 12, md: 3 }}>
                             <Box className={classes.leftCard}>
+                                <IconButton
+                                    className={classes.deleteAvatarBtn}
+                                    onClick={() => dispatch({ type: 'removeAvatar' })}
+                                    disabled={loading || !avatarUrl}
+                                    size="small"
+                                    title="Xóa ảnh"
+                                >
+                                    <Delete fontSize="small" />
+                                </IconButton>
                                 <input
                                     type="file"
                                     hidden
@@ -210,9 +219,9 @@ export const UserEditPage = () => {
                                     <Grid size={{ xs: 12, md: 6 }}>
                                         <Box sx={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
                                             <TextField
-                                                fullWidth label={<RequiredLabel label="Ngày tháng năm sinh" />} variant="outlined" size="small"
+                                                fullWidth label="Ngày tháng năm sinh" variant="outlined" size="small"
                                                 className={classes.field} value={formatDateDisplay(birthday)}
-                                                placeholder="DD/MM/YYYY"
+                                                placeholder="Ngày tháng năm sinh"
                                                 autoComplete="off"
                                                 disabled={loading}
                                                 onClick={handleCalendarOpen}
@@ -280,11 +289,13 @@ export const UserEditPage = () => {
                                         >
                                             <MenuItem value="" disabled selected>Chọn vai trò</MenuItem>
                                             {state.roles && state.roles.length > 0 ? (
-                                                state.roles.map((r: any) => (
-                                                    <MenuItem key={r.id} value={r.id}>
-                                                        {r.name}
-                                                    </MenuItem>
-                                                ))
+                                                state.roles
+                                                    .filter((r: any) => r.id !== 4 && r.name !== 'Quản trị viên')
+                                                    .map((r: any) => (
+                                                        <MenuItem key={r.id} value={r.id}>
+                                                            {r.name}
+                                                        </MenuItem>
+                                                    ))
                                             ) : (
                                                 <MenuItem value="" disabled>
                                                     Đang tải dữ liệu...

@@ -28,6 +28,7 @@ export class CurrentUser {
   district?: any;
   address?: string;
 
+
   constructor(
     doet: number | null,
     user?: Partial<CurrentUser>,

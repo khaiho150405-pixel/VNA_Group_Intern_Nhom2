@@ -36,7 +36,20 @@ export class DoetController extends BaseController<Doet, DoetService> {
     return await this.doetService.checkEmailExists(email, id ? Number(id) : undefined);
   }
 
-    @Get()
+  @Get("check-tax-code")
+  @ApiOperation({ summary: "Kiểm tra mã số thuế đã tồn tại trong hệ thống" })
+  async checkTaxCode(@Query("taxCode") taxCode: string, @Query("id") id?: string) {
+    return await this.doetService.checkTaxCodeExists(taxCode, id ? Number(id) : undefined);
+  }
+
+  @Get("check-name")
+  @ApiOperation({ summary: "Kiểm tra tên doanh nghiệp đã tồn tại trong hệ thống" })
+  async checkName(@Query("name") name: string, @Query("id") id?: string) {
+    return await this.doetService.checkNameExists(name, id ? Number(id) : undefined);
+  }
+
+  @Get()
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
   async getAll(@Query() query: any): Promise<any> {
     return await this.doetService.findWithFilters(query);
   }

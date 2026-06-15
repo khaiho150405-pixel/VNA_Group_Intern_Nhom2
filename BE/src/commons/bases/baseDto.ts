@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { IsOptional, IsString } from 'class-validator';
 
 export class GetAllDto {
   @ApiProperty({
@@ -6,6 +7,7 @@ export class GetAllDto {
     name: 'pageSize',
     required: false,
   })
+  @IsOptional()
   pageSize?: number;
 
   @ApiProperty({
@@ -13,6 +15,7 @@ export class GetAllDto {
     name: 'pageNumber',
     required: false,
   })
+  @IsOptional()
   pageNumber?: number;
 
   @ApiProperty({
@@ -20,6 +23,8 @@ export class GetAllDto {
     name: 'order',
     required: false,
   })
+  @IsOptional()
+  @IsString()
   order?: string;
 
   @ApiProperty({
@@ -27,6 +32,8 @@ export class GetAllDto {
     name: 'where',
     required: false,
   })
+  @IsOptional()
+  @IsString()
   where?: string;
 
   @ApiProperty({
@@ -34,6 +41,8 @@ export class GetAllDto {
     name: 'select',
     required: false,
   })
+  @IsOptional()
+  @IsString()
   select?: string;
 
   @ApiProperty({
@@ -41,6 +50,8 @@ export class GetAllDto {
     name: 'relation',
     required: false,
   })
+  @IsOptional()
+  @IsString()
   relation?: string;
 
   @ApiProperty({
@@ -48,6 +59,8 @@ export class GetAllDto {
     name: 'province',
     required: false,
   })
+  @IsOptional()
+  @IsString()
   province?: string;
 
   @ApiProperty({
@@ -55,6 +68,8 @@ export class GetAllDto {
     name: 'district',
     required: false,
   })
+  @IsOptional()
+  @IsString()
   district?: string;
 
   @ApiProperty({
@@ -62,5 +77,58 @@ export class GetAllDto {
     name: 'ward',
     required: false,
   })
+  @IsOptional()
+  @IsString()
   ward?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  fullName?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  username?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  email?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  workUnit?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  role?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  roleId?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  jobTitle?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  limit?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  page?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  withDeleted?: boolean;
 }

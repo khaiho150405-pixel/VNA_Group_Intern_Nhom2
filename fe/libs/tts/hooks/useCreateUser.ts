@@ -89,6 +89,15 @@ export const useCreateUser = () => {
             return;
         }
 
+        if (!state.role) {
+            dispatch({
+                type: 'showToast',
+                message: 'Vui lòng chọn vai trò',
+                toastType: 'error'
+            });
+            return;
+        }
+
         if (!validate.username(state.username)) {
             dispatch({
                 type: 'showToast',
@@ -131,12 +140,14 @@ export const useCreateUser = () => {
                 dateOfBirth: state.birthday ? new Date(state.birthday) : null,
                 gender: state.gender === 'Nam' ? 1 : (state.gender === 'Nữ' ? 0 : null),
                 realRole: roleNameToSave,
+                roleId: selectedRoleObj ? Number(selectedRoleObj.id) : null,
                 role: state.role ? { id: state.role } : null,
                 province: state.city ? { key: String(state.city), value: selectedProvince?.name || state.city } : null,
                 district: state.district ? { key: String(state.district), value: selectedDistrict?.name || state.district } : null,
                 address: state.address,
                 avatar: state.avatarUrl || '',
-                isActive: state.active
+                workUnit: state.title,
+                status: state.active ? false : true
             };
 
             const response = await userService.create(payload);

@@ -1,10 +1,10 @@
-﻿export const initialAccountInfoState = {
+export const initialAccountInfoState = {
   active: true,
   showEmailModal: false,
   username: '',
   password: '',
   displayName: '',
-  birthday: '1995-06-01',
+  birthday: '',
   gender: '',
   title: '',
   role: '',

@@ -20,8 +20,8 @@ import {
 } from '@mui/icons-material';
 import { FileAttachment } from '@shared/tts/models';
 
-const ACCEPTED = '.jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf';
-const ACCEPTED_REGEX = /\.(jpe?g|png|pdf)$/i;
+const ACCEPTED = '.pdf,application/pdf';
+const ACCEPTED_REGEX = /\.(pdf)$/i;
 
 interface EnterpriseAttachmentsTableProps {
   attachments: FileAttachment[];
@@ -52,7 +52,7 @@ export const EnterpriseAttachmentsTable = ({
   const handleFile = (index: number, file: File | undefined) => {
     if (!file) return;
     if (!ACCEPTED_REGEX.test(file.name)) {
-      alert('Chỉ chấp nhận file .jpg, .jpeg, .png hoặc .pdf');
+      alert('Chỉ chấp nhận file .pdf');
       return;
     }
     onUpload?.(index, file);

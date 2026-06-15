@@ -232,6 +232,28 @@ export class DoetService extends BaseService<Doet> {
     return { exists: !!foundInUser };
   }
 
+  async checkTaxCodeExists(taxCode: string, excludeId?: number): Promise<{ exists: boolean }> {
+    if (!taxCode || !taxCode.trim()) return { exists: false };
+    const qb = this.doetRepository
+      .createQueryBuilder('doet')
+      .where('doet.taxCode = :taxCode', { taxCode: taxCode.trim() })
+      .andWhere('doet.deletedAt IS NULL');
+    if (excludeId) qb.andWhere('doet.id <> :id', { id: excludeId });
+    const found = await qb.getOne();
+    return { exists: !!found };
+  }
+
+  async checkNameExists(name: string, excludeId?: number): Promise<{ exists: boolean }> {
+    if (!name || !name.trim()) return { exists: false };
+    const qb = this.doetRepository
+      .createQueryBuilder('doet')
+      .where('LOWER(doet.name) = LOWER(:name)', { name: name.trim() })
+      .andWhere('doet.deletedAt IS NULL');
+    if (excludeId) qb.andWhere('doet.id <> :id', { id: excludeId });
+    const found = await qb.getOne();
+    return { exists: !!found };
+  }
+
   async updateSetting(doet: Doet, name, logo, favicon, province) {
     try {
       if (doet && doet.id) {
@@ -364,7 +386,7 @@ export class DoetService extends BaseService<Doet> {
 
   async importExcel(buffer: Buffer) {
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(buffer);
+    await workbook.xlsx.load(buffer as any);
     const worksheet = workbook.worksheets[0];
 
     const loaiHinhs = await this.manager.find(LoaiHinhKinhDoanh);

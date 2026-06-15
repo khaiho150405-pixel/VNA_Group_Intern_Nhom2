@@ -365,7 +365,6 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
     if (!formData.businessLineId) errs.businessLineId = 'Vui lòng chọn ngành nghề';
     if (!formData.province?.key) errs.province = 'Vui lòng chọn tỉnh/thành';
     if (!formData.ward?.key) errs.ward = 'Vui lòng chọn phường/xã';
-    if (!formData.address?.trim()) errs.address = 'Địa chỉ không được để trống';
     if (!formData.email?.trim()) {
       errs.email = 'Email không được để trống';
     } else if (!isValidEmail(formData.email)) {
@@ -385,31 +384,60 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
       return;
     }
 
-    // 2. Run async email check
+    // 2. Run async duplicate checks
     const email = (formData.email || '').trim();
+    const name = (formData.name || '').trim();
+    const taxCode = (formData.taxCode || '').trim();
+
     let emailExists = false;
+    let nameExists = false;
+    let taxCodeExists = false;
+
     try {
       setLoading(true);
-      const res: any = await DoetService.checkEmail(email, id ? Number(id) : undefined);
-      emailExists = res?.exists ?? res?.data?.exists ?? false;
+      const [emailRes, nameRes, taxCodeRes]: any[] = await Promise.all([
+        DoetService.checkEmail(email, id ? Number(id) : undefined),
+        DoetService.checkName(name, id ? Number(id) : undefined),
+        DoetService.checkTaxCode(taxCode, id ? Number(id) : undefined),
+      ]);
+
+      emailExists = emailRes?.exists ?? emailRes?.data?.exists ?? false;
+      nameExists = nameRes?.exists ?? nameRes?.data?.exists ?? false;
+      taxCodeExists = taxCodeRes?.exists ?? taxCodeRes?.data?.exists ?? false;
       
+      const newErrors: Record<string, string> = {};
+
       if (emailExists) {
-        setErrors((prev) => ({ ...prev, email: 'Email này đã được đăng ký' }));
+        newErrors.email = 'Email này đã được đăng ký';
+      }
+      if (nameExists) {
+        newErrors.name = 'Tên doanh nghiệp này đã tồn tại';
+      }
+      if (taxCodeExists) {
+        newErrors.taxCode = 'Mã số thuế này đã tồn tại';
+      }
+
+      if (Object.keys(newErrors).length > 0) {
+        setErrors((prev) => ({ ...prev, ...newErrors }));
+      }
+
+      if (taxCodeExists) {
+        enqueueSnackbar('Mã số thuế này đã tồn tại trong hệ thống', { variant: 'error' });
+      }
+      if (nameExists) {
+        enqueueSnackbar('Tên doanh nghiệp này đã tồn tại trong hệ thống', { variant: 'error' });
+      }
+      if (emailExists) {
         enqueueSnackbar('Email này đã được đăng ký', { variant: 'error' });
+      }
+
+      if (emailExists || nameExists || taxCodeExists) {
         return; // BLOCK HERE
-      } else {
-        setErrors((prev) => ({ ...prev, email: '' }));
       }
     } catch (error) {
-      // Allow proceeding if network check fails, or block? Usually block if security/integrity is key.
+      // Allow proceeding if network check fails
     } finally {
       setLoading(false);
-    }
-
-    // 3. Final check of errors state (including any from async check)
-    if (emailExists || Object.values(errors).some(v => v !== '')) {
-      enqueueSnackbar('Vui lòng sửa các lỗi trước khi tiếp tục', { variant: 'error' });
-      return;
     }
 
     setActiveStep(1);

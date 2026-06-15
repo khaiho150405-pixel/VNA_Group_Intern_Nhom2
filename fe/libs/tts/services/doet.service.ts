@@ -34,6 +34,14 @@ const DoetService = {
     return axiosClient.get('/doets/check-email', { params: { email, id } });
   },
 
+  checkTaxCode: (taxCode: string, id?: number) => {
+    return axiosClient.get('/doets/check-tax-code', { params: { taxCode, id } });
+  },
+
+  checkName: (name: string, id?: number) => {
+    return axiosClient.get('/doets/check-name', { params: { name, id } });
+  },
+
   importExcel: (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
