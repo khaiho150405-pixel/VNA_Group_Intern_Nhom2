@@ -10,7 +10,7 @@ export const decodeToken = (token: string): any => {
         .split('')
         .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
         .join('')
-      );
+    );
     return JSON.parse(jsonPayload);
   } catch (error) {
     return null;
@@ -23,7 +23,7 @@ export const decodeToken = (token: string): any => {
 export const isTokenExpired = (token: string): boolean => {
   const decoded = decodeToken(token);
   if (!decoded || !decoded.exp) return true;
-  
+
   const currentTime = Math.floor(Date.now() / 1000);
   return decoded.exp < currentTime;
 };
