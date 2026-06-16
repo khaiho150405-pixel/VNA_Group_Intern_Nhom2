@@ -40,6 +40,16 @@ export class AuthController {
     return this.authService.login(req.user, req.doet);
   }
 
+  @Get("verify-session")
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: "Verify active login session"
+  })
+  async verifySession(): Promise<any> {
+    return { success: true };
+  }
+
   @Get("check-email")
   @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
   @ApiOperation({

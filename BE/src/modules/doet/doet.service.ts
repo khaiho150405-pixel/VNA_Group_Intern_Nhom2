@@ -24,6 +24,17 @@ export class DoetService extends BaseService<Doet> {
     this.manager = getManager();
   }
 
+  private validatePasswordStrength(password: string) {
+    if (!password || password.length < 6) {
+      throw Response.errorBad('Mật khẩu mới phải có ít nhất 6 kí tự');
+    }
+    const hasLetter = /[a-zA-Z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    if (!hasLetter || !hasNumber) {
+      throw Response.errorBad('Mật khẩu mới quá yếu. Cần chứa ít nhất chữ và số.');
+    }
+  }
+
   private normalizeDoetPayload(itemDto: any) {
     if (!itemDto) return itemDto;
 
@@ -101,14 +112,14 @@ export class DoetService extends BaseService<Doet> {
   async put(currentUser: any, id: string, itemDto: any) {
     try {
       const normalizedData = this.normalizeDoetPayload(itemDto);
-      
+
       // Admin check for status field
       if (normalizedData && normalizedData.status !== undefined) {
         const roleName = (currentUser?.realRole || '').toUpperCase();
         const roleCode = (currentUser?.role?.role || '').toUpperCase();
-        const isAdmin = roleName.includes('ADMIN') || roleCode.includes('ADMIN') || 
-                        roleName.includes('QUẢN TRỊ') || roleName.includes('QUAN TRI');
-        
+        const isAdmin = roleName.includes('ADMIN') || roleCode.includes('ADMIN') ||
+          roleName.includes('QUẢN TRỊ') || roleName.includes('QUAN TRI');
+
         if (!isAdmin) {
           delete normalizedData.status;
         }
@@ -123,18 +134,24 @@ export class DoetService extends BaseService<Doet> {
 
       // Use save() instead of super.put()'s update() to handle relations correctly
       const saved = await this.doetRepository.save(updateData);
-      
+
       // Sync status to associated users (asynchronous, don't block the response)
       if (itemDto && itemDto.status !== undefined) {
         const isActive = (itemDto.status === true || itemDto.status === 'true' || itemDto.status === 'ACTIVE');
+        // In the users table:
+        // - status = false/null means active (can login)
+        // - status = true means locked (cannot login)
+        // So if the enterprise is active (isActive = true), the user's status must be false (active).
+        // If the enterprise is inactive (isActive = false), the user's status must be true (locked).
+        const nextUserStatus = !isActive;
         this.userRepository.update(
           { doet_id: Number(id) as any },
-          { status: isActive }
+          { status: nextUserStatus }
         ).catch(err => {
           console.error(`Lỗi khi đồng bộ trạng thái sang tài khoản người dùng của doanh nghiệp ${id}:`, err);
         });
       }
-      
+
       return Response.get(saved);
     } catch (error) {
       throw Response.errorInternal(error);
@@ -220,12 +237,12 @@ export class DoetService extends BaseService<Doet> {
     const qbUser = this.userRepository
       .createQueryBuilder('user')
       .where('user.email = :email', { email: emailTrimmed });
-    
+
     // If updating a Doet, we should also exclude the email of the User currently linked to this Doet
     if (excludeId) {
       qbUser.andWhere('user.doet_id <> :id', { id: excludeId });
     }
-    
+
     const foundInUser = await qbUser.getOne();
 
     return { exists: !!foundInUser };
@@ -284,7 +301,7 @@ export class DoetService extends BaseService<Doet> {
 
   async findWithFilters(query: any) {
     const { name, taxCode, loaiHinhId, businessLineId, wardId, status, page = 1, limit = 10 } = query;
-    
+
     const qb = this.doetRepository.createQueryBuilder('doet')
       .leftJoinAndSelect('doet.loaiHinhKinhDoanh', 'loaiHinhKinhDoanh')
       .leftJoinAndSelect('doet.businessLine', 'businessLine')
@@ -319,7 +336,7 @@ export class DoetService extends BaseService<Doet> {
       .take(limit);
 
     const [data, total] = await qb.getManyAndCount();
-    
+
     return { data, total, page, limit };
   }
 
@@ -341,6 +358,8 @@ export class DoetService extends BaseService<Doet> {
   }
 
   async changePassword(id: number, oldPassword: string, otp: string, newPassword: string) {
+    this.validatePasswordStrength(newPassword);
+
     const users = await this.manager.query(`SELECT * FROM users WHERE doet_id = $1`, [id]);
     if (!users || users.length === 0) throw Response.errorNotFound("Không tìm thấy tài khoản của doanh nghiệp");
 
@@ -361,6 +380,8 @@ export class DoetService extends BaseService<Doet> {
   }
 
   async resetPassword(email: string, otp: string, newPassword: string) {
+    this.validatePasswordStrength(newPassword);
+
     const doet = await this.doetRepository.findOne({ where: { email } });
     if (!doet) throw Response.errorNotFound("Không tìm thấy doanh nghiệp với email này");
     if (!doet.otp || doet.otp !== otp) throw Response.errorBad("Mã OTP không chính xác");
@@ -374,6 +395,8 @@ export class DoetService extends BaseService<Doet> {
   }
 
   async adminResetPassword(id: number, newPassword: string) {
+    this.validatePasswordStrength(newPassword);
+
     const users = await this.manager.query(`SELECT id FROM users WHERE doet_id = $1`, [id]);
     if (!users || users.length === 0) throw Response.errorNotFound("Không tìm thấy tài khoản của doanh nghiệp");
 
@@ -445,12 +468,12 @@ export class DoetService extends BaseService<Doet> {
       }
 
       // 3. Robust matching for Loai Hinh
-      const loaiHinh = loaiHinhs.find(lh => 
+      const loaiHinh = loaiHinhs.find(lh =>
         (lh.maloaihinh && loaiHinhCode && lh.maloaihinh.toUpperCase() === loaiHinhCode.toUpperCase()) ||
         (lh.tenloaihinh && loaiHinhCode && lh.tenloaihinh.toLowerCase().includes(loaiHinhCode.toLowerCase()))
       );
       if (loaiHinhCode && !loaiHinh) errors.push(`Không tìm thấy loại hình có mã/tên: ${loaiHinhCode}`);
-      
+
       // 4. Robust matching for Business Line
       const businessLine = businessLines.find(bl => {
         if (!businessLineCode) return false;
@@ -488,7 +511,7 @@ export class DoetService extends BaseService<Doet> {
         email,
         loaiHinhId: loaiHinh?.id,
         businessLineId: businessLine?.id,
-        provinceName, 
+        provinceName,
         wardName,
         address,
         name2,

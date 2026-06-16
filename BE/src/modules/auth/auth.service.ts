@@ -45,6 +45,16 @@ export class AuthService {
   async validateToken(token: string, doet: Doet | null): Promise<ResponseData<LoginModel>> {
     try {
       const payload = await this.jwtService.verifyAsync(token);
+
+      // Verify user exists and is active
+      const manage = getManager();
+      const dbUser = await manage.findOne(User, {
+        where: { id: payload.id }
+      });
+      if (!dbUser || dbUser.status === true) {
+        throw Response.errorForBidden(Response.DISABLE_USER);
+      }
+
       const _doet = (doet && doet.id) ? doet.id : (payload.doet || null);
       const user = new CurrentUser(_doet, payload);
       const views = await this.viewService.getViewsByRoleId(user.role?.id as any);
