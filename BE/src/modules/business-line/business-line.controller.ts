@@ -18,3 +18,14 @@ export class BusinessLineController extends BaseController<BusinessLine, Busines
     return await this.businessLineService.getActiveLevel4ForDropdown();
   }
 }
+
+@ApiTags("Public Business Line")
+@Controller("public/business-line")
+export class PublicBusinessLineController {
+  constructor(private readonly businessLineService: BusinessLineService) {}
+
+  @Get("dropdown/active")
+  async getActiveLevel4Dropdown() {
+    return await this.businessLineService.getActiveLevel4ForDropdown();
+  }
+}

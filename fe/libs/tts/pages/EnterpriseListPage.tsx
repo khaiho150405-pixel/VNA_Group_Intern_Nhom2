@@ -153,7 +153,7 @@ export const EnterpriseListPage = () => {
   const handleStatusChange = async (id: number, currentStatus: string) => {
     try {
       const newStatus = currentStatus === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-      
+
       // Optimistic update
       setData((prev) =>
         prev.map((item) =>
@@ -308,7 +308,7 @@ export const EnterpriseListPage = () => {
                           options={Array.isArray(loaiHinhs) ? loaiHinhs : []}
                           getOptionLabel={(option) => option.tenloaihinh || ""}
                           value={loaiHinhs.find(lh => lh.id === filters.loaiHinhId) || null}
-                          onChange={(_, newValue) => 
+                          onChange={(_, newValue) =>
                             handleFilterChange("loaiHinhId", newValue?.id)
                           }
                           renderInput={(params) => (
@@ -322,7 +322,7 @@ export const EnterpriseListPage = () => {
                           options={Array.isArray(businessLines) ? businessLines : []}
                           getOptionLabel={(option) => option ? `${option.manganh} - ${option.tennganh}` : ""}
                           value={businessLines.find(bl => bl.id === filters.businessLineId) || null}
-                          onChange={(_, newValue) => 
+                          onChange={(_, newValue) =>
                             handleFilterChange("businessLineId", newValue?.id)
                           }
                           renderInput={(params) => (
@@ -364,7 +364,7 @@ export const EnterpriseListPage = () => {
                             { label: "Hoạt động", value: "ACTIVE" },
                             { label: "Ngưng hoạt động", value: "INACTIVE" }
                           ].find(s => s.value === filters.status) || null}
-                          onChange={(_, newValue) => 
+                          onChange={(_, newValue) =>
                             handleFilterChange("status", newValue?.value)
                           }
                           renderInput={(params) => (

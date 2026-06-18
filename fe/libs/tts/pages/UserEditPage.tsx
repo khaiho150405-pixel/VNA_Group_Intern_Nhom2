@@ -11,7 +11,8 @@ import {
     MenuItem,
     InputAdornment,
     CircularProgress,
-    IconButton
+    IconButton,
+    Autocomplete
 } from '@mui/material';
 import { PhotoCamera, Save, Event, Delete } from '@mui/icons-material';
 import { ChangeEmailModal } from '@core/components/ChangeEmailModal';
@@ -35,7 +36,7 @@ export const UserEditPage = () => {
     const hasChanges = () => {
         if (!state.initialSnapshot) return false;
         if (state.avatarFile !== null) return true;
-        
+
         const normalizeDate = (val: any) => {
             if (!val) return '';
             const d = new Date(val);
@@ -335,38 +336,32 @@ export const UserEditPage = () => {
                                 <Typography className={classes.sectionTitle} style={{ marginTop: '12px' }}>Thông tin liên hệ</Typography>
                                 <Grid container spacing={3}>
                                     <Grid size={{ xs: 12, md: 6 }}>
-                                        <TextField
-                                            select fullWidth label="Tỉnh / Thành phố" variant="outlined" size="small"
-                                            className={classes.field} value={city}
-                                            onChange={(e) => handleInputChange('city', e.target.value)}
-                                            slotProps={{
-                                                inputLabel: { shrink: true },
-                                                select: { displayEmpty: true }
-                                            }}
+                                        <Autocomplete
+                                            size="small"
+                                            fullWidth
+                                            options={provinces || []}
+                                            getOptionLabel={(option: any) => option.name || ''}
+                                            value={provinces?.find((p: any) => String(p.code) === String(city)) || null}
+                                            onChange={(_, newValue: any) => handleInputChange('city', newValue?.code || '')}
                                             disabled={loading}
-                                        >
-                                            <MenuItem value="" disabled selected>Chọn Tỉnh / Thành phố</MenuItem>
-                                            {provinces && provinces.map((p: any) => (
-                                                <MenuItem key={p.code} value={String(p.code)}>{p.name}</MenuItem>
-                                            ))}
-                                        </TextField>
+                                            renderInput={(params) => (
+                                                <TextField {...params} label="Tỉnh / Thành phố" variant="outlined" size="small" className={classes.field}  />
+                                            )}
+                                        />
                                     </Grid>
                                     <Grid size={{ xs: 12, md: 6 }}>
-                                        <TextField
-                                            select fullWidth label="Phường xã" variant="outlined" size="small"
-                                            className={classes.field} value={district}
-                                            onChange={(e) => handleInputChange('district', e.target.value)}
-                                            slotProps={{
-                                                inputLabel: { shrink: true },
-                                                select: { displayEmpty: true }
-                                            }}
+                                        <Autocomplete
+                                            size="small"
+                                            fullWidth
+                                            options={districts || []}
+                                            getOptionLabel={(option: any) => option.name || ''}
+                                            value={districts?.find((d: any) => String(d.code) === String(district)) || null}
+                                            onChange={(_, newValue: any) => handleInputChange('district', newValue?.code || '')}
                                             disabled={loading || !city}
-                                        >
-                                            <MenuItem value="" disabled selected>Chọn phường xã</MenuItem>
-                                            {districts && districts.map((d: any) => (
-                                                <MenuItem key={d.code} value={String(d.code)}>{d.name}</MenuItem>
-                                            ))}
-                                        </TextField>
+                                            renderInput={(params) => (
+                                                <TextField {...params} label="Phường xã" variant="outlined" size="small" className={classes.field}  />
+                                            )}
+                                        />
                                     </Grid>
                                     <Grid size={{ xs: 12 }}>
                                         <TextField

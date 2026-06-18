@@ -29,8 +29,7 @@ export const useCreateUser = () => {
 
         const fetchProvinces = async () => {
             try {
-                const res = await fetch('https://esgoo.net/api-tinhthanh/1/0.htm');
-                const data = await res.json();
+                const data = await userService.getProvinces();
                 if (data && Array.isArray(data.data)) {
                     const mapped = data.data.map((p: any) => ({ code: String(p.id), name: p.full_name }));
                     const sorted = mapped.sort((a: any, b: any) => a.name.localeCompare(b.name, 'vi'));
@@ -49,8 +48,7 @@ export const useCreateUser = () => {
         if (state.city) {
             const fetchDistricts = async () => {
                 try {
-                    const res = await fetch(`https://esgoo.net/api-tinhthanh/2/${state.city}.htm`);
-                    const data = await res.json();
+                    const data = await userService.getDistricts(String(state.city));
                     if (data && Array.isArray(data.data)) {
                         const mapped = data.data.map((d: any) => ({ code: String(d.id), name: d.full_name }));
                         const sorted = mapped.sort((a: any, b: any) => a.name.localeCompare(b.name, 'vi'));

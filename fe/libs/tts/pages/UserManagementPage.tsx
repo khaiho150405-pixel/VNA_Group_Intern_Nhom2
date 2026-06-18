@@ -3,8 +3,8 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
     Box, Typography, Button, Table, TableBody, TableCell,
-    TableContainer, TableHead, TableRow, Checkbox,
-    Switch, IconButton, TextField, Select, MenuItem, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions, Tooltip, Pagination
+    TableContainer, TableHead, TableRow, Checkbox, InputAdornment, Switch, IconButton, Autocomplete,
+    TextField, Select, MenuItem, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions, Tooltip, Pagination
 } from '@mui/material';
 import {
     Delete as DeleteIcon,
@@ -15,6 +15,7 @@ import {
     Add as AddIcon,
     FileUpload as UploadIcon,
     FileDownload as DownloadIcon,
+    Visibility, VisibilityOff,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useSnackbar } from 'notistack';
@@ -22,6 +23,7 @@ import { useSnackbar } from 'notistack';
 import { MainLayout } from '@core/layouts/MainLayout';
 import { BulkSelectionBar } from '@core/components/BulkSelectionBar';
 import { userService } from '@tts/services/user.services';
+import { UserPasswordDialog } from '@tts/components';
 import { useUserListStyles } from '../logic/user/style';
 import * as XLSX from 'xlsx';
 
@@ -47,7 +49,6 @@ export const UserManagementPage = () => {
 
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [passwordModal, setPasswordModal] = useState({ open: false, userId: '', userName: '' });
-    const [newPassword, setNewPassword] = useState('');
 
     // State for Excel import preview
     const [importUsers, setImportUsers] = useState<any[]>([]);
@@ -106,7 +107,7 @@ export const UserManagementPage = () => {
             // Support both boolean and string "false"
             const isCurrentlyActive = currentStatus === false || currentStatus === null || currentStatus === undefined || currentStatus === "false";
             const nextStatus = isCurrentlyActive ? true : false;
-            
+
             // Optimistic update
             setData((prev) =>
                 prev.map((item) =>
@@ -361,20 +362,7 @@ export const UserManagementPage = () => {
         }
     };
 
-    const handleChangePassword = async () => {
-        if (!newPassword || newPassword.length < 6) {
-            enqueueSnackbar("Mật khẩu phải có ít nhất 6 ký tự!", { variant: "error" });
-            return;
-        }
-        try {
-            await userService.update(passwordModal.userId, { password: newPassword });
-            enqueueSnackbar("Đặt lại mật khẩu thành công!", { variant: "success" });
-            setPasswordModal({ open: false, userId: '', userName: '' });
-            setNewPassword('');
-        } catch (error) {
-            enqueueSnackbar("Có lỗi xảy ra khi cập nhật mật khẩu.", { variant: "error" });
-        }
-    };
+
 
     const startIndex = useMemo(
         () => (total === 0 ? 0 : filters.limit * (filters.page - 1) + 1),
@@ -453,7 +441,6 @@ export const UserManagementPage = () => {
                                                     fullWidth
                                                     size="small"
                                                     className={classes.filterField}
-                                                    placeholder="Tìm kiếm..."
                                                     value={filters.fullName}
                                                     onChange={(e) => handleFilterChange("fullName", e.target.value)}
                                                 />
@@ -463,7 +450,6 @@ export const UserManagementPage = () => {
                                                     fullWidth
                                                     size="small"
                                                     className={classes.filterField}
-                                                    placeholder="Tìm kiếm..."
                                                     value={filters.username}
                                                     onChange={(e) => handleFilterChange("username", e.target.value)}
                                                 />
@@ -473,49 +459,60 @@ export const UserManagementPage = () => {
                                                     fullWidth
                                                     size="small"
                                                     className={classes.filterField}
-                                                    placeholder="Tìm kiếm..."
                                                     value={filters.email}
                                                     onChange={(e) => handleFilterChange("email", e.target.value)}
                                                 />
                                             </TableCell>
                                             <TableCell className={classes.filterCell}>
-                                                <Select
-                                                    fullWidth
+                                                <Autocomplete
                                                     size="small"
-                                                    displayEmpty
-                                                    className={classes.filterField}
-                                                    value={filters.role}
-                                                    onChange={(e) => handleFilterChange("role", e.target.value)}
-                                                >
-                                                    <MenuItem value="">Tất cả</MenuItem>
-                                                    <MenuItem value="Chuyên viên">Chuyên viên</MenuItem>
-                                                    <MenuItem value="Lãnh đạo">Lãnh đạo</MenuItem>
-                                                    <MenuItem value="Nhân viên">Nhân viên</MenuItem>
-                                                </Select>
+                                                    options={[
+                                                        { label: "Chuyên viên", value: "Chuyên viên" },
+                                                        { label: "Lãnh đạo", value: "Lãnh đạo" },
+                                                        { label: "Nhân viên", value: "Nhân viên" }
+                                                    ]}
+                                                    getOptionLabel={(option) => option.label}
+                                                    value={[
+                                                        { label: "Chuyên viên", value: "Chuyên viên" },
+                                                        { label: "Lãnh đạo", value: "Lãnh đạo" },
+                                                        { label: "Nhân viên", value: "Nhân viên" }
+                                                    ].find(r => r.value === filters.role) || null}
+                                                    onChange={(_, newValue) =>
+                                                        handleFilterChange("role", newValue?.value || "")
+                                                    }
+                                                    renderInput={(params) => (
+                                                        <TextField {...params} placeholder="Tất cả" className={classes.filterField} />
+                                                    )}
+                                                />
                                             </TableCell>
                                             <TableCell className={classes.filterCell}>
                                                 <TextField
                                                     fullWidth
                                                     size="small"
                                                     className={classes.filterField}
-                                                    placeholder="Tìm kiếm..."
                                                     value={filters.jobTitle}
                                                     onChange={(e) => handleFilterChange("jobTitle", e.target.value)}
                                                 />
                                             </TableCell>
                                             <TableCell className={classes.filterCell}>
-                                                <Select
-                                                    fullWidth
+                                                <Autocomplete
                                                     size="small"
-                                                    displayEmpty
-                                                    className={classes.filterField}
-                                                    value={filters.status}
-                                                    onChange={(e) => handleFilterChange("status", e.target.value)}
-                                                >
-                                                    <MenuItem value="">Tất cả</MenuItem>
-                                                    <MenuItem value="true">Hoạt động</MenuItem>
-                                                    <MenuItem value="false">Đã khóa</MenuItem>
-                                                </Select>
+                                                    options={[
+                                                        { label: "Hoạt động", value: "true" },
+                                                        { label: "Đã khóa", value: "false" }
+                                                    ]}
+                                                    getOptionLabel={(option) => option.label}
+                                                    value={[
+                                                        { label: "Hoạt động", value: "true" },
+                                                        { label: "Đã khóa", value: "false" }
+                                                    ].find(s => s.value === String(filters.status)) || null}
+                                                    onChange={(_, newValue) =>
+                                                        handleFilterChange("status", newValue?.value || "")
+                                                    }
+                                                    renderInput={(params) => (
+                                                        <TextField {...params} placeholder="Tất cả" className={classes.filterField} />
+                                                    )}
+                                                />
                                             </TableCell>
                                         </TableRow>
                                     </TableHead>
@@ -640,50 +637,12 @@ export const UserManagementPage = () => {
                     onClose={() => setSelectedIds([])}
                 />
 
-                <Dialog
+                <UserPasswordDialog
                     open={passwordModal.open}
                     onClose={() => setPasswordModal({ ...passwordModal, open: false })}
-                    maxWidth="xs"
-                    fullWidth
-                    sx={{ '& .MuiDialog-paper': { borderRadius: '10px' } }}
-                >
-                    <DialogTitle sx={{ bgcolor: '#2f65f0', color: 'white', textAlign: 'center', fontWeight: 700, py: 1.5 }}>
-                        Xác nhận
-                    </DialogTitle>
-                    <DialogContent sx={{ pt: '24px !important', pb: 1 }}>
-                        <Typography sx={{ mb: 2, color: '#333', fontSize: '0.95rem' }}>
-                            Khởi tạo mật khẩu cho tài khoản <strong>{passwordModal.userName}</strong>
-                        </Typography>
-                        <TextField
-                            fullWidth
-                            size="small"
-                            placeholder="Nhập mật khẩu mới mong muốn"
-                            type="text"
-                            variant="outlined"
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                            autoFocus
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' } }}
-                        />
-                    </DialogContent>
-                    <DialogActions sx={{ px: 3, pb: 2.5, pt: 1 }}>
-                        <Button
-                            onClick={() => setPasswordModal({ ...passwordModal, open: false })}
-                            sx={{ color: '#2f65f0', textTransform: 'none', fontWeight: 600 }}
-                        >
-                            Huỷ bỏ
-                        </Button>
-                        <Button
-                            onClick={handleChangePassword}
-                            variant="contained"
-                            disableElevation
-                            startIcon={<SaveIcon fontSize="small" />}
-                            sx={{ textTransform: 'none', bgcolor: '#2f65f0', fontWeight: 600, borderRadius: '6px' }}
-                        >
-                            Lưu
-                        </Button>
-                    </DialogActions>
-                </Dialog>
+                    userId={passwordModal.userId}
+                    userName={passwordModal.userName}
+                />
 
                 {/* Import Excel Preview Dialog */}
                 <Dialog
@@ -702,8 +661,8 @@ export const UserManagementPage = () => {
                     <DialogContent sx={{ pt: '20px !important', pb: 2 }}>
                         <Box sx={{ mb: 2, p: 1.5, bgcolor: '#f8fafc', borderRadius: '6px', borderLeft: '4px solid #3b82f6' }}>
                             <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
-                                Vui lòng kiểm tra kỹ danh sách tài khoản trước khi nhập vào cơ sở dữ liệu. 
-                                Click nút <strong>Sửa</strong> (hoặc nhấn biểu tượng cây bút) để cập nhật thông tin inline, click <strong>Xóa</strong> để loại bỏ dòng. 
+                                Vui lòng kiểm tra kỹ danh sách tài khoản trước khi nhập vào cơ sở dữ liệu.
+                                Click nút <strong>Sửa</strong> (hoặc nhấn biểu tượng cây bút) để cập nhật thông tin inline, click <strong>Xóa</strong> để loại bỏ dòng.
                                 Các trường lỗi sẽ được đánh dấu cảnh báo màu đỏ.
                             </Typography>
                         </Box>

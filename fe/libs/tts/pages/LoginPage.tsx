@@ -179,6 +179,7 @@ export const LoginPage = () => {
           variant="outlined"
           sx={loginSx.registerBtn}
           suppressHydrationWarning
+          onClick={() => router.push('/register-enterprise')}
         >
           Đăng ký tài khoản doanh nghiệp
         </Button>

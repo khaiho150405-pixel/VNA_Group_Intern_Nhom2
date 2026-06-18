@@ -37,4 +37,21 @@ export const userService = {
         return response.data || response;
     },
 
+
+    // Address API from esgoo
+    getProvinces: async () => {
+        const res = await fetch('https://esgoo.net/api-tinhthanh-new/1/0.htm');
+        return res.json();
+    },
+
+    getDistricts: async (provinceId: string) => {
+        const res = await fetch(`https://esgoo.net/api-tinhthanh-new/2/${provinceId}.htm`);
+        return res.json();
+    },
+
+    getWards: async (districtId: string) => {
+        const res = await fetch(`https://esgoo.net/api-tinhthanh-new/3/${districtId}.htm`);
+        return res.json();
+    }
+
 };

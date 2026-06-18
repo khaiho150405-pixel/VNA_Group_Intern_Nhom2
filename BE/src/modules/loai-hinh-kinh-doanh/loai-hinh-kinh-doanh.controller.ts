@@ -18,3 +18,14 @@ export class LoaiHinhKinhDoanhController extends BaseController<LoaiHinhKinhDoan
     return await this.loaiHinhKinhDoanhService.getActiveForDropdown();
   }
 }
+
+@ApiTags("Public Loai Hinh Kinh Doanh")
+@Controller("public/loai-hinh-kinh-doanh")
+export class PublicLoaiHinhKinhDoanhController {
+  constructor(private readonly loaiHinhKinhDoanhService: LoaiHinhKinhDoanhService) {}
+
+  @Get("dropdown/active")
+  async getActiveDropdown() {
+    return await this.loaiHinhKinhDoanhService.getActiveForDropdown();
+  }
+}

@@ -92,7 +92,7 @@ export class AuthService {
       if (!user) {
         throw Response.errorNotFound("Email chưa đăng ký trong hệ thống. Xin vui lòng thử lại sau");
       }
-      
+
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       user.otp = otp;
       user.otpExpired = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
@@ -103,8 +103,8 @@ export class AuthService {
           __dirname,
           `${process.env.dirTemp || ''}/forgot-password.html`
         ), {
-          encoding: "utf-8"
-        });
+        encoding: "utf-8"
+      });
 
       fs.writeFileSync(path.resolve(process.cwd(), 'reset_link.txt'), `OTP: ${otp}`);
       await Email.sendMail(email, "Lấy lại mật khẩu - Mã OTP", template

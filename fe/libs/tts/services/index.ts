@@ -1,2 +1,2 @@
 export * from './auth.services';
-export { default as DoetService } from './doet.service';
+export { default as DoetService } from './doet.services';

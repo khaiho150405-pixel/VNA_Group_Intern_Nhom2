@@ -100,3 +100,35 @@ export class DoetController extends BaseController<Doet, DoetService> {
     return await this.doetService.adminResetPassword(Number(id), newPassword);
   }
 }
+
+@ApiTags("Public Doets")
+@Controller("public/doets")
+export class PublicDoetController {
+  constructor(private readonly doetService: DoetService) { }
+
+  @Post("register")
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
+  @ApiOperation({ summary: "Đăng ký doanh nghiệp mới" })
+  async register(@Body() itemDto: Doet): Promise<ResponseData<Doet>> {
+    // Gọi post service với user là null
+    return await this.doetService.post(null, itemDto, null);
+  }
+
+  @Get("check-email")
+  @ApiOperation({ summary: "Kiểm tra email đã tồn tại (public)" })
+  async checkEmail(@Query("email") email: string) {
+    return await this.doetService.checkEmailExists(email, undefined);
+  }
+
+  @Get("check-tax-code")
+  @ApiOperation({ summary: "Kiểm tra mã số thuế đã tồn tại (public)" })
+  async checkTaxCode(@Query("taxCode") taxCode: string) {
+    return await this.doetService.checkTaxCodeExists(taxCode, undefined);
+  }
+
+  @Get("check-name")
+  @ApiOperation({ summary: "Kiểm tra tên doanh nghiệp đã tồn tại (public)" })
+  async checkName(@Query("name") name: string) {
+    return await this.doetService.checkNameExists(name, undefined);
+  }
+}

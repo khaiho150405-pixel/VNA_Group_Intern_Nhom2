@@ -11,9 +11,10 @@ import {
     MenuItem,
     InputAdornment,
     CircularProgress,
-    IconButton
+    IconButton,
+    Autocomplete
 } from '@mui/material';
-import { PhotoCamera, Save, Event, Delete } from '@mui/icons-material';
+import { PhotoCamera, Save, Event, Delete, Visibility, VisibilityOff } from '@mui/icons-material';
 import { ChangeEmailModal } from '@core/components/ChangeEmailModal';
 import { RequiredLabel } from '@core/components/RequiredLabel';
 import { AppToast } from '@tts/components/AppToast';
@@ -35,6 +36,7 @@ export const UserCreatePage = () => {
 
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const [calendarAnchor, setCalendarAnchor] = React.useState<null | HTMLElement>(null);
+    const [showPassword, setShowPassword] = React.useState(false);
 
     const {
         active,
@@ -199,8 +201,19 @@ export const UserCreatePage = () => {
                                         />
                                     </Grid>
                                     <Grid size={{ xs: 12, md: 6 }}>
-                                        <TextField fullWidth label={<RequiredLabel label="Mật khẩu" />} type="password" variant="outlined" size="small" className={classes.field}
+                                        <TextField fullWidth label={<RequiredLabel label="Mật khẩu" />} type={showPassword ? 'text' : 'password'} variant="outlined" size="small" className={classes.field}
                                             value={password} onChange={(e) => handleInputChange('password', e.target.value)} disabled={loading}
+                                            slotProps={{
+                                                input: {
+                                                    endAdornment: (
+                                                        <InputAdornment position="end">
+                                                            <IconButton onClick={() => setShowPassword(!showPassword)} edge="end" size="small">
+                                                                {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                                                            </IconButton>
+                                                        </InputAdornment>
+                                                    ),
+                                                }
+                                            }}
                                         />
                                     </Grid>
                                     <Grid size={{ xs: 12, md: 6 }}>
@@ -308,38 +321,32 @@ export const UserCreatePage = () => {
                                 <Typography className={classes.sectionTitle} style={{ marginTop: '12px' }}>Thông tin liên hệ</Typography>
                                 <Grid container spacing={3}>
                                     <Grid size={{ xs: 12, md: 6 }}>
-                                        <TextField
-                                            select fullWidth label="Tỉnh / Thành phố" variant="outlined" size="small"
-                                            className={classes.field} value={city}
-                                            onChange={(e) => handleInputChange('city', e.target.value)}
-                                            slotProps={{
-                                                inputLabel: { shrink: true },
-                                                select: { displayEmpty: true }
-                                            }}
+                                        <Autocomplete
+                                            size="small"
+                                            fullWidth
+                                            options={provinces || []}
+                                            getOptionLabel={(option: any) => option.name || ''}
+                                            value={provinces?.find((p: any) => String(p.code) === String(city)) || null}
+                                            onChange={(_, newValue: any) => handleInputChange('city', newValue?.code || '')}
                                             disabled={loading}
-                                        >
-                                            <MenuItem value="" disabled selected>Chọn Tỉnh / Thành phố</MenuItem>
-                                            {provinces && provinces.map((p) => (
-                                                <MenuItem key={p.code} value={String(p.code)}>{p.name}</MenuItem>
-                                            ))}
-                                        </TextField>
+                                            renderInput={(params) => (
+                                                <TextField {...params} label="Tỉnh / Thành phố" variant="outlined" size="small" className={classes.field}  />
+                                            )}
+                                        />
                                     </Grid>
                                     <Grid size={{ xs: 12, md: 6 }}>
-                                        <TextField
-                                            select fullWidth label="Phường xã" variant="outlined" size="small"
-                                            className={classes.field} value={district}
-                                            onChange={(e) => handleInputChange('district', e.target.value)}
-                                            slotProps={{
-                                                inputLabel: { shrink: true },
-                                                select: { displayEmpty: true }
-                                            }}
+                                        <Autocomplete
+                                            size="small"
+                                            fullWidth
+                                            options={districts || []}
+                                            getOptionLabel={(option: any) => option.name || ''}
+                                            value={districts?.find((d: any) => String(d.code) === String(district)) || null}
+                                            onChange={(_, newValue: any) => handleInputChange('district', newValue?.code || '')}
                                             disabled={loading || !city}
-                                        >
-                                            <MenuItem value="" disabled selected>Chọn phường xã</MenuItem>
-                                            {districts && districts.map((d) => (
-                                                <MenuItem key={d.code} value={String(d.code)}>{d.name}</MenuItem>
-                                            ))}
-                                        </TextField>
+                                            renderInput={(params) => (
+                                                <TextField {...params} label="Phường xã" variant="outlined" size="small" className={classes.field}  />
+                                            )}
+                                        />
                                     </Grid>
                                     <Grid size={{ xs: 12 }}>
                                         <TextField

@@ -151,7 +151,7 @@ export class BaseService<T> {
       const _entity: any = {
         ...itemDto,
         createdAt: new Date(),
-        createdBy: currentUser.id
+        createdBy: currentUser?.id || null
       };
       if (doet && doet.id && !ignoreDoet.includes(this.baseRepository.metadata.tableName)) {
         _entity.doet_id = doet.id;
