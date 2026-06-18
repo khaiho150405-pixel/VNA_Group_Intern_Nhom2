@@ -9,6 +9,9 @@ export interface IUser {
   displayName: string;
   fullName?: string;
   avatar?: string;
+  doet_id?: number;
+  realRole?: string;
+  roleId?: number;
 }
 
 /**

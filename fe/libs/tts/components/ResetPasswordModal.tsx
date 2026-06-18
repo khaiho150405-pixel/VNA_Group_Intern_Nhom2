@@ -9,10 +9,12 @@ import {
   Button,
   Typography,
 } from '@mui/material';
-import { Save as SaveIcon } from '@mui/icons-material';
+import { Save as SaveIcon, Visibility, VisibilityOff } from '@mui/icons-material';
 import { VNA_COLORS } from '@core/theme';
 import { DoetService } from '@tts/services';
 import { useSnackbar } from 'notistack';
+import { IconButton, InputAdornment } from '@mui/material';
+import { validate, VALIDATION_MESSAGES } from '@core/utils/validation';
 
 interface ResetPasswordModalProps {
   open: boolean;
@@ -30,16 +32,20 @@ export const ResetPasswordModal = ({
   username,
 }: ResetPasswordModalProps) => {
   const [newPassword, setNewPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const { enqueueSnackbar } = useSnackbar();
 
   useEffect(() => {
-    if (!open) setNewPassword('');
+    if (!open) {
+      setNewPassword('');
+      setShowPassword(false);
+    }
   }, [open]);
 
   const handleSave = async () => {
-    if (!newPassword.trim()) {
-      enqueueSnackbar('Vui lòng nhập mật khẩu mới', { variant: 'warning' });
+    if (!newPassword || !validate.password(newPassword)) {
+      enqueueSnackbar(VALIDATION_MESSAGES.PASSWORD_INVALID, { variant: 'error' });
       return;
     }
     if (!enterpriseId) return;
@@ -86,10 +92,26 @@ export const ResetPasswordModal = ({
           fullWidth
           size="small"
           placeholder="Nhập mật khẩu mới mong muốn"
-          type="password"
+          type={showPassword ? 'text' : 'password'}
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
-          slotProps={{ htmlInput: { autoComplete: 'new-password' } }}
+          slotProps={{
+            htmlInput: { autoComplete: 'new-password' },
+            input: {
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    size="small"
+                    onClick={() => setShowPassword(!showPassword)}
+                    onMouseDown={(e) => e.preventDefault()}
+                    edge="end"
+                  >
+                    {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            },
+          }}
         />
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1.5, mt: 3 }}>
           <Button

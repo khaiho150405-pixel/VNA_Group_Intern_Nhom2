@@ -8,5 +8,6 @@ import { LoaiHinhKinhDoanhService } from './loai-hinh-kinh-doanh.service';
   imports: [TypeOrmModule.forFeature([LoaiHinhKinhDoanh])],
   providers: [LoaiHinhKinhDoanhService],
   controllers: [LoaiHinhKinhDoanhController],
+  exports: [LoaiHinhKinhDoanhService],
 })
 export class LoaiHinhKinhDoanhModule {}

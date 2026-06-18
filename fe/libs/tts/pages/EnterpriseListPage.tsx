@@ -43,6 +43,8 @@ import {
   BusinessLine,
 } from "@shared/tts/models";
 import { useEnterpriseListStyles } from "../logic/enterprise/style";
+import { ConfirmDialog } from "@core/components/ConfirmDialog";
+import { useAuth } from "@core/contexts/AuthProvider";
 
 interface WardOption {
   key: string;
@@ -64,6 +66,32 @@ export const EnterpriseListPage = () => {
   const router = useRouter();
   const { enqueueSnackbar } = useSnackbar();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const { user } = useAuth();
+
+  const isReadOnly = useMemo(() => {
+    if (!user) return true;
+    const roleType = (user as any)?.role?.type;
+    const roleId = (user as any)?.roleId || (user as any)?.role?.id;
+    const realRole = (user as any)?.realRole || '';
+    
+    // Đối với nhóm Sở: Nhân viên và Chuyên viên chỉ có quyền xem
+    if (roleType === 'SO') {
+      const isRestricted = roleId === 1 || roleId === 2 || 
+                          realRole.includes('Nhân viên') || realRole.includes('Chuyên viên') ||
+                          realRole.includes('Employee') || realRole.includes('Expert');
+      
+      const roleName = (user as any)?.role?.name?.toUpperCase() || '';
+      const isAdminOrLeader = roleName.includes('ADMIN') || roleName.includes('QUẢN TRỊ') || 
+                              roleName.includes('LÃNH ĐẠO') || roleName.includes('LEADER');
+
+      return isRestricted && !isAdminOrLeader;
+    }
+    
+    // Đối với nhóm Doanh nghiệp: Không được phép quản lý danh sách doanh nghiệp chung
+    if (roleType === 'DN') return true;
+
+    return false;
+  }, [user]);
 
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<Doet[]>([]);
@@ -80,6 +108,7 @@ export const EnterpriseListPage = () => {
   const [businessLines, setBusinessLines] = useState<BusinessLine[]>([]);
   const [wards, setWards] = useState<WardOption[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const [resetModal, setResetModal] = useState<{
     open: boolean;
@@ -174,6 +203,7 @@ export const EnterpriseListPage = () => {
       await DoetService.deleteMany(selectedIds);
       enqueueSnackbar("Xoá thành công", { variant: "success" });
       setSelectedIds([]);
+      setConfirmDeleteOpen(false);
       fetchData();
     } catch (error) {
       enqueueSnackbar("Lỗi khi xoá dữ liệu", { variant: "error" });
@@ -224,6 +254,16 @@ export const EnterpriseListPage = () => {
   const isIndeterminate =
     selectedIds.length > 0 && selectedIds.length < data.length;
 
+  // Cấu hình các cột của bảng để dễ dàng chỉnh sửa độ rộng và thuộc tính
+  const columns = [
+    { id: 'name', label: 'Tên doanh nghiệp', width: '20%', minWidth: 150 },
+    { id: 'taxCode', label: 'Mã số thuế', width: '12%', minWidth: 120 },
+    { id: 'loaiHinh', label: 'Loại hình kinh doanh', width: '10%', minWidth: 120 },
+    { id: 'businessLine', label: 'Ngành nghề kinh doanh', width: '20%', minWidth: 180 },
+    { id: 'ward', label: 'Phường/ xã', width: '12%', minWidth: 120 },
+    { id: 'status', label: 'Trạng thái', width: '10%', minWidth: 100, align: 'center' as const },
+  ];
+
   return (
     <MainLayout>
       <Box className={classes.root}>
@@ -239,22 +279,26 @@ export const EnterpriseListPage = () => {
             Danh sách doanh nghiệp
           </Typography>
           <Box className={classes.actions}>
-            <Button
-              className={classes.importBtn}
-              startIcon={<UploadIcon fontSize="small" />}
-              disableRipple
-              onClick={() => fileInputRef.current?.click()}
-            >
-              Thêm từ file
-            </Button>
-            <Button
-              variant="contained"
-              className={classes.addBtn}
-              startIcon={<AddIcon fontSize="small" />}
-              onClick={() => router.push("/doets/create")}
-            >
-              Thêm mới
-            </Button>
+            {!isReadOnly && (
+              <>
+                <Button
+                  className={classes.importBtn}
+                  startIcon={<UploadIcon fontSize="small" />}
+                  disableRipple
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  Thêm từ file
+                </Button>
+                <Button
+                  variant="contained"
+                  className={classes.addBtn}
+                  startIcon={<AddIcon fontSize="small" />}
+                  onClick={() => router.push("/doets/create")}
+                >
+                  Thêm mới
+                </Button>
+              </>
+            )}
           </Box>
         </Box>
 
@@ -265,21 +309,27 @@ export const EnterpriseListPage = () => {
                 <Table size="small" stickyHeader>
                   <TableHead>
                     <TableRow>
-                      <TableCell padding="checkbox" className={classes.headerCell}>
-                        <Checkbox
-                          size="small"
-                          indeterminate={isIndeterminate}
-                          checked={isAllSelected}
-                          onChange={handleSelectAll}
-                        />
+                      <TableCell padding="checkbox" className={classes.headerCell} width={50}>
+                        {!isReadOnly && (
+                          <Checkbox
+                            size="small"
+                            indeterminate={isIndeterminate}
+                            checked={isAllSelected}
+                            onChange={handleSelectAll}
+                          />
+                        )}
                       </TableCell>
-                      <TableCell className={classes.headerCell}>Thao tác</TableCell>
-                      <TableCell className={classes.headerCell}>Tên doanh nghiệp</TableCell>
-                      <TableCell className={classes.headerCell}>Mã số thuế</TableCell>
-                      <TableCell className={classes.headerCell}>Loại hình kinh doanh</TableCell>
-                      <TableCell className={classes.headerCell}>Ngành nghề kinh doanh</TableCell>
-                      <TableCell className={classes.headerCell}>Phường/ xã</TableCell>
-                      <TableCell className={classes.headerCell} align="center">Trạng thái</TableCell>
+                      <TableCell className={classes.headerCell} width={100}>Thao tác</TableCell>
+                      {columns.map((col) => (
+                        <TableCell
+                          key={col.id}
+                          className={classes.headerCell}
+                          align={col.align}
+                          sx={{ width: col.width, minWidth: col.minWidth }}
+                        >
+                          {col.label}
+                        </TableCell>
+                      ))}
                     </TableRow>
                     <TableRow>
                       <TableCell className={classes.filterCell} />
@@ -288,6 +338,7 @@ export const EnterpriseListPage = () => {
                         <TextField
                           fullWidth
                           size="small"
+                          placeholder="Tìm kiếm..."
                           className={classes.filterField}
                           value={filters.name || ""}
                           onChange={(e) => handleFilterChange("name", e.target.value)}
@@ -297,6 +348,7 @@ export const EnterpriseListPage = () => {
                         <TextField
                           fullWidth
                           size="small"
+                          placeholder="Tìm kiếm..."
                           className={classes.filterField}
                           value={filters.taxCode || ""}
                           onChange={(e) => handleFilterChange("taxCode", e.target.value)}
@@ -377,13 +429,13 @@ export const EnterpriseListPage = () => {
                   <TableBody>
                     {loading ? (
                       <TableRow>
-                        <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                        <TableCell colSpan={columns.length + 2} align="center" sx={{ py: 4 }}>
                           <CircularProgress size={22} />
                         </TableCell>
                       </TableRow>
                     ) : data.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} align="center" sx={{ py: 4, color: "#94a3b8" }}>
+                        <TableCell colSpan={columns.length + 2} align="center" sx={{ py: 4, color: "#94a3b8" }}>
                           Không có dữ liệu
                         </TableCell>
                       </TableRow>
@@ -397,11 +449,13 @@ export const EnterpriseListPage = () => {
                             className={checked ? classes.rowSelected : ""}
                           >
                             <TableCell padding="checkbox" className={classes.bodyCell}>
-                              <Checkbox
-                                size="small"
-                                checked={checked}
-                                onChange={() => handleSelectOne(item.id!)}
-                              />
+                              {!isReadOnly && (
+                                <Checkbox
+                                  size="small"
+                                  checked={checked}
+                                  onChange={() => handleSelectOne(item.id!)}
+                                />
+                              )}
                             </TableCell>
                             <TableCell className={classes.bodyCell}>
                               <Box sx={{ display: "flex", gap: 0.25 }}>
@@ -414,30 +468,36 @@ export const EnterpriseListPage = () => {
                                     <ViewIcon fontSize="small" />
                                   </IconButton>
                                 </Tooltip>
-                                <Tooltip title="Chỉnh sửa">
-                                  <IconButton
-                                    size="small"
-                                    className={classes.actionIcon}
-                                    onClick={() => router.push(`/doets/edit/${item.id}`)}
-                                  >
-                                    <EditIcon fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
-                                <Tooltip title="Cấp lại mật khẩu">
-                                  <IconButton
-                                    size="small"
-                                    className={classes.actionIcon}
-                                    onClick={() =>
-                                      setResetModal({
-                                        open: true,
-                                        id: item.id!,
-                                        name: item.taxCode || item.name,
-                                      })
-                                    }
-                                  >
-                                    <KeyIcon fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
+                                {!isReadOnly ? (
+                                  <>
+                                    <Tooltip title="Chỉnh sửa">
+                                      <IconButton
+                                        size="small"
+                                        className={classes.actionIcon}
+                                        onClick={() => router.push(`/doets/edit/${item.id}`)}
+                                      >
+                                        <EditIcon fontSize="small" />
+                                      </IconButton>
+                                    </Tooltip>
+                                    <Tooltip title="Cấp lại mật khẩu">
+                                      <IconButton
+                                        size="small"
+                                        className={classes.actionIcon}
+                                        onClick={() =>
+                                          setResetModal({
+                                            open: true,
+                                            id: item.id!,
+                                            name: item.taxCode || item.name,
+                                          })
+                                        }
+                                      >
+                                        <KeyIcon fontSize="small" />
+                                      </IconButton>
+                                    </Tooltip>
+                                  </>
+                                ) : (
+                                  <Typography variant="caption" sx={{ color: '#94a3b8', fontStyle: 'italic', ml: 1 }}>Chỉ xem</Typography>
+                                )}
                               </Box>
                             </TableCell>
                             <TableCell className={classes.bodyCell}>{item.name}</TableCell>
@@ -454,6 +514,7 @@ export const EnterpriseListPage = () => {
                             <TableCell className={classes.bodyCell} align="center">
                               <Switch
                                 size="small"
+                                disabled={isReadOnly}
                                 checked={item.status === "ACTIVE"}
                                 onChange={() => handleStatusChange(item.id!, item.status)}
                               />
@@ -494,11 +555,21 @@ export const EnterpriseListPage = () => {
           </Box>
         </Box>
 
-        <BulkSelectionBar
-          count={selectedIds.length}
-          onDelete={handleBulkDelete}
-          onClose={() => setSelectedIds([])}
+        <ConfirmDialog
+          open={confirmDeleteOpen}
+          title="Xác nhận xóa"
+          message={`Bạn có chắc chắn muốn xóa vĩnh viễn ${selectedIds.length} doanh nghiệp đã chọn? Hành động này không thể hoàn tác.`}
+          onConfirm={handleBulkDelete}
+          onCancel={() => setConfirmDeleteOpen(false)}
+          confirmText="Xóa"
         />
+        {!isReadOnly && (
+          <BulkSelectionBar
+            count={selectedIds.length}
+            onDelete={() => setConfirmDeleteOpen(true)}
+            onClose={() => setSelectedIds([])}
+          />
+        )}
 
         <ResetPasswordModal
           open={resetModal.open}

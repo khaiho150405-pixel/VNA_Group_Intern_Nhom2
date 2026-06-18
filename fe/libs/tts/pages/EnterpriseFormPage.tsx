@@ -24,11 +24,13 @@ import {
   KeyboardArrowRight as ChevronRightIcon,
   DoneAll as DoneAllIcon,
   Visibility as ViewIcon,
+  Event as EventIcon,
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
 import { useSnackbar } from 'notistack';
 
 import { MainLayout } from '@core/layouts/MainLayout';
+import { CustomCalendar } from '@core/components/CustomCalendar';
 import { DoetService } from '@tts/services';
 import {
   Doet,
@@ -44,7 +46,7 @@ import { EnterpriseAccountDialog } from '../components/EnterpriseAccountDialog';
 import { useEnterpriseFormStyles } from '../logic/enterprise/form-style';
 
 interface EnterpriseFormPageProps {
-  mode: 'create' | 'edit' | 'view';
+  mode: 'create' | 'edit' | 'view' | 'profile';
 }
 
 const DEFAULT_ATTACHMENTS: FileAttachment[] = [
@@ -159,7 +161,37 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
   const [regWards, setRegWards] = useState<any[]>([]);
   const [opWards, setOpWards] = useState<any[]>([]);
 
+  const [calendarAnchor, setCalendarAnchor] = useState<null | HTMLElement>(null);
+  const [dateInput, setDateInput] = useState('');
   const [accountDialog, setAccountDialog] = useState({ open: false, username: '', password: '' });
+
+  useEffect(() => {
+    setDateInput(formatDateDisplay(formData.gpkdDate));
+  }, [formData.gpkdDate]);
+
+  const handleDateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    // Allow typing numbers and slashes
+    const filtered = val.replace(/[^0-9/]/g, '');
+    setDateInput(filtered);
+
+    // Parse DD/MM/YYYY
+    const reg = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+    const match = filtered.match(reg);
+    if (match) {
+      const d = parseInt(match[1], 10);
+      const m = parseInt(match[2], 10) - 1;
+      const y = parseInt(match[3], 10);
+      if (y > 1900 && y < 2100 && m >= 0 && m < 12 && d > 0 && d <= 31) {
+        const date = new Date(y, m, d);
+        if (!isNaN(date.getTime())) {
+          setField('gpkdDate', date);
+        }
+      }
+    } else if (filtered === '') {
+      setField('gpkdDate', null);
+    }
+  };
   const [previewFile, setPreviewFile] = useState<FileAttachment | null>(null);
   const fileInputs = useRef<Record<number, HTMLInputElement | null>>({});
 
@@ -450,7 +482,7 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
         await DoetService.create(buildPayload());
         enqueueSnackbar('Khai báo thành công', { variant: 'success' });
         const username = formData.taxCode || '';
-        const password = (formData.taxCode || '').replace('-', '').slice(-6);
+        const password = '12345678';
         setTimeout(() => {
           setAccountDialog({ open: true, username, password });
         }, 1200);
@@ -629,29 +661,55 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
               />
             )}
           />
-          <TextField
-            type="date"
-            label="Ngày cấp GPKD"
-            value={formatDateInput(formData.gpkdDate)}
-            onChange={(e) => setField('gpkdDate', e.target.value || null)}
-            disabled={isView}
-            size="small"
-            fullWidth
-            slotProps={{
-              inputLabel: { shrink: true },
-              input: {
-                endAdornment: gpkdFile ? (
-                  <InputAdornment position="end">
-                    <Tooltip title="Xem GPKD">
-                      <IconButton size="small" onClick={() => setPreviewFile(gpkdFile)}>
-                        <ViewIcon fontSize="small" />
+          <Box sx={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+            <TextField
+              label="Ngày cấp GPKD"
+              value={dateInput}
+              onChange={handleDateInputChange}
+              disabled={isView}
+              size="small"
+              fullWidth
+              autoComplete="off"
+              placeholder="DD/MM/YYYY"
+              onClick={(e) => !isView && setCalendarAnchor(e.currentTarget)}
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      {gpkdFile && (
+                        <Tooltip title="Xem GPKD">
+                          <IconButton size="small" onClick={(e) => { e.stopPropagation(); setPreviewFile(gpkdFile); }}>
+                            <ViewIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          !isView && setCalendarAnchor(e.currentTarget);
+                        }}
+                        disabled={isView}
+                        sx={{ padding: '4px' }}
+                      >
+                        <EventIcon fontSize="small" style={{ color: '#999' }} />
                       </IconButton>
-                    </Tooltip>
-                  </InputAdornment>
-                ) : null,
-              },
-            }}
-          />
+                    </InputAdornment>
+                  ),
+                }
+              }}
+            />
+            <CustomCalendar
+              open={Boolean(calendarAnchor)}
+              anchorEl={calendarAnchor}
+              value={formData.gpkdDate ? formatDateInput(formData.gpkdDate) : ''}
+              onChange={(val) => {
+                setField('gpkdDate', val ? new Date(val) : null);
+                setCalendarAnchor(null);
+              }}
+              onClose={() => setCalendarAnchor(null)}
+            />
+          </Box>
           <Autocomplete
             options={provinceOptions}
             value={selectedProvince}

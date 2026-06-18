@@ -9,5 +9,6 @@ import { User } from '../user/user.entity';
   imports: [TypeOrmModule.forFeature([Doet, User])],
   providers: [DoetService],
   controllers: [DoetController],
+  exports: [DoetService],
 })
 export class DoetModule {}

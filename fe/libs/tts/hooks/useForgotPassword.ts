@@ -92,8 +92,8 @@ export const useForgotPassword = () => {
       return;
     }
 
-    if (!validate.minLength(state.newPassword, 6)) {
-      triggerToast("error", VALIDATION_MESSAGES.PASSWORD_MIN_LENGTH(6));
+    if (!validate.password(state.newPassword)) {
+      triggerToast("error", VALIDATION_MESSAGES.PASSWORD_INVALID);
       return;
     }
 
@@ -102,12 +102,6 @@ export const useForgotPassword = () => {
       return;
     }
 
-    const hasLetter = /[a-zA-Z]/.test(state.newPassword);
-    const hasNumber = /[0-9]/.test(state.newPassword);
-    if (!hasLetter || !hasNumber) {
-      triggerToast("error", 'Mật khẩu mới quá yếu. Cần chứa ít nhất chữ và số.');
-      return;
-    }
     if (!validate.otp(state.otp)) {
       triggerToast("error", VALIDATION_MESSAGES.OTP_INVALID);
       return;

@@ -12,13 +12,66 @@ import * as fs from "fs";
 import * as path from "path";
 import Email from "../../commons/helper/Email";
 import * as argon from "argon2";
+import { DoetService } from "../doet/doet.service";
 
 @Injectable()
 export class AuthService {
+  private registrationOtps = new Map<string, { otp: string, expires: Date }>();
+
   constructor(
     private readonly jwtService: JwtService,
-    private readonly viewService: ViewService
+    private readonly viewService: ViewService,
+    private readonly doetService: DoetService
   ) {
+  }
+
+  async sendRegistrationOtp(email: string) {
+    const check = await this.checkEmailExists(email);
+    if (check.existed) {
+      throw Response.errorBad("Email này đã được đăng ký trong hệ thống");
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expires = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+    
+    this.registrationOtps.set(email, { otp, expires });
+
+    const templatePath = path.resolve(process.cwd(), 'src/commons/templates/forgot-password.html');
+    let template = fs.readFileSync(templatePath, 'utf8');
+    template = template.replace(/\$2/g, email).replace(/\$3/g, otp);
+    template = template.replace('Lấy lại mật khẩu - Mã OTP', 'Xác thực đăng ký doanh nghiệp - Mã OTP');
+    template = template.replace('Bạn vừa yêu cầu khôi phục mật khẩu', 'Bạn vừa đăng ký tài khoản doanh nghiệp');
+    
+    await Email.sendMail(email, "Xác thực đăng ký doanh nghiệp - Mã OTP", template);
+    // write to txt for testing
+    fs.writeFileSync(path.resolve(process.cwd(), 'reset_link.txt'), `OTP Đăng ký: ${otp}`);
+
+    return Response.get({ message: "Đã gửi mã OTP", otp }); // Including otp for dev/test
+  }
+
+  async registerEnterprise(payload: any, otp: string) {
+    const email = payload.email;
+    const otpData = this.registrationOtps.get(email);
+    
+    if (!otpData) {
+        throw Response.errorBad("Vui lòng yêu cầu mã OTP trước khi đăng ký");
+    }
+    if (otpData.otp !== otp) {
+        throw Response.errorBad("Mã OTP không chính xác");
+    }
+    if (new Date() > otpData.expires) {
+        this.registrationOtps.delete(email);
+        throw Response.errorBad("Mã OTP đã hết hạn");
+    }
+
+    // Pass undefined as currentUser to bypass permission check in DoetService.post
+    // Since it's a public endpoint
+    const result = await this.doetService.post(undefined, payload, null);
+    
+    // Clear OTP after successful registration
+    this.registrationOtps.delete(email);
+
+    return Response.get(result);
   }
 
   async login(data: any, doet: Doet | null): Promise<ResponseData<LoginModel>> {

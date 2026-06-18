@@ -109,5 +109,21 @@ export const authService = {
   getRoles: async (): Promise<any[]> => {
     return axiosClient.get('/roles');
   },
+
+  sendRegistrationOtp: async (email: string): Promise<any> => {
+    return axiosClient.post('/auth/register/send-otp', { email });
+  },
+
+  registerEnterprise: async (payload: any, otp: string): Promise<any> => {
+    return axiosClient.post('/auth/register', { payload, otp });
+  },
+  getPublicLoaiHinhKinhDoanh: async (): Promise<any[]> => {
+    return axiosClient.get('/auth/public/loai-hinh-kinh-doanh');
+  },
+
+  getPublicBusinessLines: async (): Promise<any[]> => {
+    return axiosClient.get('/auth/public/business-lines');
+  },
 };
+
 

@@ -5,6 +5,7 @@ import { createTheme, ThemeProvider as MuiThemeProvider } from '@mui/material/st
 import { ThemeProvider as StylesThemeProvider } from '@mui/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { SnackbarProvider } from 'notistack';
+import CustomSnackbar from '@core/components/CustomSnackbar';
 
 // Tạo một theme mặc định (bạn có thể custom màu sắc tại đây sau)
 const theme = createTheme();
@@ -22,7 +23,17 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
     <StylesThemeProvider theme={theme}>
       <MuiThemeProvider theme={theme}>
         <CssBaseline /> {/* Reset CSS chuẩn của MUI */}
-        <SnackbarProvider maxSnack={3} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
+        <SnackbarProvider
+          maxSnack={3}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+          autoHideDuration={3000}
+          Components={{
+            success: CustomSnackbar,
+            error: CustomSnackbar,
+            warning: CustomSnackbar,
+            info: CustomSnackbar,
+          }}
+        >
           {children}
         </SnackbarProvider>
       </MuiThemeProvider>

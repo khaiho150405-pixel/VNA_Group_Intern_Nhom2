@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import { Box, TextField, Button, Checkbox, InputAdornment, IconButton, Typography, Collapse } from "@mui/material";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
@@ -8,11 +8,11 @@ import ErrorOutlinedIcon from "@mui/icons-material/ErrorOutlined";
 import { useRouter } from "next/navigation";
 import { loginSx } from "@tts/logic/login/style";
 import { AuthLogo } from "@tts/components/AuthLogo";
-import { AppToast } from "@tts/components/AppToast";
 import { AuthLayout } from "@core/layouts/AuthLayout";
 import { useLogin } from "@tts/hooks/useLogin";
 import { RequiredLabel } from "@core/components/RequiredLabel";
 import { VNA_COLORS } from "@core/theme";
+import { RegisterDialog } from "@tts/components/RegisterDialog";
 
 export const LoginPage = () => {
   const router = useRouter();
@@ -27,6 +27,7 @@ export const LoginPage = () => {
   } = useLogin();
 
   const { userName, password, isShow, isMemory, errorMessage, successMessage } = state;
+  const [openRegister, setOpenRegister] = useState(false);
 
   return (
     <>
@@ -179,10 +180,12 @@ export const LoginPage = () => {
           variant="outlined"
           sx={loginSx.registerBtn}
           suppressHydrationWarning
+          onClick={() => setOpenRegister(true)}
         >
           Đăng ký tài khoản doanh nghiệp
         </Button>
       </AuthLayout>
+      <RegisterDialog open={openRegister} onClose={() => setOpenRegister(false)} />
     </>
   );
 };

@@ -3,68 +3,78 @@ import { useReducer, useEffect, useMemo } from "react";
 import { accountInfoReducer, initialAccountInfoState, AccountInfoState } from "@tts/logic/account-info/reducer";
 import { useAuth } from "@core/contexts/AuthProvider";
 import { authService } from "@tts/services/auth.services";
+import { roleService } from "@tts/services/role.services";
+import { userService } from "@tts/services/user.services";
+import DoetService from "@tts/services/doet.service";
 import { validate, VALIDATION_MESSAGES } from "@core/utils/validation";
 import useLocales from "@core/hooks/useLocales";
 import { getCookie } from '@core/services/cookies';
+import { useNotification } from "@core/hooks/useNotification";
 
 export const useAccountInfo = () => {
   const { user, login } = useAuth();
   const { translate } = useLocales();
+  const { success, error: notifyError } = useNotification();
   const [state, dispatch] = useReducer(accountInfoReducer, initialAccountInfoState);
 
   useEffect(() => {
-    // Fetch dynamic roles
     const fetchRoles = async () => {
       try {
-        const roles = await authService.getRoles();
-        if (Array.isArray(roles)) {
-          dispatch({ type: 'onChange', name: 'roles', value: roles });
+        const response = await roleService.getAll();
+        let roleList = [];
+        if (Array.isArray(response)) {
+            roleList = response;
+        } else {
+            roleList = response?.data?.items || response?.items || [];
         }
-      } catch (error) {
-        console.error('Failed to fetch roles:', error);
-      }
+        dispatch({ type: 'onChange', name: 'roles', value: roleList });
+      } catch (error) { console.error(error); }
     };
 
-    // Fetch provinces
     const fetchProvinces = async () => {
       try {
-        const res = await fetch('https://esgoo.net/api-tinhthanh-new/1/0.htm');
-        const data = await res.json();
-        if (data && Array.isArray(data.data)) {
-          const mapped = data.data.map((p: any) => ({
-            code: String(p.id),
-            name: p.full_name
-          }));
+        const res: any = await DoetService.getProvinces();
+        const items = res?.data || res || [];
+        if (Array.isArray(items)) {
+          const mapped = items.map((p: any) => ({ code: String(p.id), name: p.full_name || p.name }));
           const sorted = mapped.sort((a: any, b: any) => a.name.localeCompare(b.name, 'vi'));
           dispatch({ type: 'onChange', name: 'provinces', value: sorted });
         }
-      } catch (error) {
-        console.error('Failed to fetch provinces:', error);
-      }
+      } catch (error) { console.error(error); }
     };
 
     fetchRoles();
     fetchProvinces();
+
+    const refreshUser = async () => {
+      if (user?.id) {
+        try {
+          const latestUserRes = await userService.getById(user.id);
+          const userData = latestUserRes.data || latestUserRes;
+          const token = getCookie('accessToken') || '';
+          if (userData) {
+            login(userData, token, false);
+          }
+        } catch (error) {
+          console.error("Failed to refresh user data", error);
+        }
+      }
+    };
+    refreshUser();
   }, []);
 
-  // Fetch districts based on selected province code
   useEffect(() => {
     if (state.city) {
       const fetchDistricts = async () => {
         try {
-          const res = await fetch(`https://esgoo.net/api-tinhthanh-new/2/${state.city}.htm`);
-          const data = await res.json();
-          if (data && Array.isArray(data.data)) {
-            const mapped = data.data.map((d: any) => ({
-              code: String(d.id),
-              name: d.full_name
-            }));
+          const res: any = await DoetService.getDistricts(state.city);
+          const items = res?.data || res || [];
+          if (Array.isArray(items)) {
+            const mapped = items.map((d: any) => ({ code: String(d.id), name: d.full_name || d.name }));
             const sorted = mapped.sort((a: any, b: any) => a.name.localeCompare(b.name, 'vi'));
             dispatch({ type: 'onChange', name: 'districts', value: sorted });
           }
-        } catch (error) {
-          console.error('Failed to fetch districts:', error);
-        }
+        } catch (error) { console.error(error); }
       };
       fetchDistricts();
     } else {
@@ -73,22 +83,12 @@ export const useAccountInfo = () => {
   }, [state.city]);
 
   useEffect(() => {
-    if (user) {
-      const roleObj = typeof (user as any).role === 'object' && (user as any).role !== null ? (user as any).role : null;
-      const userRoleId = (user as any).roleId || roleObj?.id;
-      let userRoleKey = userRoleId === 4 ? 'superAdmin'
-        : userRoleId === 3 ? 'leader'
-          : userRoleId === 2 ? 'expert'
-            : userRoleId === 1 ? 'employee'
-              : (user as any).realRole || roleObj?.role || (typeof (user as any).role === 'string' ? (user as any).role : '');
+    if (user && state.roles.length > 0) {
+      const roleObj = (user as any).role || {};
+      const matchedRole = state.roles.find((r: any) => r.name === (user as any).realRole || r.id === (user as any).roleId || r.id === roleObj.id);
+      const currentRoleId = matchedRole ? matchedRole.id : '';
 
-      if (userRoleKey === 'Admin' || userRoleKey === 'ROLE_ADMIN') {
-        userRoleKey = 'superAdmin';
-      } else if (userRoleKey === 'User' || userRoleKey === 'ROLE_USER') {
-        userRoleKey = 'employee';
-      }
-
-      let formattedBirthday = '1995-06-01';
+      let formattedBirthday = '';
       const rawBirthday = (user as any).dateOfBirth || (user as any).birthday;
       if (rawBirthday) {
         const date = new Date(rawBirthday);
@@ -97,44 +97,29 @@ export const useAccountInfo = () => {
         }
       }
 
-      let initialCity = (user as any).province?.key || (user as any).province || '';
-      let initialDistrict = (user as any).district?.key || (user as any).district || '';
-
-      // Backward compatibility for hardcoded legacy data
-      if (initialCity === 'HCM') {
-        initialCity = '79'; // HCMC code
-      }
-      if (initialDistrict === 'GV') {
-        initialDistrict = '764'; // Go Vap district code
-      }
+      let genderStr = '';
+      if ((user as any).gender === 1) genderStr = 'Nam';
+      else if ((user as any).gender === 0) genderStr = 'Nữ';
 
       dispatch({
         type: 'setInitialData',
         data: {
           username: user.username || '',
-          displayName: (user as any).fullName || user.fullName || user.displayName || '',
+          displayName: (user as any).fullName || '',
           email: user.email || '',
-          avatarUrl: user.avatar || '',
+          avatarUrl: (user as any).avatar || '',
           birthday: formattedBirthday,
-          gender: (user as any).gender === 1 ? 'Nam' : ((user as any).gender === 0 ? 'Nữ' : ''),
+          gender: genderStr,
           address: (user as any).address || '',
-          city: initialCity,
-          district: initialDistrict,
-          role: userRoleKey,
+          city: (user as any).province?.key || '',
+          district: (user as any).district?.key || '',
+          role: currentRoleId,
+          title: (user as any).workUnit || '',
+          active: (user as any).status === true
         }
       });
     }
-  }, [user]);
-
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (state.toast.show) {
-      timer = setTimeout(() => {
-        dispatch({ type: 'hideToast' });
-      }, 3000);
-    }
-    return () => clearTimeout(timer);
-  }, [state.toast.show]);
+  }, [user, state.roles]);
 
   // Compute whether the form has unsaved changes
   const hasChanges = useMemo(() => {
@@ -157,20 +142,12 @@ export const useAccountInfo = () => {
   const handleSave = async () => {
     // Basic validation
     if (!validate.required(state.displayName)) {
-      dispatch({
-        type: 'showToast',
-        message: 'Họ và tên không được để trống',
-        toastType: 'error'
-      });
+      notifyError('Họ và tên không được để trống');
       return;
     }
 
     if (state.email && !validate.email(state.email)) {
-      dispatch({
-        type: 'showToast',
-        message: VALIDATION_MESSAGES.EMAIL_INVALID,
-        toastType: 'error'
-      });
+      notifyError(VALIDATION_MESSAGES.EMAIL_INVALID);
       return;
     }
 
@@ -180,11 +157,7 @@ export const useAccountInfo = () => {
       if (state.email && state.email !== user?.email) {
         const checkRes = await authService.checkEmail(state.email, user?.id);
         if (checkRes && checkRes.existed) {
-          dispatch({
-            type: 'showToast',
-            message: 'Email này đã được sử dụng bởi một tài khoản khác',
-            toastType: 'error'
-          });
+          notifyError('Email này đã được sử dụng bởi một tài khoản khác');
           dispatch({ type: 'setLoading', value: false });
           return;
         }
@@ -192,20 +165,26 @@ export const useAccountInfo = () => {
 
       // Find selected province/city name from fetched provinces list
       const selectedProvince = state.provinces.find(p => String(p.code) === String(state.city));
-      const provinceVal = selectedProvince ? selectedProvince.name : (state.city === 'HCM' ? 'Thành phố Hồ Chí Minh' : state.city);
+      const provinceVal = selectedProvince ? selectedProvince.name : state.city;
 
       // Find selected district name from fetched districts list
       const selectedDistrict = state.districts.find(d => String(d.code) === String(state.district));
-      const districtVal = selectedDistrict ? selectedDistrict.name : (state.district === 'GV' ? 'Phường Gò Vấp' : state.district);
+      const districtVal = selectedDistrict ? selectedDistrict.name : state.district;
+
+      const selectedRoleObj = state.roles?.find((r: any) => String(r.id) === String(state.role));
+      const roleNameToSave = selectedRoleObj ? selectedRoleObj.name : '';
+
       const payload: Record<string, any> = {
         fullName: state.displayName,
         dateOfBirth: state.birthday ? new Date(state.birthday) : null,
         gender: state.gender === 'Nam' ? 1 : (state.gender === 'Nữ' ? 0 : null),
-        realRole: state.role,
+        realRole: roleNameToSave,
+        roleId: selectedRoleObj ? Number(selectedRoleObj.id) : null,
         province: state.city ? { key: String(state.city), value: provinceVal } : null,
         district: state.district ? { key: String(state.district), value: districtVal } : null,
         address: state.address,
-        // NOTE: Do NOT send 'status' here — in the DB status=true means "account locked"
+        workUnit: state.title,
+        status: state.active
       };
 
       // If email changed, include it in payload
@@ -218,18 +197,21 @@ export const useAccountInfo = () => {
 
       const response = await authService.updateProfile(user?.id || '', payload);
 
-      if (response.success) {
+      if (response.success || response) {
         if (user) {
           const updatedUser = {
             ...user,
             fullName: state.displayName,
             email: state.email || user.email,
             gender: state.gender === 'Nam' ? 1 : (state.gender === 'Nữ' ? 0 : null),
-            realRole: state.role,
+            realRole: roleNameToSave,
+            roleId: selectedRoleObj ? Number(selectedRoleObj.id) : (user as any).roleId,
             province: state.city ? { key: String(state.city), value: provinceVal } : null,
             district: state.district ? { key: String(state.district), value: districtVal } : null,
             address: state.address,
             avatar: state.avatarUrl || '',
+            workUnit: state.title,
+            status: state.active
           };
           const token = getCookie('accessToken') || '';
           login(updatedUser as any, token, false);
@@ -242,11 +224,7 @@ export const useAccountInfo = () => {
         });
         dispatch({ type: 'onChange', name: 'initialSnapshot', value: newSnapshot });
 
-        dispatch({
-          type: 'showToast',
-          message: response.message || translate("notifications.profileUpdateSuccess"),
-          toastType: 'success'
-        });
+        success(response.message || translate("notifications.profileUpdateSuccess"));
       }
     } catch (error: any) {
       let errorMsg = error.response?.data?.errors || error.response?.data?.message || error.message || translate("notifications.error");
@@ -256,11 +234,7 @@ export const useAccountInfo = () => {
       if (Array.isArray(errorMsg)) {
         errorMsg = errorMsg.join(', ');
       }
-      dispatch({
-        type: 'showToast',
-        message: String(errorMsg),
-        toastType: 'error'
-      });
+      notifyError(String(errorMsg));
     } finally {
       dispatch({ type: 'setLoading', value: false });
     }

@@ -13,14 +13,12 @@ import {
     CircularProgress,
     IconButton
 } from '@mui/material';
-import { PhotoCamera, Save, Event, Delete } from '@mui/icons-material';
+import { PhotoCamera, Save, Event, Delete, Visibility, VisibilityOff } from '@mui/icons-material';
 import { ChangeEmailModal } from '@core/components/ChangeEmailModal';
 import { RequiredLabel } from '@core/components/RequiredLabel';
-import { AppToast } from '@tts/components/AppToast';
 import { MainLayout } from '@core/layouts/MainLayout';
 import { useAccountInfoStyles } from '../logic/account-info/style';
 import { useCreateUser } from '@tts/hooks/useCreateUser';
-
 import { CustomCalendar } from '@core/components/CustomCalendar';
 
 export const UserCreatePage = () => {
@@ -35,6 +33,7 @@ export const UserCreatePage = () => {
 
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const [calendarAnchor, setCalendarAnchor] = React.useState<null | HTMLElement>(null);
+    const [showPassword, setShowPassword] = React.useState(false);
 
     const {
         active,
@@ -52,7 +51,6 @@ export const UserCreatePage = () => {
         address,
         avatarUrl,
         loading,
-        toast,
         roles,
         provinces,
         districts
@@ -66,11 +64,7 @@ export const UserCreatePage = () => {
         const file = e.target.files?.[0];
         if (file) {
             if (file.size > 5 * 1024 * 1024) {
-                dispatch({
-                    type: 'showToast',
-                    message: 'Kích thước ảnh tối đa là 5MB',
-                    toastType: 'error'
-                });
+                // notification handled in hook
                 return;
             }
 
@@ -101,12 +95,6 @@ export const UserCreatePage = () => {
     return (
         <MainLayout>
             <Box className={classes.root}>
-                <AppToast
-                    show={toast.show}
-                    message={toast.message}
-                    type={toast.type}
-                    onClose={() => dispatch({ type: 'hideToast' })}
-                />
                 <Box className={classes.pageHeader}>
                     <Typography className={classes.headerTitle}>Chi tiết người dùng</Typography>
                     <Box className={classes.actions}>
@@ -199,8 +187,31 @@ export const UserCreatePage = () => {
                                         />
                                     </Grid>
                                     <Grid size={{ xs: 12, md: 6 }}>
-                                        <TextField fullWidth label={<RequiredLabel label="Mật khẩu" />} type="password" variant="outlined" size="small" className={classes.field}
-                                            value={password} onChange={(e) => handleInputChange('password', e.target.value)} disabled={loading}
+                                        <TextField
+                                            fullWidth
+                                            label={<RequiredLabel label="Mật khẩu" />}
+                                            type={showPassword ? "text" : "password"}
+                                            variant="outlined"
+                                            size="small"
+                                            className={classes.field}
+                                            value={password}
+                                            onChange={(e) => handleInputChange('password', e.target.value)}
+                                            disabled={loading}
+                                            slotProps={{
+                                                input: {
+                                                    endAdornment: (
+                                                        <InputAdornment position="end">
+                                                            <IconButton
+                                                                onClick={() => setShowPassword(!showPassword)}
+                                                                edge="end"
+                                                                disabled={loading}
+                                                            >
+                                                                {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                                                            </IconButton>
+                                                        </InputAdornment>
+                                                    ),
+                                                }
+                                            }}
                                         />
                                     </Grid>
                                     <Grid size={{ xs: 12, md: 6 }}>
