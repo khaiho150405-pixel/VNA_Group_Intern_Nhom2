@@ -111,8 +111,34 @@ export class UserController extends BaseController<User, UserService> {
     return Response.get(updatedUser);
   }
 
+  // Explicitly override all delete routes to control registration order
+  @Delete('destroys')
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
+  @ApiOperation({ summary: 'Xóa vĩnh viễn nhiều người dùng' })
+  async bulkDestroy(
+    @Req() req: any,
+    @Body('ids') ids: string[]
+  ): Promise<any> {
+    return await this.userService.destroys(req.user, ids, req.doet);
+  }
+
+  @Delete('deletes')
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
+  @ApiOperation({ summary: 'Xóa tạm thời nhiều người dùng' })
+  async bulkDelete(
+    @Req() req: any,
+    @Body('ids') ids: string[]
+  ): Promise<any> {
+    return await this.userService.deletes(req.user, ids, req.doet);
+  }
+
   @Delete(':id')
-  async delete(@Req() req: any, @Param('id') id: string) {
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
+  @ApiOperation({ summary: 'Xóa một người dùng' })
+  async deleteSingle(
+    @Req() req: any,
+    @Param('id') id: string
+  ): Promise<any> {
     return await this.userService.delete(req.user, id);
   }
 }

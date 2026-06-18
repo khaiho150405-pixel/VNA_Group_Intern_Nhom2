@@ -14,6 +14,9 @@ export const VALIDATION_PATTERNS = {
   
   // OTP: 6 digits
   OTP: /^[0-9]{6}$/,
+
+  // Password: at least 8 characters, at least one uppercase letter, one lowercase letter and one number
+  PASSWORD: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/,
 };
 
 /**
@@ -46,6 +49,13 @@ export const validate = {
    */
   otp: (otp: string): boolean => {
     return VALIDATION_PATTERNS.OTP.test(otp);
+  },
+
+  /**
+   * Check if a string is a valid password (8+ chars, uppercase, lowercase, number)
+   */
+  password: (password: string): boolean => {
+    return VALIDATION_PATTERNS.PASSWORD.test(password);
   },
 
   /**
@@ -84,5 +94,6 @@ export const VALIDATION_MESSAGES = {
   PASSWORD_MIN_LENGTH: (min: number) => `Mật khẩu phải có ít nhất ${min} ký tự`,
   PASSWORD_CONFIRM_NOT_MATCH: 'Mật khẩu xác nhận không khớp',
   OTP_INVALID: 'Mã OTP phải có 6 chữ số',
+  PASSWORD_INVALID: 'Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ cái thường, chữ hoa và số',
   FULL_INFO_REQUIRED: 'Vui lòng nhập đầy đủ thông tin',
 };

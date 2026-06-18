@@ -8,6 +8,7 @@ import { KeyValue } from "../../commons/bases/baseAddressEntity";
 import { ChangePasswordDto } from "./change-password.dto";
 import { ResetPasswordDto } from "./reset-password.dto";
 import { FileInterceptor } from "@nestjs/platform-express";
+import Response from "../../commons/response";
 
 @ApiTags("Doets")
 @Controller("doets")
@@ -20,14 +21,28 @@ export class DoetController extends BaseController<Doet, DoetService> {
   @Post("import")
   @UseInterceptors(FileInterceptor("file"))
   @ApiOperation({ summary: "Import doanh nghiệp từ file Excel" })
-  async import(@UploadedFile() file: any) {
-    return await this.doetService.importExcel(file.buffer);
+  async import(@Request() req: any, @UploadedFile() file: any) {
+    return await this.doetService.importExcel(req.user, file.buffer);
+  }
+
+  @Get("my-company")
+  @ApiOperation({ summary: "Doanh nghiệp tự lấy thông tin của chính mình" })
+  async getMyCompany(@Request() req) {
+    return await this.doetService.getMyCompany(req.user);
+  }
+
+  @Post("my-company")
+  @ApiOperation({ summary: "Doanh nghiệp tự cập nhật thông tin của chính mình" })
+  async updateMyCompany(@Request() req, @Body() body: any) {
+    return await this.doetService.updateMyCompany(req.user, body);
   }
 
   @Get("wards/distinct")
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
   @ApiOperation({ summary: "Lấy danh sách phường/xã đã có trong dữ liệu doanh nghiệp" })
   async getDistinctWards() {
-    return await this.doetService.getDistinctWards();
+    const data = await this.doetService.getDistinctWards();
+    return Response.get(data);
   }
 
   @Get("check-email")
@@ -43,7 +58,7 @@ export class DoetController extends BaseController<Doet, DoetService> {
 
   @Get("/setting")
   @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
-  @ApiOperation({ summary: "Update setting" })
+  @ApiOperation({ summary: "Lấy thông tin cấu hình doanh nghiệp" })
   async getSetting(
     @Request() req
   ): Promise<any> {
@@ -52,7 +67,7 @@ export class DoetController extends BaseController<Doet, DoetService> {
 
   @Post("/setting")
   @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
-  @ApiOperation({ summary: "Get setting" })
+  @ApiOperation({ summary: "Cập nhật thông tin cấu hình doanh nghiệp" })
   async updateSetting(
     @Request() req,
     @Body("name") name: string,

@@ -8,5 +8,6 @@ import { BusinessLineService } from './business-line.service';
   imports: [TypeOrmModule.forFeature([BusinessLine])],
   providers: [BusinessLineService],
   controllers: [BusinessLineController],
+  exports: [BusinessLineService],
 })
 export class BusinessLineModule {}

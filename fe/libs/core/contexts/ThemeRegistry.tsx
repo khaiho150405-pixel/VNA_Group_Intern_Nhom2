@@ -5,6 +5,7 @@ import { createTheme, ThemeProvider as MuiThemeProvider } from '@mui/material/st
 import { ThemeProvider as StylesThemeProvider, StylesProvider, createGenerateClassName } from '@mui/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { SnackbarProvider } from 'notistack';
+import CustomSnackbar from '@core/components/CustomSnackbar';
 import { useServerInsertedHTML } from 'next/navigation';
 import { ServerStyleSheets } from '@mui/styles';
 
@@ -31,7 +32,17 @@ export default function ThemeRegistry({ children }: { children: React.ReactNode 
       <StylesThemeProvider theme={theme}>
         <MuiThemeProvider theme={theme}>
           <CssBaseline />
-          <SnackbarProvider maxSnack={3} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
+          <SnackbarProvider
+            maxSnack={3}
+            anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+            autoHideDuration={3000}
+            Components={{
+              success: CustomSnackbar,
+              error: CustomSnackbar,
+              warning: CustomSnackbar,
+              info: CustomSnackbar,
+            }}
+          >
             {sheets.collect(
               <>
                 {children}

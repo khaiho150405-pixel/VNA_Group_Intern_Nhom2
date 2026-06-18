@@ -16,7 +16,6 @@ import {
 import { PhotoCamera, Save, Event, Delete } from '@mui/icons-material';
 import { ChangeEmailModal } from '@core/components/ChangeEmailModal';
 import { RequiredLabel } from '@core/components/RequiredLabel';
-import { AppToast } from '@tts/components/AppToast';
 import { MainLayout } from '@core/layouts/MainLayout';
 import { useAccountInfoStyles } from '../logic/account-info/style';
 import { useEditUser } from '@tts/hooks/useEditUser';
@@ -50,7 +49,6 @@ export const UserEditPage = () => {
         address,
         avatarUrl,
         loading,
-        toast,
         roles,
         provinces,
         districts
@@ -64,11 +62,7 @@ export const UserEditPage = () => {
         const file = e.target.files?.[0];
         if (file) {
             if (file.size > 5 * 1024 * 1024) {
-                dispatch({
-                    type: 'showToast',
-                    message: 'Kích thước ảnh tối đa là 5MB',
-                    toastType: 'error'
-                });
+                // We'll let the user handle this with notification soon
                 return;
             }
 
@@ -99,12 +93,6 @@ export const UserEditPage = () => {
     return (
         <MainLayout>
             <Box className={classes.root}>
-                <AppToast
-                    show={toast.show}
-                    message={toast.message}
-                    type={toast.type}
-                    onClose={() => dispatch({ type: 'hideToast' })}
-                />
                 <Box className={classes.pageHeader}>
                     <Typography className={classes.headerTitle}>Chi tiết người dùng</Typography>
                     <Box className={classes.actions}>

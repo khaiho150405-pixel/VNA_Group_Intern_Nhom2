@@ -6,12 +6,19 @@ import { AuthGuard } from 'src/commons/guards/authGuard';
 import { UserModule } from '../user/user.module';
 import { JwtModule } from '@nestjs/jwt';
 import { ViewModule } from '../view/view.module';
+import { DoetModule } from '../doet/doet.module';
+
+import { LoaiHinhKinhDoanhModule } from '../loai-hinh-kinh-doanh/loai-hinh-kinh-doanh.module';
+import { BusinessLineModule } from '../business-line/business-line.module';
 
 @Global()
 @Module({
   imports: [
     UserModule,
     ViewModule,
+    DoetModule,
+    LoaiHinhKinhDoanhModule,
+    BusinessLineModule,
     JwtModule.register({
       secret: '47213a34-365f-11ec-8d3d-0242ac130003',
       signOptions: { expiresIn: '1d', issuer: 'vna@group.com.vn' },

@@ -15,10 +15,74 @@ import { AuthGuard } from "src/commons/guards/authGuard";
 import { LoginModel } from "./auth.model";
 import { AuthService } from "./auth.service";
 
+import { LoaiHinhKinhDoanhService } from "../loai-hinh-kinh-doanh/loai-hinh-kinh-doanh.service";
+import { BusinessLineService } from "../business-line/business-line.service";
+import Response from "../../commons/response";
+
 @ApiTags("Auth")
 @Controller("auth")
 export class AuthController {
-  constructor(private readonly authService: AuthService) {
+  constructor(
+    private readonly authService: AuthService,
+    private readonly loaiHinhKinhDoanhService: LoaiHinhKinhDoanhService,
+    private readonly businessLineService: BusinessLineService
+  ) {
+  }
+
+  @Get("public/loai-hinh-kinh-doanh")
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
+  @ApiOperation({ summary: "Get active Loai Hinh Kinh Doanh (Public)" })
+  async getPublicLoaiHinhKinhDoanh() {
+    const data = await this.loaiHinhKinhDoanhService.getActiveForDropdown();
+    return Response.get(data);
+  }
+
+  @Get("public/business-lines")
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
+  @ApiOperation({ summary: "Get active Business Lines (Public)" })
+  async getPublicBusinessLines() {
+    const data = await this.businessLineService.getActiveLevel4ForDropdown();
+    return Response.get(data);
+  }
+
+  @Post("register/send-otp")
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
+  @ApiOperation({
+    summary: "Send OTP for enterprise registration"
+  })
+  @ApiBody({
+    schema: {
+      type: "object",
+      properties: {
+        email: { type: "string", example: "user@example.com" }
+      }
+    }
+  })
+  async registerSendOtp(
+    @Body("email") email: string
+  ): Promise<any> {
+    return this.authService.sendRegistrationOtp(email);
+  }
+
+  @Post("register")
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
+  @ApiOperation({
+    summary: "Register new enterprise with OTP"
+  })
+  @ApiBody({
+    schema: {
+      type: "object",
+      properties: {
+        otp: { type: "string", example: "123456" },
+        payload: { type: "object" }
+      }
+    }
+  })
+  async register(
+    @Body("otp") otp: string,
+    @Body() payload: any
+  ): Promise<any> {
+    return this.authService.registerEnterprise(payload, otp);
   }
 
   @Post("login")
@@ -92,13 +156,9 @@ export class AuthController {
     @Body("otp") otp: string,
     @Body("password") passwordNew: string
   ): Promise<any> {
-    if (passwordNew.length < 6) {
-      throw new BadRequestException('Mật khẩu mới phải có ít nhất 6 kí tự');
-    }
-    const hasLetter = /[a-zA-Z]/.test(passwordNew);
-    const hasNumber = /[0-9]/.test(passwordNew);
-    if (!hasLetter || !hasNumber) {
-      throw new BadRequestException('Mật khẩu mới quá yếu. Cần chứa ít nhất chữ và số.');
+    const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+    if (!passwordPattern.test(passwordNew)) {
+      throw new BadRequestException('Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ cái thường, chữ hoa và số');
     }
     return this.authService.resetPassword(email, otp, passwordNew);
   }
@@ -124,13 +184,9 @@ export class AuthController {
     @Body('oldPassword') oldPassword: string,
     @Body('newPassword') newPassword: string
   ): Promise<any> {
-    if (newPassword.length < 6) {
-      throw new BadRequestException('Mật khẩu mới phải có ít nhất 6 kí tự');
-    }
-    const hasLetter = /[a-zA-Z]/.test(newPassword);
-    const hasNumber = /[0-9]/.test(newPassword);
-    if (!hasLetter || !hasNumber) {
-      throw new BadRequestException('Mật khẩu mới quá yếu. Cần chứa ít nhất chữ và số.');
+    const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+    if (!passwordPattern.test(newPassword)) {
+      throw new BadRequestException('Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ cái thường, chữ hoa và số');
     }
     return this.authService.changePassword(req.user.id, oldPassword, newPassword);
   }

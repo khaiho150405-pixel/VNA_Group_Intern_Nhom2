@@ -20,7 +20,7 @@ export const HomePage = () => {
             Chào mừng quay trở lại, {user?.fullName || user?.displayName}!
           </Typography>
           <Typography variant="body1" color="textSecondary">
-            Bạn đang đăng nhập với vai trò: <strong>{user?.role === 'ROLE_SO' ? 'Cán bộ Sở' : 'Doanh nghiệp'}</strong>
+            Bạn đang đăng nhập với vai trò: <strong>{(user as any)?.role?.type === 'SO' ? 'Cán bộ Sở' : 'Doanh nghiệp'}</strong>
           </Typography>
           <Box sx={{ mt: 4 }}>
             <Typography variant="body2">

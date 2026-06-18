@@ -39,6 +39,7 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
       if (!user) {
         throw new NotFoundException('Account not found');
       }
+      // Logical status: true = Active, false = Locked
       if (user.status === false) {
         throw new NotAcceptableException({ message: 'Account is locked' });
       }
