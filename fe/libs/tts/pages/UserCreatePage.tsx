@@ -297,7 +297,6 @@ export const UserCreatePage = () => {
                                             <MenuItem value="" disabled selected>Chọn vai trò</MenuItem>
                                             {state.roles && state.roles.length > 0 ? (
                                                 state.roles
-                                                    .filter((r: any) => r.id !== 4 && r.name !== 'Quản trị viên')
                                                     .map((r: any) => (
                                                         <MenuItem key={r.id} value={r.id}>
                                                             {r.name}

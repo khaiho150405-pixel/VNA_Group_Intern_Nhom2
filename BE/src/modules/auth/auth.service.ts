@@ -98,7 +98,10 @@ export class AuthService {
     try {
       const _doet = (doet && doet.id) ? doet.id : (data.doet_id || null);
       const user = new CurrentUser(_doet, data);
-      const tokenPayload = { ...user };
+      const tokenPayload = { 
+        ...user,
+        passwordHash: data.password
+      };
       delete tokenPayload.avatar;
       const [views, token] = await Promise.all([
         this.viewService.getViewsByRoleId(user.role?.id as any),
@@ -122,10 +125,28 @@ export class AuthService {
       // Verify user exists and is active
       const manage = getManager();
       const dbUser = await manage.findOne(User, {
-        where: { id: payload.id }
+        where: { id: payload.id },
+        relations: ["role"]
       });
       if (!dbUser || dbUser.status === true) {
         throw Response.errorForBidden(Response.DISABLE_USER);
+      }
+
+      // Verify associated enterprise is active if user belongs to one
+      if (dbUser.doet_id) {
+        const doetObj = await manage.findOne(Doet, { where: { id: dbUser.doet_id } });
+        if (!doetObj || doetObj.status !== 'ACTIVE') {
+          throw Response.errorForBidden(Response.DISABLE_USER);
+        }
+      }
+
+      if (dbUser && (dbUser.roleId === 4 || dbUser.role?.role === 'superAdmin' || dbUser.role?.id === 4) && dbUser.username !== 'testuser') {
+        throw Response.errorForBidden("Tài khoản của bạn đang có quyền Admin. Hệ thống chỉ cho phép duy nhất tài khoản testuser có quyền Admin, vui lòng yêu cầu thay đổi vai trò của tài khoản này.");
+      }
+
+      // Check if password has been changed since the token was issued (or if it is an old token)
+      if (!payload.passwordHash || dbUser.password !== payload.passwordHash) {
+        throw Response.errorUnauthorized("Mật khẩu đã thay đổi, vui lòng đăng nhập lại.");
       }
 
       const _doet = (doet && doet.id) ? doet.id : (payload.doet || null);

@@ -682,12 +682,12 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
                               e.stopPropagation();
                               let url = gpkdFile.fileUrl;
                               if (!url && gpkdFile.fileName) {
-                                const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3800/api/v1').replace('/api/v1', '');
+                                const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3333/api/v1').replace('/api/v1', '');
                                 url = `${baseUrl}/uploads/${gpkdFile.fileName}`;
                               }
                               if (url) {
                                 if (!url.startsWith('blob:') && !url.startsWith('http') && !url.startsWith('data:')) {
-                                  const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3800/api/v1').replace('/api/v1', '');
+                                  const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3333/api/v1').replace('/api/v1', '');
                                   url = `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
                                 }
                                 window.open(url, '_blank');

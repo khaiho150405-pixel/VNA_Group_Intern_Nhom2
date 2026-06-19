@@ -41,6 +41,12 @@ export const useAccountInfo = () => {
         } else {
             roleList = response?.data?.items || response?.items || [];
         }
+        roleList = roleList.filter((r: any) => 
+            r.role !== 'enterprise' && 
+            r.type !== 'DN' && 
+            r.id !== 5 && 
+            r.name !== 'Doanh nghiệp'
+        );
         hasFetchedRolesRef.current = true;
         dispatch({ type: 'onChange', name: 'roles', value: roleList });
       } catch (error) { console.error(error); }

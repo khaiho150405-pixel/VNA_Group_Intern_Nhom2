@@ -79,29 +79,53 @@ export const UserManagementPage = () => {
     const [showImportPassword, setShowImportPassword] = useState(false);
 
     const { user, login, logout } = useAuth();
-    const isReadOnly = useMemo(() => {
-        if (!user) return true;
-        const roleType = (user as any)?.role?.type;
+    // Phân quyền: 0=VIEW (Nhân viên), 1=WRITE (Chuyên viên), 2=FULL (Admin/Lãnh đạo)
+    // Chuyên viên được phép thêm/sửa mọi user trừ admin/testuser
+    const getPermissionLevel = () => {
+        if (!user) return 0;
+        
         const roleId = (user as any)?.roleId || (user as any)?.role?.id;
-        const realRole = (user as any)?.realRole || '';
+        const realRole = ((user as any)?.realRole || '').toLowerCase();
+        const roleName = ((user as any)?.role?.name || '').toLowerCase();
         
-        // Đối với nhóm Sở: Nhân viên và Chuyên viên chỉ có quyền xem
-        if (roleType === 'SO') {
-          const isRestricted = roleId === 1 || roleId === 2 || 
-                              realRole.includes('Nhân viên') || realRole.includes('Chuyên viên') ||
-                              realRole.includes('Employee') || realRole.includes('Expert');
-          
-          const roleName = (user as any)?.role?.name?.toUpperCase() || '';
-          const isAdminOrLeader = roleName.includes('ADMIN') || roleName.includes('QUẢN TRỊ') || 
-                                  roleName.includes('LÃNH ĐẠO') || roleName.includes('LEADER');
-
-          return isRestricted && !isAdminOrLeader;
-        }
+        // Ưu tiên nhận diện theo roleId và realRole
+        // roleId = 4 hoặc có chữ "quản trị"/"admin"/"lãnh đạo"/"leader" -> FULL (2)
+        const isAdminOrLeader = 
+            roleId === 4 ||
+            realRole.includes('quản trị') ||
+            realRole.includes('admin') ||
+            realRole.includes('lãnh đạo') ||
+            realRole.includes('leader') ||
+            roleName.includes('quản trị') ||
+            roleName.includes('admin') ||
+            roleName.includes('lãnh đạo') ||
+            roleName.includes('leader');
         
-        // Đối với nhóm Doanh nghiệp: Không được phép quản lý người dùng
-        if (roleType === 'DN') return true;
+        if (isAdminOrLeader) return 2;
+        
+        // roleId = 2 hoặc có chữ "chuyên viên"/"expert" -> WRITE (1)
+        const isExpert = 
+            roleId === 2 ||
+            realRole.includes('chuyên viên') ||
+            realRole.includes('expert') ||
+            roleName.includes('chuyên viên') ||
+            roleName.includes('expert');
+        
+        if (isExpert) return 1;
+        
+        // roleId = 1 hoặc có chữ "nhân viên"/"employee" -> VIEW (0)
+        // Không xác định được role cũng mặc định là VIEW
+        return 0;
+    };
 
-        return false;
+    // isReadOnly: true nếu chỉ có quyền xem (level 0)
+    const isReadOnly = useMemo(() => {
+        return getPermissionLevel() === 0;
+    }, [user]);
+    
+    // canDeleteOrChangeStatus: true nếu có quyền đầy đủ (level 2)
+    const canDeleteOrChangeStatus = useMemo(() => {
+        return getPermissionLevel() === 2;
     }, [user]);
 
     const fetchData = async () => {
@@ -120,6 +144,12 @@ export const UserManagementPage = () => {
             } else {
                 roleList = roleRes?.data?.items || roleRes?.items || [];
             }
+            roleList = roleList.filter((r: any) => 
+                r.role !== 'enterprise' && 
+                r.type !== 'DN' && 
+                r.id !== 5 && 
+                r.name !== 'Doanh nghiệp'
+            );
             setRoles(roleList);
         } catch (error) {
             enqueueSnackbar("Lỗi khi tải dữ liệu", { variant: "error" });
@@ -155,6 +185,11 @@ export const UserManagementPage = () => {
 
     const handleStatusChange = async (id: string, currentStatus: any) => {
         try {
+            // Guard: Chỉ Admin/Lãnh đạo được đổi trạng thái
+            if (getPermissionLevel() < 2) {
+                enqueueSnackbar("Chỉ Admin hoặc Lãnh đạo mới được phép thay đổi trạng thái", { variant: "error" });
+                return;
+            }
             const isCurrentlyActive = currentStatus === true;
             const nextStatus = !isCurrentlyActive;
             
@@ -176,7 +211,7 @@ export const UserManagementPage = () => {
 
             enqueueSnackbar("Cập nhật trạng thái thành công", { variant: "success" });
         } catch (error) {
-            enqueueSnackbar("Lỗi khi cập nhật trạng thái", { variant: "error" });
+            enqueueSnackbar("Chuyên viên không được phép thay đổi trạng thái người dùng", { variant: "error" });
             fetchData();
         }
     };
@@ -187,6 +222,12 @@ export const UserManagementPage = () => {
 
     const performBulkDelete = async () => {
         try {
+            // Guard: Chỉ Admin/Lãnh đạo được xóa
+            if (getPermissionLevel() < 2) {
+                enqueueSnackbar("Chỉ Admin hoặc Lãnh đạo mới được phép xóa người dùng", { variant: "error" });
+                setConfirmDeleteOpen(false);
+                return;
+            }
             setLoading(true);
             await userService.deleteMany(selectedIds);
             
@@ -202,7 +243,7 @@ export const UserManagementPage = () => {
             setConfirmDeleteOpen(false);
             fetchData();
         } catch (error: any) {
-            const errorMsg = error.response?.data?.message || error.message || "Lỗi khi xoá dữ liệu";
+            const errorMsg = error.response?.data?.message || error.message || "Chuyên viên không được phép xóa người dùng";
             enqueueSnackbar(String(errorMsg), { variant: "error" });
         } finally {
             setLoading(false);

@@ -87,12 +87,26 @@ export const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
       userRoleId === 4 || 
       userRoleId === 3 || 
       userRoleId === 2 || 
+      userRoleId === 1 || 
       rawRole === 'Admin' || 
       rawRole === 'ROLE_ADMIN' || 
       rawRole === 'superAdmin' || 
       rawRole === 'leader' || 
       rawRole === 'expert' || 
-      rawRole === 'ROLE_SO'
+      rawRole === 'employee' || 
+      rawRole === 'Nhân viên' || 
+      rawRole === 'nhanvien' || 
+      rawRole === 'ROLE_SO' ||
+      (typeof rawRole === 'string' && (
+        rawRole.toLowerCase().includes('admin') ||
+        rawRole.toLowerCase().includes('quản trị') ||
+        rawRole.toLowerCase().includes('lãnh đạo') ||
+        rawRole.toLowerCase().includes('chuyên viên') ||
+        rawRole.toLowerCase().includes('nhân viên') ||
+        rawRole.toLowerCase().includes('expert') ||
+        rawRole.toLowerCase().includes('employee') ||
+        rawRole.toLowerCase().includes('so')
+      ))
     ) {
       userRole = 'ROLE_SO';
     }

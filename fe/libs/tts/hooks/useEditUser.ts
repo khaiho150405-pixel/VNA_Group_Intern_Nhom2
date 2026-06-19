@@ -69,6 +69,12 @@ export const useEditUser = () => {
                 } else {
                     roleList = rolesRes?.data?.items || rolesRes?.items || [];
                 }
+                roleList = roleList.filter((r: any) => 
+                    r.role !== 'enterprise' && 
+                    r.type !== 'DN' && 
+                    r.id !== 5 && 
+                    r.name !== 'Doanh nghiệp'
+                );
 
                 const userData = userRes.data || userRes;
                 const matchedRole = roleList.find((r: any) => r.name === userData.realRole);
@@ -154,7 +160,7 @@ export const useEditUser = () => {
 
             const response = await userService.update(userId, payload);
 
-            if (response.success || response) {
+            if (response && (response.success || response)) {
                 // Synchronize with AuthProvider if the edited user is the current user
                 if (user && String(user.id) === String(userId)) {
                     const updatedUser = {
@@ -182,7 +188,27 @@ export const useEditUser = () => {
             }
         } catch (error: any) {
             // Bắt lỗi từ Backend trả về
-            const errorMsg = error.response?.data?.message || error.response?.data?.errors || "Có lỗi xảy ra khi lưu dữ liệu";
+            const data = error.response?.data;
+            let errorMsg = "Có lỗi xảy ra khi lưu dữ liệu";
+            if (data) {
+                if (typeof data.errors === 'string') {
+                    errorMsg = data.errors;
+                } else if (data.errors && typeof data.errors === 'object') {
+                    if (typeof data.errors.message === 'string') {
+                        errorMsg = data.errors.message;
+                    } else if (Array.isArray(data.errors.message)) {
+                        errorMsg = data.errors.message.join(', ');
+                    } else if (typeof data.errors.error === 'string') {
+                        errorMsg = data.errors.error;
+                    } else {
+                        errorMsg = data.message || JSON.stringify(data.errors);
+                    }
+                } else {
+                    errorMsg = data.message || error.message || errorMsg;
+                }
+            } else {
+                errorMsg = error.message || errorMsg;
+            }
             notifyError(String(errorMsg));
         } finally {
             dispatch({ type: 'setLoading', value: false });

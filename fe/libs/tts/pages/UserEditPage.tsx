@@ -1,6 +1,6 @@
 "use client";
 import React from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import {
     Box,
     Typography,
@@ -21,16 +21,78 @@ import { MainLayout } from '@core/layouts/MainLayout';
 import { useAccountInfoStyles } from '../logic/account-info/style';
 import { useEditUser } from '@tts/hooks/useEditUser';
 import { CustomCalendar } from '@core/components/CustomCalendar';
+import { useAuth } from '@core/contexts/AuthProvider';
+
+// Phân quyền: 0=VIEW, 1=WRITE (Chuyên viên), 2=FULL (Admin/Lãnh đạo)
+const getPermissionLevel = (user: any): number => {
+    if (!user) return 0;
+    const roleId = user?.roleId || user?.role?.id || 0;
+    const realRole = (user?.realRole || '').toLowerCase();
+    const roleName = (user?.role?.name || '').toLowerCase();
+    
+    // Admin/Lãnh đạo (roleId=4) -> FULL (2)
+    if (roleId === 4 || realRole.includes('quản trị') || realRole.includes('admin') || 
+        roleName.includes('quản trị') || roleName.includes('admin') ||
+        realRole.includes('lãnh đạo') || roleName.includes('lãnh đạo')) return 2;
+        
+    // Chuyên viên (roleId=2) -> WRITE (1)
+    if (roleId === 2 || realRole.includes('chuyên viên') || realRole.includes('expert') ||
+        roleName.includes('chuyên viên') || roleName.includes('expert')) return 1;
+        
+    // Nhân viên -> VIEW (0)
+    return 0;
+};
 
 export const UserEditPage = () => {
     const classes = useAccountInfoStyles();
     const router = useRouter();
+    const params = useParams();
+    const userId = params?.id as string;
     const {
         state,
         dispatch,
         handleInputChange,
         handleSave,
     } = useEditUser();
+    const { user } = useAuth();
+
+    // Kiểm tra quyền chỉnh sửa
+    const canEdit = React.useMemo(() => {
+        if (!user) return false;
+        
+        // Tự sửa chính mình: luôn được phép
+        if (userId && String(user.id) === String(userId)) {
+            return true;
+        }
+        
+        const currentLevel = getPermissionLevel(user);
+        
+        // Admin/Lãnh đạo (level 2): được sửa tất cả mọi người
+        if (currentLevel >= 2) return true;
+        
+        // Chuyên viên (level 1): được sửa chuyên viên, nhân viên, doanh nghiệp (tức là target level < 2)
+        if (currentLevel === 1) {
+            const targetUsername = state.username?.trim().toLowerCase();
+            const isTestuser = targetUsername === 'testuser';
+            
+            // Lấy role của target user đang được edit
+            const targetRoleId = Number(state.role);
+            
+            // Tìm role object trong danh sách roles
+            const targetRoleObj = state.roles?.find((r: any) => Number(r.id) === targetRoleId);
+            const targetRoleName = targetRoleObj ? targetRoleObj.name?.toLowerCase() : '';
+            
+            const isTargetAdmin = targetRoleId === 4 || 
+                                 targetRoleName.includes('quản trị') || 
+                                 targetRoleName.includes('admin') || 
+                                 targetRoleName.includes('lãnh đạo') || 
+                                 targetRoleName.includes('leader');
+                                 
+            return !isTestuser && !isTargetAdmin;
+        }
+        
+        return false;
+    }, [user, userId, state.username, state.role, state.roles]);
 
     const hasChanges = () => {
         if (!state.initialSnapshot) return false;
@@ -126,9 +188,9 @@ export const UserEditPage = () => {
                             className={classes.saveBtn}
                             disableElevation
                             onClick={handleSave}
-                            disabled={loading || !hasChanges()}
+                            disabled={loading || !canEdit || !hasChanges()}
                             sx={{
-                                ...((loading || !hasChanges()) && {
+                                ...((loading || !canEdit || !hasChanges()) && {
                                     backgroundColor: '#b0b0b0 !important',
                                     color: '#fff !important',
                                     '&:hover': { backgroundColor: '#b0b0b0 !important' },
@@ -149,7 +211,7 @@ export const UserEditPage = () => {
                                 <IconButton
                                     className={classes.deleteAvatarBtn}
                                     onClick={() => dispatch({ type: 'removeAvatar' })}
-                                    disabled={loading || !avatarUrl}
+                                    disabled={loading || !avatarUrl || !canEdit}
                                     size="small"
                                     title="Xóa ảnh"
                                 >
@@ -162,7 +224,7 @@ export const UserEditPage = () => {
                                     accept="image/*"
                                     onChange={handleFileChange}
                                 />
-                                <Box className={classes.avatarCircle} onClick={handleAvatarClick} style={{
+                                <Box className={classes.avatarCircle} onClick={canEdit ? handleAvatarClick : undefined} style={{
                                     backgroundImage: avatarUrl ? `url(${avatarUrl})` : 'none',
                                     backgroundSize: 'cover',
                                     backgroundPosition: 'center',
@@ -201,7 +263,7 @@ export const UserEditPage = () => {
                                         onChange={() => dispatch({ type: 'toggleActive' })}
                                         color="primary"
                                         size="small"
-                                        disabled={loading}
+                                        disabled={loading || !canEdit || getPermissionLevel(user) < 2}
                                     />
                                 </Box>
                             </Box>
@@ -223,7 +285,7 @@ export const UserEditPage = () => {
                                             fullWidth label={<RequiredLabel label="Họ và tên" />} variant="outlined" size="small"
                                             className={classes.field} value={displayName}
                                             onChange={(e) => handleInputChange('displayName', e.target.value)}
-                                            disabled={loading}
+                                            disabled={loading || !canEdit}
                                         />
                                     </Grid>
 
@@ -234,8 +296,8 @@ export const UserEditPage = () => {
                                                 className={classes.field} value={formatDateDisplay(birthday)}
                                                 placeholder="Ngày tháng năm sinh"
                                                 autoComplete="off"
-                                                disabled={loading}
-                                                onClick={handleCalendarOpen}
+                                                disabled={loading || !canEdit}
+                                                onClick={canEdit ? handleCalendarOpen : undefined}
                                                 sx={{ '& .MuiOutlinedInput-root': { pr: '4px' } }}
                                                 slotProps={{
                                                     input: {
@@ -246,9 +308,9 @@ export const UserEditPage = () => {
                                                                     size="small"
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
-                                                                        handleCalendarOpen(e);
+                                                                        if (canEdit) handleCalendarOpen(e);
                                                                     }}
-                                                                    disabled={loading}
+                                                                    disabled={loading || !canEdit}
                                                                     sx={{ padding: '4px' }}
                                                                 >
                                                                     <Event fontSize="small" style={{ color: '#999' }} />
@@ -272,7 +334,7 @@ export const UserEditPage = () => {
                                             select fullWidth label="Giới tính" variant="outlined" size="small"
                                             className={classes.field} value={gender}
                                             onChange={(e) => handleInputChange('gender', e.target.value)}
-                                            disabled={loading}
+                                            disabled={loading || !canEdit}
                                         >
                                             <MenuItem value="Nam">Nam</MenuItem>
                                             <MenuItem value="Nữ">Nữ</MenuItem>
@@ -284,7 +346,7 @@ export const UserEditPage = () => {
                                             className={classes.field} placeholder="Nhập chức danh"
                                             value={title}
                                             onChange={(e) => handleInputChange('title', e.target.value)}
-                                            disabled={loading}
+                                            disabled={loading || !canEdit}
                                         />
                                     </Grid>
                                     <Grid size={{ xs: 12, md: 6 }}>
@@ -296,12 +358,11 @@ export const UserEditPage = () => {
                                                 inputLabel: { shrink: true },
                                                 select: { displayEmpty: true }
                                             }}
-                                            disabled={loading}
+                                            disabled={loading || !canEdit || getPermissionLevel(user) === 0}
                                         >
                                             <MenuItem value="" disabled selected>Chọn vai trò</MenuItem>
                                             {state.roles && state.roles.length > 0 ? (
                                                 state.roles
-                                                    .filter((r: any) => r.id !== 4 && r.name !== 'Quản trị viên')
                                                     .map((r: any) => (
                                                         <MenuItem key={r.id} value={r.id}>
                                                             {r.name}
@@ -316,7 +377,7 @@ export const UserEditPage = () => {
                                     </Grid>
                                     <Grid size={{ xs: 12, md: 6 }}>
                                         <TextField fullWidth label={<RequiredLabel label="Email" />} variant="outlined" size="small" className={classes.field}
-                                            value={email} onChange={(e) => handleInputChange('email', e.target.value)} disabled={loading}
+                                            value={email} onChange={(e) => handleInputChange('email', e.target.value)} disabled={loading || !canEdit}
                                         />
                                     </Grid>
                                 </Grid>
@@ -331,7 +392,7 @@ export const UserEditPage = () => {
                                             getOptionLabel={(option: any) => option.name || ''}
                                             value={provinces?.find((p: any) => String(p.code) === String(city)) || null}
                                             onChange={(_, newValue: any) => handleInputChange('city', newValue?.code || '')}
-                                            disabled={loading}
+                                            disabled={loading || !canEdit}
                                             renderInput={(params) => (
                                                 <TextField {...params} label="Tỉnh / Thành phố" variant="outlined" size="small" className={classes.field}  />
                                             )}
@@ -345,7 +406,7 @@ export const UserEditPage = () => {
                                             getOptionLabel={(option: any) => option.name || ''}
                                             value={districts?.find((d: any) => String(d.code) === String(district)) || null}
                                             onChange={(_, newValue: any) => handleInputChange('district', newValue?.code || '')}
-                                            disabled={loading || !city}
+                                            disabled={loading || !canEdit || !city}
                                             renderInput={(params) => (
                                                 <TextField {...params} label="Phường xã" variant="outlined" size="small" className={classes.field}  />
                                             )}
@@ -357,7 +418,7 @@ export const UserEditPage = () => {
                                             className={classes.field} placeholder=""
                                             value={address}
                                             onChange={(e) => handleInputChange('address', e.target.value)}
-                                            disabled={loading || !district}
+                                            disabled={loading || !canEdit || !district}
                                         />
                                     </Grid>
                                 </Grid>

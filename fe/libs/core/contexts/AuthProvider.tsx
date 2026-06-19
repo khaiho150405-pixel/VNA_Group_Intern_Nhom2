@@ -100,6 +100,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.location.href = '/login';
   };
 
+  // Periodic session verification heartbeat (every 10 seconds)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const interval = setInterval(() => {
+      axiosClient.get('/auth/verify-session').catch((err) => {
+        console.error('Session verification failed during heartbeat:', err);
+      });
+    }, 2000); // 2 seconds
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
+
   // Guard for Auth pages: redirect to home if already authenticated
   useEffect(() => {
     if (mounted && isAuthenticated && (window.location.pathname === '/login' || window.location.pathname === '/forgot-password')) {

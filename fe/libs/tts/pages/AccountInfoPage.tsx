@@ -305,7 +305,7 @@ export const AccountInfoPage = () => {
                       inputLabel: { shrink: true },
                       select: { displayEmpty: true }
                     }}
-                    disabled={loading || !isAdmin}
+                    disabled={loading || !isAdmin || username?.trim().toLowerCase() === 'testuser'}
                   >
                     <MenuItem value="" disabled selected>Chọn vai trò</MenuItem>
                     {roles && roles.length > 0 ? (

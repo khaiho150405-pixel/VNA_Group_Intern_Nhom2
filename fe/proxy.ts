@@ -2,10 +2,10 @@ import { NextRequest } from 'next/server';
 import { authMiddleware } from '@core/middleware/auth.middleware';
 
 /**
- * Next.js Middleware entry point.
- * Reverted to 'middleware' as the runtime explicitly requires this name.
+ * Next.js Proxy entry point (formerly middleware).
+ * Renamed to conform to Next.js 16+ convention.
  */
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   return authMiddleware(request);
 }
 
