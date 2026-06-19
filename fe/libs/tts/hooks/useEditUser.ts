@@ -2,10 +2,8 @@
 import { useState, useEffect, useReducer } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { accountInfoReducer, initialAccountInfoState, AccountInfoState } from "@tts/logic/account-info/reducer";
+import { userService, roleService, DoetService } from "@tts/services";
 import { validate, VALIDATION_MESSAGES } from "@core/utils/validation";
-import { userService } from "@tts/services/user.services";
-import { roleService } from "@tts/services/role.services";
-import DoetService from "@tts/services/doet.service";
 import useLocales from "@core/hooks/useLocales";
 import { useAuth } from "@core/contexts/AuthProvider";
 import { getCookie } from "@core/services/cookies";

@@ -1,11 +1,7 @@
-"use client";
-import { useReducer, useEffect, useMemo } from "react";
+import { useReducer, useEffect, useMemo, useRef } from "react";
 import { accountInfoReducer, initialAccountInfoState, AccountInfoState } from "@tts/logic/account-info/reducer";
 import { useAuth } from "@core/contexts/AuthProvider";
-import { authService } from "@tts/services/auth.services";
-import { roleService } from "@tts/services/role.services";
-import { userService } from "@tts/services/user.services";
-import DoetService from "@tts/services/doet.service";
+import { authService, roleService, userService, DoetService } from "@tts/services";
 import { validate, VALIDATION_MESSAGES } from "@core/utils/validation";
 import useLocales from "@core/hooks/useLocales";
 import { getCookie } from '@core/services/cookies';
@@ -17,8 +13,26 @@ export const useAccountInfo = () => {
   const { success, error: notifyError } = useNotification();
   const [state, dispatch] = useReducer(accountInfoReducer, initialAccountInfoState);
 
+  // Check if current user is admin (can change role)
+  const isAdmin = useMemo(() => {
+    if (!user) return false;
+    const roleName = (user.realRole || (user as any).role?.name || '').toUpperCase();
+    const roleType = ((user as any).role?.type || '').toUpperCase();
+    return roleName.includes('ADMIN') || 
+           roleName.includes('QUẢN TRỊ') || 
+           roleName.includes('QUAN TRI') ||
+           roleType === 'SUPERADMIN';
+  }, [user]);
+
+  // Refs to prevent infinite loops
+  const hasFetchedRolesRef = useRef(false);
+  const hasFetchedProvincesRef = useRef(false);
+
   useEffect(() => {
     const fetchRoles = async () => {
+      // Skip if already fetched
+      if (hasFetchedRolesRef.current) return;
+      
       try {
         const response = await roleService.getAll();
         let roleList = [];
@@ -27,17 +41,22 @@ export const useAccountInfo = () => {
         } else {
             roleList = response?.data?.items || response?.items || [];
         }
+        hasFetchedRolesRef.current = true;
         dispatch({ type: 'onChange', name: 'roles', value: roleList });
       } catch (error) { console.error(error); }
     };
 
     const fetchProvinces = async () => {
+      // Skip if already fetched
+      if (hasFetchedProvincesRef.current) return;
+      
       try {
         const res: any = await DoetService.getProvinces();
         const items = res?.data || res || [];
         if (Array.isArray(items)) {
           const mapped = items.map((p: any) => ({ code: String(p.id), name: p.full_name || p.name }));
           const sorted = mapped.sort((a: any, b: any) => a.name.localeCompare(b.name, 'vi'));
+          hasFetchedProvincesRef.current = true;
           dispatch({ type: 'onChange', name: 'provinces', value: sorted });
         }
       } catch (error) { console.error(error); }
@@ -61,7 +80,7 @@ export const useAccountInfo = () => {
       }
     };
     refreshUser();
-  }, []);
+  }, []); // Empty dependency array - only run once on mount
 
   useEffect(() => {
     if (state.city) {
@@ -83,10 +102,10 @@ export const useAccountInfo = () => {
   }, [state.city]);
 
   useEffect(() => {
-    if (user && state.roles.length > 0) {
+    if (user && (!isAdmin || state.roles.length > 0)) {
       const roleObj = (user as any).role || {};
       const matchedRole = state.roles.find((r: any) => r.name === (user as any).realRole || r.id === (user as any).roleId || r.id === roleObj.id);
-      const currentRoleId = matchedRole ? matchedRole.id : '';
+      const currentRoleId = matchedRole ? matchedRole.role : '';
 
       let formattedBirthday = '';
       const rawBirthday = (user as any).dateOfBirth || (user as any).birthday;
@@ -119,22 +138,29 @@ export const useAccountInfo = () => {
         }
       });
     }
-  }, [user, state.roles]);
+  }, [user, state.roles, isAdmin]);
 
   // Compute whether the form has unsaved changes
   const hasChanges = useMemo(() => {
     if (!state.initialSnapshot) return false;
-    const editableKeys = ['displayName', 'birthday', 'gender', 'title', 'role', 'city', 'district', 'address', 'avatarUrl', 'active'];
+    // Exclude 'role' from editable keys for non-admin
+    const editableKeys = isAdmin 
+      ? ['displayName', 'birthday', 'gender', 'title', 'role', 'city', 'district', 'address', 'avatarUrl', 'active']
+      : ['displayName', 'birthday', 'gender', 'title', 'city', 'district', 'address', 'avatarUrl', 'active'];
     return editableKeys.some((key) => {
       const current = (state as any)[key];
       const initial = state.initialSnapshot![key];
       return String(current ?? '') !== String(initial ?? '');
     });
-  }, [state]);
+  }, [state, isAdmin]);
   const handleInputChange = (name: keyof AccountInfoState, value: any) => {
     // If city changes to a different value, reset district
     if (name === 'city' && String(value) !== String(state.city)) {
       dispatch({ type: 'onChange', name: 'district', value: '' });
+    }
+    // Prevent non-admin from changing role
+    if (name === 'role' && !isAdmin) {
+      return;
     }
     dispatch({ type: 'onChange', name, value });
   };
@@ -171,7 +197,7 @@ export const useAccountInfo = () => {
       const selectedDistrict = state.districts.find(d => String(d.code) === String(state.district));
       const districtVal = selectedDistrict ? selectedDistrict.name : state.district;
 
-      const selectedRoleObj = state.roles?.find((r: any) => String(r.id) === String(state.role));
+      const selectedRoleObj = state.roles?.find((r: any) => String(r.role) === String(state.role));
       const roleNameToSave = selectedRoleObj ? selectedRoleObj.name : '';
 
       const payload: Record<string, any> = {
@@ -199,6 +225,16 @@ export const useAccountInfo = () => {
 
       if (response.success || response) {
         if (user) {
+          const selectedRoleObj = state.roles?.find((r: any) => r.role === state.role);
+          const fallbackRoles: Record<string, { id: number; role: string; name: string }> = {
+            'employee': { id: 1, role: 'employee', name: 'Nhân viên' },
+            'expert': { id: 2, role: 'expert', name: 'Chuyên viên' },
+            'leader': { id: 3, role: 'leader', name: 'Lãnh đạo' },
+            'superAdmin': { id: 4, role: 'superAdmin', name: 'Quản trị viên' },
+            'enterprise': { id: 5, role: 'enterprise', name: 'Quản trị DN' }
+          };
+          const mappedRole = selectedRoleObj || fallbackRoles[state.role];
+
           const updatedUser = {
             ...user,
             fullName: state.displayName,
@@ -209,8 +245,8 @@ export const useAccountInfo = () => {
             province: state.city ? { key: String(state.city), value: provinceVal } : null,
             district: state.district ? { key: String(state.district), value: districtVal } : null,
             address: state.address,
-            avatar: state.avatarUrl || '',
             workUnit: state.title,
+            avatar: state.avatarUrl || '',
             status: state.active
           };
           const token = getCookie('accessToken') || '';
@@ -218,7 +254,10 @@ export const useAccountInfo = () => {
         }
         // Update the snapshot to reflect the newly saved values
         const newSnapshot: Record<string, any> = {};
-        const editableKeys = ['displayName', 'birthday', 'gender', 'title', 'role', 'city', 'district', 'address', 'avatarUrl', 'active'];
+        // Exclude 'role' from snapshot for non-admin
+        const editableKeys = isAdmin 
+          ? ['displayName', 'birthday', 'gender', 'title', 'role', 'city', 'district', 'address', 'avatarUrl', 'active']
+          : ['displayName', 'birthday', 'gender', 'title', 'city', 'district', 'address', 'avatarUrl', 'active'];
         editableKeys.forEach((key) => {
           newSnapshot[key] = (state as any)[key];
         });
@@ -245,6 +284,7 @@ export const useAccountInfo = () => {
     dispatch,
     handleInputChange,
     handleSave,
-    hasChanges
+    hasChanges,
+    isAdmin
   };
 };

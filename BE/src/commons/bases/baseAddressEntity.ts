@@ -1,4 +1,4 @@
-import { IsPhoneNumber } from 'class-validator';
+import { IsOptional, IsPhoneNumber } from 'class-validator';
 import { Column } from 'typeorm';
 import { BaseEntity } from '.';
 
@@ -30,7 +30,7 @@ export abstract class BaseAddressEntity extends BaseEntity {
   }
 
   @Column({ nullable: true })
-  @IsPhoneNumber('VN')
+  @IsOptional()
   phone: string;
 
   @Column({ nullable: true })

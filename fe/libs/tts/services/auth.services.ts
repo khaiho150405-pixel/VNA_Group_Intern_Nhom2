@@ -117,6 +117,9 @@ export const authService = {
   registerEnterprise: async (payload: any, otp: string): Promise<any> => {
     return axiosClient.post('/auth/register', { payload, otp });
   },
+  verifyRegistrationOtp: async (email: string, otp: string): Promise<any> => {
+    return axiosClient.post('/auth/register/verify-otp', { email, otp });
+  },
   getPublicLoaiHinhKinhDoanh: async (): Promise<any[]> => {
     return axiosClient.get('/auth/public/loai-hinh-kinh-doanh');
   },

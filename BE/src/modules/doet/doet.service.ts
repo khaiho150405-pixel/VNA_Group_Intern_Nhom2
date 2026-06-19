@@ -82,6 +82,9 @@ export class DoetService extends BaseService<Doet> {
       `, [isInactive, id]);
     }
 
+    // Synchronize other fields to user details
+    await this.syncUserWithDoet(Number(id));
+
     return result;
   }
 
@@ -90,6 +93,13 @@ export class DoetService extends BaseService<Doet> {
     // Delete associated users first
     await this.manager.query(`DELETE FROM users WHERE doet_id = $1`, [id]);
     return await super.delete(currentUser, id);
+  }
+
+  async destroy(currentUser: any, id: string): Promise<any> {
+    this.checkPermission(currentUser);
+    // Delete associated users first
+    await this.manager.query(`DELETE FROM users WHERE doet_id = $1`, [id]);
+    return await super.destroy(currentUser, id);
   }
 
   async destroys(currentUser: any, ids: string[], doet: any): Promise<any> {
@@ -105,13 +115,14 @@ export class DoetService extends BaseService<Doet> {
   }
 
   async updateMyCompany(currentUser: any, body: any) {
-    if (!currentUser || !currentUser.doet_id) {
+    const doetId = currentUser?.doet || currentUser?.doet_id;
+    if (!currentUser || !doetId) {
       throw Response.errorForBidden("Tài khoản không thuộc doanh nghiệp nào");
     }
     // Flag to allow DN to update their own profile
     currentUser.isUpdatingSelf = true;
     const data = this.normalizeDoetPayload(body);
-    const result = await this.put(currentUser, String(currentUser.doet_id), data);
+    const result = await this.put(currentUser, String(doetId), data);
     delete currentUser.isUpdatingSelf;
     return result;
   }
@@ -172,6 +183,11 @@ export class DoetService extends BaseService<Doet> {
         username: username,
         password: hashedPassword,
         email: doet.email,
+        fullName: (doet as any).name,
+        dateOfBirth: (doet as any).gpkdDate ? new Date((doet as any).gpkdDate) : null,
+        province: (doet as any).province,
+        district: (doet as any).ward,
+        address: (doet as any).address,
         doet_id: doet.id,
         roleId: roleId,
         realRole: realRole
@@ -185,11 +201,48 @@ export class DoetService extends BaseService<Doet> {
     }
   }
 
+  private async syncUserWithDoet(doetId: number) {
+    try {
+      const doet = await this.doetRepository.findOne({ where: { id: doetId } });
+      if (!doet) return;
+
+      const users = await this.manager.query(`SELECT id FROM users WHERE doet_id = $1`, [doetId]);
+      if (!users || users.length === 0) return;
+
+      const userId = users[0].id;
+      
+      await this.manager.query(`
+        UPDATE users
+        SET 
+          username = $1,
+          "fullName" = $2,
+          "dateOfBirth" = $3,
+          email = $4,
+          province = $5,
+          district = $6,
+          address = $7
+        WHERE id = $8
+      `, [
+        doet.taxCode,
+        doet.name,
+        doet.gpkdDate ? new Date(doet.gpkdDate) : null,
+        doet.email,
+        doet.province ? JSON.stringify(doet.province) : null,
+        doet.ward ? JSON.stringify(doet.ward) : null,
+        doet.address,
+        userId
+      ]);
+    } catch (error) {
+      console.error("Lỗi khi đồng bộ tài khoản doanh nghiệp:", error);
+    }
+  }
+
   async getMyCompany(currentUser: any) {
-    if (!currentUser || !currentUser.doet_id) {
+    const doetId = currentUser?.doet || currentUser?.doet_id;
+    if (!currentUser || !doetId) {
       throw Response.errorForBidden("Tài khoản không thuộc doanh nghiệp nào");
     }
-    const doet = await this.doetRepository.findOne({ where: { id: currentUser.doet_id } });
+    const doet = await this.doetRepository.findOne({ where: { id: doetId } });
     if (!doet) {
       throw Response.errorNotFound("Không tìm thấy thông tin doanh nghiệp");
     }
@@ -210,9 +263,35 @@ export class DoetService extends BaseService<Doet> {
 
   async checkEmailExists(email: string, excludeId?: number): Promise<{ exists: boolean }> {
     if (!email || !email.trim()) return { exists: false };
+    const emailTrimmed = email.trim();
     const qb = this.doetRepository
       .createQueryBuilder('doet')
-      .where('LOWER(doet.email) = LOWER(:email)', { email: email.trim() })
+      .where('LOWER(doet.email) = LOWER(:email)', { email: emailTrimmed })
+      .andWhere('doet.deletedAt IS NULL');
+    if (excludeId) qb.andWhere('doet.id <> :id', { id: excludeId });
+    const found = await qb.getOne();
+    if (found) return { exists: true };
+
+    // Check in Users table
+    const qbUser = this.userRepository
+      .createQueryBuilder('user')
+      .where('LOWER(user.email) = LOWER(:email)', { email: emailTrimmed })
+      .andWhere('user.deletedAt IS NULL');
+
+    // If updating a Doet, we should also exclude the email of the User currently linked to this Doet
+    if (excludeId) {
+      qbUser.andWhere('user.doet_id <> :id', { id: excludeId });
+    }
+
+    const foundInUser = await qbUser.getOne();
+    return { exists: !!foundInUser };
+  }
+
+  async checkNameExists(name: string, excludeId?: number): Promise<{ exists: boolean }> {
+    if (!name || !name.trim()) return { exists: false };
+    const qb = this.doetRepository
+      .createQueryBuilder('doet')
+      .where('LOWER(doet.name) = LOWER(:name)', { name: name.trim() })
       .andWhere('doet.deletedAt IS NULL');
     if (excludeId) qb.andWhere('doet.id <> :id', { id: excludeId });
     const found = await qb.getOne();
@@ -224,17 +303,6 @@ export class DoetService extends BaseService<Doet> {
     const qb = this.doetRepository
       .createQueryBuilder('doet')
       .where('doet.taxCode = :taxCode', { taxCode: taxCode.trim() })
-      .andWhere('doet.deletedAt IS NULL');
-    if (excludeId) qb.andWhere('doet.id <> :id', { id: excludeId });
-    const found = await qb.getOne();
-    return { exists: !!found };
-  }
-
-  async checkNameExists(name: string, excludeId?: number): Promise<{ exists: boolean }> {
-    if (!name || !name.trim()) return { exists: false };
-    const qb = this.doetRepository
-      .createQueryBuilder('doet')
-      .where('LOWER(doet.name) = LOWER(:name)', { name: name.trim() })
       .andWhere('doet.deletedAt IS NULL');
     if (excludeId) qb.andWhere('doet.id <> :id', { id: excludeId });
     const found = await qb.getOne();

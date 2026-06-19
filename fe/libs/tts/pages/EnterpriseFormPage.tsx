@@ -31,6 +31,7 @@ import { useSnackbar } from 'notistack';
 
 import { MainLayout } from '@core/layouts/MainLayout';
 import { CustomCalendar } from '@core/components/CustomCalendar';
+import { ChangeEmailModal } from '@core/components/ChangeEmailModal';
 import { DoetService } from '@tts/services';
 import {
   Doet,
@@ -44,6 +45,8 @@ import { EnterpriseAttachmentsTable } from '../components/EnterpriseAttachmentsT
 import { FilePreviewDialog } from '../components/FilePreviewDialog';
 import { EnterpriseAccountDialog } from '../components/EnterpriseAccountDialog';
 import { useEnterpriseFormStyles } from '../logic/enterprise/form-style';
+import { normalizeListResponse, formatDateInput, formatDateDisplay } from '@core/utils/helper';
+import { validate } from '@core/utils/validation';
 
 interface EnterpriseFormPageProps {
   mode: 'create' | 'edit' | 'view' | 'profile';
@@ -54,38 +57,29 @@ const DEFAULT_ATTACHMENTS: FileAttachment[] = [
   { type: 'OTHER', fileName: '', fileUrl: '' },
 ];
 
-const normalizeListResponse = (raw: any): any[] => {
-  if (!raw) return [];
-  if (Array.isArray(raw)) return raw;
-  if (Array.isArray(raw.data)) return raw.data;
-  if (Array.isArray(raw.data?.items)) return raw.data.items;
-  if (Array.isArray(raw.data?.data)) return raw.data.data;
-  if (Array.isArray(raw.items)) return raw.items;
-  return [];
+const isValidEmail = (email: string) => validate.email(email);
+const isValidTaxCode = (taxCode: string) => validate.taxCode(taxCode);
+
+const getFormErrorMessage = (error: any, defaultMsg: string): string | string[] => {
+  const backendMsg = error?.response?.data?.errors || error?.response?.data?.message || error?.message || '';
+  if (!backendMsg) return defaultMsg;
+  if (typeof backendMsg === 'string') {
+    if (backendMsg === 'BAD REQUEST' || backendMsg.toUpperCase() === 'BAD REQUEST') return defaultMsg;
+    return backendMsg;
+  }
+  if (Array.isArray(backendMsg)) {
+    return backendMsg;
+  }
+  if (typeof backendMsg === 'object') {
+    const nested = backendMsg.message || backendMsg.error;
+    if (nested) {
+      if (Array.isArray(nested)) return nested;
+      if (typeof nested === 'string' && nested !== 'BAD REQUEST') return nested;
+    }
+  }
+  return defaultMsg;
 };
 
-const formatDateInput = (value?: string | Date | null) => {
-  if (!value) return '';
-  const date = typeof value === 'string' ? new Date(value) : value;
-  if (Number.isNaN(date.getTime())) return '';
-  const yyyy = date.getFullYear();
-  const mm = `${date.getMonth() + 1}`.padStart(2, '0');
-  const dd = `${date.getDate()}`.padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-};
-
-const formatDateDisplay = (value?: string | Date | null) => {
-  if (!value) return '';
-  const date = typeof value === 'string' ? new Date(value) : value;
-  if (Number.isNaN(date.getTime())) return '';
-  const dd = `${date.getDate()}`.padStart(2, '0');
-  const mm = `${date.getMonth() + 1}`.padStart(2, '0');
-  const yyyy = date.getFullYear();
-  return `${dd}/${mm}/${yyyy}`;
-};
-
-const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-const isValidTaxCode = (taxCode: string) => /^\d{10}(-\d{3})?$/.test(taxCode);
 
 
 const RequiredLabel = ({ text }: { text: string }) => (
@@ -134,10 +128,67 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
 
   const isView = mode === 'view';
   const isEdit = mode === 'edit';
+  const isProfile = mode === 'profile';
 
   const [activeStep, setActiveStep] = useState(isView ? 1 : 0);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [originalData, setOriginalData] = useState<any>(null);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+
+  const hasChanges = () => {
+    if (mode === 'create') return true;
+    if (!originalData) return false;
+
+    const normalizeString = (val: any) => (val === null || val === undefined ? '' : String(val).trim());
+    const normalizeDate = (val: any) => {
+      if (!val) return '';
+      const d = new Date(val);
+      return isNaN(d.getTime()) ? String(val) : d.toISOString().slice(0, 10);
+    };
+    const normalizeObjKey = (obj: any) => (obj && obj.key ? String(obj.key) : '');
+
+    const stringKeys = ['name', 'name2', 'taxCode', 'address', 'email', 'officePhone', 'operatingAddress', 'headOfEnterprise', 'headPhone'];
+    for (const key of stringKeys) {
+      if (normalizeString((formData as any)[key]) !== normalizeString(originalData[key])) {
+        return true;
+      }
+    }
+
+    const numberKeys = ['loaiHinhId', 'businessLineId'];
+    for (const key of numberKeys) {
+      const v1 = (formData as any)[key];
+      const v2 = originalData[key];
+      if (normalizeString(v1) !== normalizeString(v2)) {
+        return true;
+      }
+    }
+
+    if (normalizeDate(formData.gpkdDate) !== normalizeDate(originalData.gpkdDate)) {
+      return true;
+    }
+
+    const objKeys = ['province', 'ward', 'operatingProvince', 'operatingWard'];
+    for (const key of objKeys) {
+      if (normalizeObjKey((formData as any)[key]) !== normalizeObjKey(originalData[key])) {
+        return true;
+      }
+    }
+
+    const atts1 = formData.attachments || [];
+    const atts2 = originalData.attachments || [];
+    if (atts1.length !== atts2.length) return true;
+    for (let i = 0; i < atts1.length; i++) {
+      const a1 = atts1[i];
+      const a2 = atts2[i];
+      if (normalizeString(a1.fileName) !== normalizeString(a2.fileName) ||
+        normalizeString(a1.fileUrl) !== normalizeString(a2.fileUrl)) {
+        return true;
+      }
+    }
+
+    return false;
+  };
 
   const [formData, setFormData] = useState<Partial<Doet> & { loaiHinhId?: number; businessLineId?: number; }>({
     name: '',
@@ -195,6 +246,16 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
   const [previewFile, setPreviewFile] = useState<FileAttachment | null>(null);
   const fileInputs = useRef<Record<number, HTMLInputElement | null>>({});
 
+
+  const handleCalendarOpen = (event: React.MouseEvent<HTMLElement>) => {
+    if (isView) return;
+    setCalendarAnchor(event.currentTarget);
+  };
+
+  const handleCalendarClose = () => {
+    setCalendarAnchor(null);
+  };
+
   useEffect(() => {
     let cancelled = false;
     const init = async () => {
@@ -214,18 +275,22 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
         const searchParams = new URLSearchParams(window.location.search);
         const isImport = searchParams.get('mode') === 'import';
 
-        if (id) {
-          const enterprise: any = await DoetService.getById(Number(id));
+        if (id || mode === 'profile') {
+          const enterprise: any = mode === 'profile'
+            ? await DoetService.getMyCompany()
+            : await DoetService.getById(Number(id));
           if (cancelled) return;
           const data = enterprise?.data || enterprise;
-          setFormData({
+          const matchedData = {
             ...data,
             loaiHinhId: data?.loaiHinhKinhDoanh?.id,
             businessLineId: data?.businessLine?.id,
             attachments: Array.isArray(data?.attachments) && data.attachments.length
               ? data.attachments
               : DEFAULT_ATTACHMENTS,
-          });
+          };
+          setFormData(matchedData);
+          setOriginalData(matchedData);
 
           if (data?.province?.key) {
             const wards = await DoetService.getDistricts(String(data.province.key));
@@ -240,7 +305,7 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
           if (raw) {
             const imported = JSON.parse(raw);
             sessionStorage.removeItem('pending_import_doet');
-            
+
             // Match locations by name
             let matchedProvince: any = null;
             let matchedWard: any = null;
@@ -248,18 +313,18 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
             let matchedOpWard: any = null;
 
             if (imported.provinceName) {
-              matchedProvince = normalizedProvinces.find((p: any) => 
+              matchedProvince = normalizedProvinces.find((p: any) =>
                 p.name.toLowerCase().includes(imported.provinceName.toLowerCase()) ||
                 imported.provinceName.toLowerCase().includes(p.name.toLowerCase())
               );
-              
+
               if (matchedProvince) {
                 const wardRes = await DoetService.getDistricts(String(matchedProvince.id));
                 const wards = normalizeListResponse(wardRes);
                 setRegWards(wards);
 
                 if (imported.wardName) {
-                  matchedWard = wards.find((w: any) => 
+                  matchedWard = wards.find((w: any) =>
                     w.name.toLowerCase().includes(imported.wardName.toLowerCase()) ||
                     imported.wardName.toLowerCase().includes(w.name.toLowerCase())
                   );
@@ -268,18 +333,18 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
             }
 
             if (imported.operatingProvinceName) {
-              matchedOpProvince = normalizedProvinces.find((p: any) => 
+              matchedOpProvince = normalizedProvinces.find((p: any) =>
                 p.name.toLowerCase().includes(imported.operatingProvinceName.toLowerCase()) ||
                 imported.operatingProvinceName.toLowerCase().includes(p.name.toLowerCase())
               );
-              
+
               if (matchedOpProvince) {
                 const wardRes = await DoetService.getDistricts(String(matchedOpProvince.id));
                 const wards = normalizeListResponse(wardRes);
                 setOpWards(wards);
 
                 if (imported.operatingWardName) {
-                  matchedOpWard = wards.find((w: any) => 
+                  matchedOpWard = wards.find((w: any) =>
                     w.name.toLowerCase().includes(imported.operatingWardName.toLowerCase()) ||
                     imported.operatingWardName.toLowerCase().includes(w.name.toLowerCase())
                   );
@@ -295,7 +360,7 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
               operatingProvince: matchedOpProvince ? { key: matchedOpProvince.id, value: matchedOpProvince.full_name || matchedOpProvince.name } : undefined,
               operatingWard: matchedOpWard ? { key: matchedOpWard.id, value: matchedOpWard.full_name || matchedOpWard.name } : undefined,
             }));
-            
+
             setActiveStep(1); // Jump to step 2
           }
         }
@@ -308,7 +373,7 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
     init();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, mode]);
 
   const setField = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -373,7 +438,7 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
       return;
     }
     try {
-      const res: any = await DoetService.checkEmail(email, id ? Number(id) : undefined);
+      const res: any = await DoetService.checkEmail(email, id ? Number(id) : (formData.id ? Number(formData.id) : undefined));
       const exists = res?.exists ?? res?.data?.exists ?? false;
       if (exists) {
         setErrors((prev) => ({ ...prev, email: 'Email này đã được đăng ký' }));
@@ -385,19 +450,63 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
     }
   };
 
+  const handleTaxCodeBlur = async () => {
+    const taxCode = (formData.taxCode || '').trim();
+    if (!taxCode) return;
+    if (!isValidTaxCode(taxCode)) {
+      setErrors((prev) => ({ ...prev, taxCode: 'Mã số thuế không hợp lệ (Gồm 10 đến 20 số, nếu có 13 số thì bắt buộc dùng dấu gạch ngang phân tách 3 số cuối, VD: 0101234567-001)' }));
+      return;
+    }
+    try {
+      const res: any = await DoetService.checkTaxCode(taxCode, id ? Number(id) : (formData.id ? Number(formData.id) : undefined));
+      const exists = res?.exists ?? res?.data?.exists ?? false;
+      if (exists) {
+        setErrors((prev) => ({ ...prev, taxCode: 'Mã số thuế này đã tồn tại trong hệ thống' }));
+      } else {
+        setErrors((prev) => ({ ...prev, taxCode: '' }));
+      }
+    } catch (error) {
+      // ignore network errors silently
+    }
+  };
+
+  const handleNameBlur = async () => {
+    const name = (formData.name || '').trim();
+    if (!name) return;
+    try {
+      const res: any = await DoetService.checkName(name, id ? Number(id) : (formData.id ? Number(formData.id) : undefined));
+      const exists = res?.exists ?? res?.data?.exists ?? false;
+      if (exists) {
+        setErrors((prev) => ({ ...prev, name: 'Tên doanh nghiệp này đã tồn tại trong hệ thống' }));
+      } else {
+        setErrors((prev) => ({ ...prev, name: '' }));
+      }
+    } catch (error) {
+      // ignore network errors silently
+    }
+  };
+
   const validateStep1 = (): boolean => {
     const errs: Record<string, string> = {};
-    if (!formData.name?.trim()) errs.name = 'Tên doanh nghiệp không được để trống';
+    if (!formData.name?.trim()) {
+      errs.name = 'Tên doanh nghiệp không được để trống';
+    } else if (errors.name) {
+      errs.name = errors.name;
+    }
+
     if (!formData.taxCode?.trim()) {
       errs.taxCode = 'Mã số thuế không được để trống';
     } else if (!isValidTaxCode(formData.taxCode)) {
-      errs.taxCode = 'Mã số thuế không hợp lệ';
+      errs.taxCode = 'Mã số thuế không hợp lệ (Gồm 10 đến 20 số, nếu có 13 số thì bắt buộc dùng dấu gạch ngang phân tách 3 số cuối, VD: 0101234567-001)';
+    } else if (errors.taxCode) {
+      errs.taxCode = errors.taxCode;
     }
+
     if (!formData.loaiHinhId) errs.loaiHinhId = 'Vui lòng chọn loại hình kinh doanh';
     if (!formData.businessLineId) errs.businessLineId = 'Vui lòng chọn ngành nghề';
     if (!formData.province?.key) errs.province = 'Vui lòng chọn tỉnh/thành';
     if (!formData.ward?.key) errs.ward = 'Vui lòng chọn phường/xã';
-    if (!formData.address?.trim()) errs.address = 'Địa chỉ không được để trống';
+    
     if (!formData.email?.trim()) {
       errs.email = 'Email không được để trống';
     } else if (!isValidEmail(formData.email)) {
@@ -405,6 +514,18 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
     } else if (errors.email) {
       errs.email = errors.email;
     }
+
+    if (formData.officePhone?.trim() && !validate.phone(formData.officePhone.trim())) {
+      errs.officePhone = 'Số điện thoại không đúng định dạng';
+    }
+    if (formData.headPhone?.trim() && !validate.phone(formData.headPhone.trim())) {
+      errs.headPhone = 'Số điện thoại không đúng định dạng';
+    }
+
+    if (dateInput?.trim() && !formData.gpkdDate) {
+      errs.gpkdDate = 'Ngày cấp GPKD không đúng định dạng DD/MM/YYYY';
+    }
+
     setErrors(errs);
     return Object.values(errs).every((v) => !v);
   };
@@ -417,31 +538,60 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
       return;
     }
 
-    // 2. Run async email check
+    // 2. Run async duplicate checks
     const email = (formData.email || '').trim();
+    const name = (formData.name || '').trim();
+    const taxCode = (formData.taxCode || '').trim();
+
     let emailExists = false;
+    let nameExists = false;
+    let taxCodeExists = false;
+
     try {
       setLoading(true);
-      const res: any = await DoetService.checkEmail(email, id ? Number(id) : undefined);
-      emailExists = res?.exists ?? res?.data?.exists ?? false;
-      
+      const [emailRes, nameRes, taxCodeRes]: any[] = await Promise.all([
+        DoetService.checkEmail(email, id ? Number(id) : (formData.id ? Number(formData.id) : undefined)),
+        DoetService.checkName(name, id ? Number(id) : (formData.id ? Number(formData.id) : undefined)),
+        DoetService.checkTaxCode(taxCode, id ? Number(id) : (formData.id ? Number(formData.id) : undefined)),
+      ]);
+
+      emailExists = emailRes?.exists ?? emailRes?.data?.exists ?? false;
+      nameExists = nameRes?.exists ?? nameRes?.data?.exists ?? false;
+      taxCodeExists = taxCodeRes?.exists ?? taxCodeRes?.data?.exists ?? false;
+
+      const newErrors: Record<string, string> = {};
+
       if (emailExists) {
-        setErrors((prev) => ({ ...prev, email: 'Email này đã được đăng ký' }));
+        newErrors.email = 'Email này đã được đăng ký';
+      }
+      if (nameExists) {
+        newErrors.name = 'Tên doanh nghiệp này đã tồn tại';
+      }
+      if (taxCodeExists) {
+        newErrors.taxCode = 'Mã số thuế này đã tồn tại';
+      }
+
+      if (Object.keys(newErrors).length > 0) {
+        setErrors((prev) => ({ ...prev, ...newErrors }));
+      }
+
+      if (taxCodeExists) {
+        enqueueSnackbar('Mã số thuế này đã tồn tại trong hệ thống', { variant: 'error' });
+      }
+      if (nameExists) {
+        enqueueSnackbar('Tên doanh nghiệp này đã tồn tại trong hệ thống', { variant: 'error' });
+      }
+      if (emailExists) {
         enqueueSnackbar('Email này đã được đăng ký', { variant: 'error' });
+      }
+
+      if (emailExists || nameExists || taxCodeExists) {
         return; // BLOCK HERE
-      } else {
-        setErrors((prev) => ({ ...prev, email: '' }));
       }
     } catch (error) {
-      // Allow proceeding if network check fails, or block? Usually block if security/integrity is key.
+      // Allow proceeding if network check fails
     } finally {
       setLoading(false);
-    }
-
-    // 3. Final check of errors state (including any from async check)
-    if (emailExists || Object.values(errors).some(v => v !== '')) {
-      enqueueSnackbar('Vui lòng sửa các lỗi trước khi tiếp tục', { variant: 'error' });
-      return;
     }
 
     setActiveStep(1);
@@ -471,7 +621,10 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
       }));
     }
 
-    if (isEdit) delete payload.taxCode;
+    if (isEdit || isProfile) {
+      delete payload.taxCode;
+      delete payload.email;
+    }
     return payload;
   };
 
@@ -490,13 +643,41 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
         await DoetService.update(Number(id), buildPayload());
         enqueueSnackbar('Cập nhật thành công', { variant: 'success' });
         router.push('/doets');
+      } else if (mode === 'profile') {
+        await DoetService.updateMyCompany(buildPayload());
+        enqueueSnackbar('Cập nhật thành công', { variant: 'success' });
+        
+        // Re-fetch the fresh and fully populated company details from database
+        const freshRes: any = await DoetService.getMyCompany();
+        const updated = freshRes?.data || freshRes;
+        const matchedData = {
+          ...updated,
+          loaiHinhId: updated?.loaiHinhKinhDoanh?.id,
+          businessLineId: updated?.businessLine?.id,
+          attachments: Array.isArray(updated?.attachments) && updated.attachments.length
+            ? updated.attachments
+            : DEFAULT_ATTACHMENTS,
+        };
+        setFormData(matchedData);
+        setOriginalData(matchedData);
+
+        if (updated?.province?.key) {
+          const wards = await DoetService.getDistricts(String(updated.province.key));
+          setRegWards(normalizeListResponse(wards));
+        }
+        if (updated?.operatingProvince?.key) {
+          const wards = await DoetService.getDistricts(String(updated.operatingProvince.key));
+          setOpWards(normalizeListResponse(wards));
+        }
+        
+        setActiveStep(0);
       }
     } catch (error: any) {
-      const messages = error?.response?.data?.message;
-      if (Array.isArray(messages)) {
-        messages.forEach((m: string) => enqueueSnackbar(m, { variant: 'error' }));
+      const msg = getFormErrorMessage(error, 'Có lỗi xảy ra');
+      if (Array.isArray(msg)) {
+        msg.forEach((m: string) => enqueueSnackbar(m, { variant: 'error' }));
       } else {
-        enqueueSnackbar(messages || 'Có lỗi xảy ra', { variant: 'error' });
+        enqueueSnackbar(msg, { variant: 'error' });
       }
     } finally {
       setSubmitting(false);
@@ -594,11 +775,13 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
     [formData.attachments],
   );
 
-  const titleByMode = isEdit
-    ? 'Cập nhật doanh nghiệp'
-    : isView
+  const titleByMode = isProfile
     ? 'Thông tin doanh nghiệp'
-    : 'Thêm mới doanh nghiệp';
+    : isEdit
+      ? 'Cập nhật doanh nghiệp'
+      : isView
+        ? 'Thông tin doanh nghiệp'
+        : 'Thêm mới doanh nghiệp';
 
   const renderStep1 = () => (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -609,6 +792,7 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
             label={<RequiredLabel text="Tên doanh nghiệp" />}
             value={formData.name || ''}
             onChange={(e) => setField('name', e.target.value)}
+            onBlur={handleNameBlur}
             disabled={isView}
             error={!!errors.name}
             helperText={errors.name}
@@ -619,7 +803,8 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
             label={<RequiredLabel text="Mã số thuế" />}
             value={formData.taxCode || ''}
             onChange={(e) => setField('taxCode', e.target.value)}
-            disabled={isView || isEdit}
+            onBlur={handleTaxCodeBlur}
+            disabled={isView || isEdit || isProfile}
             error={!!errors.taxCode}
             helperText={errors.taxCode}
             size="small"
@@ -647,7 +832,7 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
             options={businessLineOptions}
             value={selectedBusinessLine}
             onChange={(_, v) => setField('businessLineId', v?.id || undefined)}
-            getOptionLabel={(opt) => opt?.tennganh || ''}
+            getOptionLabel={(opt) => opt ? `${opt.manganh} - ${opt.tennganh}` : ''}
             isOptionEqualToValue={(o, v) => o.id === v.id}
             disabled={isView}
             size="small"
@@ -667,6 +852,8 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
               value={dateInput}
               onChange={handleDateInputChange}
               disabled={isView}
+              error={!!errors.gpkdDate}
+              helperText={errors.gpkdDate}
               size="small"
               fullWidth
               autoComplete="off"
@@ -676,13 +863,7 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
                 input: {
                   endAdornment: (
                     <InputAdornment position="end">
-                      {gpkdFile && (
-                        <Tooltip title="Xem GPKD">
-                          <IconButton size="small" onClick={(e) => { e.stopPropagation(); setPreviewFile(gpkdFile); }}>
-                            <ViewIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
+                      
                       <IconButton
                         size="small"
                         onClick={(e) => {
@@ -768,22 +949,43 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
             size="small"
             fullWidth
           />
-          <TextField
-            label={<RequiredLabel text="Email" />}
-            value={formData.email || ''}
-            onChange={(e) => setField('email', e.target.value)}
-            onBlur={handleEmailBlur}
-            disabled={isView}
-            error={!!errors.email}
-            helperText={errors.email}
-            size="small"
-            fullWidth
-          />
+          {isProfile ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <TextField
+                label={<RequiredLabel text="Email" />}
+                value={formData.email || ''}
+                disabled
+                size="small"
+                fullWidth
+              />
+              <Button
+                variant="text"
+                onClick={() => setShowEmailModal(true)}
+                sx={{ textTransform: 'none', whiteSpace: 'nowrap', minWidth: 'auto' }}
+              >
+                Thay đổi
+              </Button>
+            </Box>
+          ) : (
+            <TextField
+              label={<RequiredLabel text="Email" />}
+              value={formData.email || ''}
+              onChange={(e) => setField('email', e.target.value)}
+              onBlur={handleEmailBlur}
+              disabled={isView || isProfile}
+              error={!!errors.email}
+              helperText={errors.email}
+              size="small"
+              fullWidth
+            />
+          )}
           <TextField
             label="Số điện thoại cơ quan"
             value={formData.officePhone || ''}
             onChange={(e) => setField('officePhone', e.target.value)}
             disabled={isView}
+            error={!!errors.officePhone}
+            helperText={errors.officePhone}
             size="small"
             fullWidth
           />
@@ -831,6 +1033,8 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
             value={formData.headPhone || ''}
             onChange={(e) => setField('headPhone', e.target.value)}
             disabled={isView}
+            error={!!errors.headPhone}
+            helperText={errors.headPhone}
             size="small"
             fullWidth
           />
@@ -855,26 +1059,14 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
       ['Tên viết bằng tiếng nước ngoài :', formData.name2],
       [
         'Ngày cấp GPKD:',
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography sx={{ fontSize: 'inherit', fontWeight: 'inherit' }}>
-            {formData.gpkdDate ? formatDateDisplay(formData.gpkdDate) : ''}
-          </Typography>
-          {gpkdFile && (
-            <Tooltip title="Xem GPKD">
-              <IconButton
-                size="small"
-                onClick={() => setPreviewFile(gpkdFile)}
-                sx={{ color: '#2f65f0', p: 0.5 }}
-              >
-                <ViewIcon sx={{ fontSize: 18 }} />
-              </IconButton>
-            </Tooltip>
-          )}
-        </Box>,
+        formData.gpkdDate ? formatDateDisplay(formData.gpkdDate) : '',
       ],
       ['Email', formData.email],
       ['Loại hình kinh doanh:', selectedLoaiHinh?.tenloaihinh || ''],
-      ['Ngành nghề kinh doanh', selectedBusinessLine?.tennganh || ''],
+      [
+        'Ngành nghề kinh doanh',
+        selectedBusinessLine ? `${selectedBusinessLine.manganh} - ${selectedBusinessLine.tennganh}` : '',
+      ],
       [
         'Địa chỉ đăng kí giấy phép kinh doanh :',
         [formData.address, formData.ward?.value, formData.province?.value]
@@ -928,6 +1120,105 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
   return (
     <MainLayout>
       <Box className={classes.root}>
+        {isProfile && (<>
+        {/* Page Header */}
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          mb: 3,
+          px: 2,
+          py: 1.5,
+          backgroundColor: '#fff',
+          borderRadius: 1,
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+        }}>
+          <Typography sx={{ 
+            fontSize: '1.25rem', 
+            fontWeight: 600,
+            color: '#1a1a1a'
+          }}>
+            {titleByMode}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1.5 }}>
+            <Button 
+              className={classes.cancelBtn} 
+              disableRipple 
+              disabled={submitting}
+              onClick={() => router.push(isProfile ? '/' : '/doets')}
+              sx={{
+                textTransform: 'none',
+                color: '#666',
+                fontSize: '0.85rem',
+                borderRadius: 6,
+                padding: '4px 16px',
+                minWidth: 'auto',
+                backgroundColor: 'transparent',
+                boxShadow: 'none',
+                '&:hover': {
+                  backgroundColor: '#f5f5f7',
+                  color: '#333'
+                }
+              }}
+            >
+              Huỷ bỏ
+            </Button>
+            {activeStep === 0 ? (
+              <Button
+                variant="contained"
+                onClick={handleNext}
+                disabled={submitting || (isEdit || isProfile ? !hasChanges() : false)}
+                disableElevation
+                sx={{
+                  textTransform: 'none',
+                  backgroundColor: '#2f65f0',
+                  px: 3,
+                  py: 0.5,
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  borderRadius: 6,
+                  '&:hover': {
+                    backgroundColor: '#1e4fd1'
+                  },
+                  ...(submitting || ((isEdit || isProfile) && !hasChanges()) ? {
+                    backgroundColor: '#b0b0b0 !important',
+                    cursor: 'not-allowed'
+                  } : {})
+                }}
+              >
+                {submitting ? 'Đang lưu...' : (isEdit || isProfile ? 'Chỉnh sửa' : 'Tiếp tục')}
+              </Button>
+            ) : (
+              !isView && (
+                <Button
+                  variant="contained"
+                  onClick={handleSubmit}
+                  disabled={submitting || ((isEdit || isProfile) && !hasChanges())}
+                  disableElevation
+                  sx={{
+                    textTransform: 'none',
+                    backgroundColor: '#2f65f0',
+                    px: 3,
+                    py: 0.5,
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    borderRadius: 6,
+                    '&:hover': {
+                      backgroundColor: '#1e4fd1'
+                    },
+                    ...(submitting || ((isEdit || isProfile) && !hasChanges()) ? {
+                      backgroundColor: '#b0b0b0 !important',
+                      cursor: 'not-allowed'
+                    } : {})
+                  }}
+                >
+                  {submitting ? 'Đang lưu...' : 'Xác nhận'}
+                </Button>
+              )
+            )}
+          </Box>
+        </Box>
+      </>)}
         <Box className={classes.stepperWrapper}>
           <Stepper
             activeStep={activeStep}
@@ -937,7 +1228,9 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
               <StepLabel slots={{ stepIcon: CustomStepIcon }}>Thông tin doanh nghiệp</StepLabel>
             </Step>
             <Step>
-              <StepLabel slots={{ stepIcon: CustomStepIcon }}>Xác nhận thông tin</StepLabel>
+              <StepLabel slots={{ stepIcon: CustomStepIcon }}>
+                {isEdit || isProfile ? 'Xác nhận chỉnh sửa' : 'Xác nhận đăng ký'}
+              </StepLabel>
             </Step>
           </Stepper>
         </Box>
@@ -954,39 +1247,42 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
           </Box>
         )}
 
-        <Box className={classes.footer}>
-          <Button
-            onClick={() => (activeStep === 0 || isView ? router.push('/doets') : setActiveStep(0))}
-            className={classes.cancelBtn}
-            disableRipple
-          >
-            {activeStep === 0 ? 'Huỷ bỏ' : 'Trở về'}
-          </Button>
-          {activeStep === 0 ? (
+        {isProfile ? null : (
+          <Box className={classes.footer}>
             <Button
-              variant="contained"
-              startIcon={<ChevronRightIcon />}
-              onClick={handleNext}
-              className={classes.primaryBtn}
-              disableElevation
+              onClick={() => (activeStep === 0 || isView ? router.push('/doets') : setActiveStep(0))}
+              className={classes.cancelBtn}
+              disableRipple
             >
-              Tiếp tục
+              {activeStep === 0 ? 'Huỷ bỏ' : 'Trở về'}
             </Button>
-          ) : (
-            !isView && (
+            {activeStep === 0 ? (
               <Button
                 variant="contained"
-                startIcon={submitting ? <CircularProgress size={18} color="inherit" /> : <DoneAllIcon />}
-                onClick={handleSubmit}
+                startIcon={<ChevronRightIcon />}
+                onClick={handleNext}
                 className={classes.primaryBtn}
-                disabled={submitting}
                 disableElevation
+                disabled={isEdit && !hasChanges()}
               >
-                {submitting ? 'Đang lưu...' : 'Xác nhận'}
+                Tiếp tục
               </Button>
-            )
-          )}
-        </Box>
+            ) : (
+              !isView && (
+                <Button
+                  variant="contained"
+                  startIcon={submitting ? <CircularProgress size={18} color="inherit" /> : <DoneAllIcon />}
+                  onClick={handleSubmit}
+                  className={classes.primaryBtn}
+                  disabled={submitting}
+                  disableElevation
+                >
+                  {submitting ? '\u0110ang lưu...' : 'Xác nhận'}
+                </Button>
+              )
+            )}
+          </Box>
+        )}
 
         <FilePreviewDialog
           open={!!previewFile}
@@ -1001,6 +1297,11 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
           }}
           username={accountDialog.username}
           password={accountDialog.password}
+        />
+        <ChangeEmailModal
+          open={showEmailModal}
+          onClose={() => setShowEmailModal(false)}
+          onEmailChanged={(newEmail) => setField('email', newEmail)}
         />
       </Box>
     </MainLayout>

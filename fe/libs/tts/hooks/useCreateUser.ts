@@ -2,10 +2,7 @@
 import { useReducer, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { accountInfoReducer, initialAccountInfoState, AccountInfoState } from "@tts/logic/account-info/reducer";
-import { authService } from "@tts/services/auth.services";
-import { userService } from "@tts/services/user.services";
-import { roleService } from '@tts/services/role.services';
-import DoetService from "@tts/services/doet.service";
+import { authService, userService, roleService, DoetService } from "@tts/services";
 import { validate, VALIDATION_MESSAGES } from "@core/utils/validation";
 import useLocales from "@core/hooks/useLocales";
 import { useNotification } from "@core/hooks/useNotification";
@@ -82,6 +79,15 @@ export const useCreateUser = () => {
             return;
         }
 
+        if (!state.role) {
+            dispatch({
+                type: 'showToast',
+                message: 'Vui lòng chọn vai trò',
+                toastType: 'error'
+            });
+            return;
+        }
+
         if (!validate.username(state.username)) {
             notifyError(VALIDATION_MESSAGES.USERNAME_INVALID || 'Tên đăng nhập không hợp lệ');
             return;
@@ -112,6 +118,7 @@ export const useCreateUser = () => {
                 dateOfBirth: state.birthday ? new Date(state.birthday) : null,
                 gender: state.gender === 'Nam' ? 1 : (state.gender === 'Nữ' ? 0 : null),
                 realRole: roleNameToSave,
+                roleId: selectedRoleObj ? Number(selectedRoleObj.id) : null,
                 role: state.role ? { id: state.role } : null,
                 province: state.city ? { key: String(state.city), value: selectedProvince?.name || state.city } : null,
                 district: state.district ? { key: String(state.district), value: selectedDistrict?.name || state.district } : null,

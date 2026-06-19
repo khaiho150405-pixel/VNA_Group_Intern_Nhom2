@@ -1,4 +1,6 @@
 import axiosClient from '@core/services/axiosClient';
+import { locationService } from './location.services';
+
 
 export const userService = {
     getUsers: async (params: any = {}): Promise<{ items: any[], count: number }> => {
@@ -36,5 +38,13 @@ export const userService = {
         const response = await axiosClient.post('/users/import', data);
         return response.data || response;
     },
+
+
+    // Address API from esgoo delegated to locationService
+    getProvinces: locationService.getProvinces,
+
+    getDistricts: locationService.getDistricts,
+
+    getWards: locationService.getWards
 
 };

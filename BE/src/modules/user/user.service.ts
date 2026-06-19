@@ -43,7 +43,8 @@ export class UserService extends BaseService<User> {
     }
     
     // Đối với nhóm Doanh nghiệp: Không được phép quản lý người dùng
-    if (roleType === 'DN') {
+    // Sẽ được phép nếu gọi qua hàm updateUser với isSelfUpdate flag
+    if (roleType === 'DN' && !currentUser.isUpdatingSelf) {
       throw Response.errorForBidden("Tài khoản Doanh nghiệp không có quyền quản lý người dùng.");
     }
   }
@@ -112,7 +113,22 @@ export class UserService extends BaseService<User> {
   async getDetail(getAllDto: GetAllDto, id: string, doet: any): Promise<any> {
     const response = await super.getDetail(getAllDto, id, doet);
     if (response.data) {
-      (response.data as any).status = response.data.status === false || response.data.status === null || response.data.status === undefined;
+      const user = response.data as any;
+      user.status = user.status === false || user.status === null || user.status === undefined;
+      
+      if (user.doet_id) {
+        const doetRecords = await this.manager.query(`SELECT * FROM doets WHERE id = $1`, [user.doet_id]);
+        if (doetRecords && doetRecords.length > 0) {
+          const company = doetRecords[0];
+          user.username = company.tax_code;
+          user.fullName = company.name;
+          user.dateOfBirth = company.gpkd_date;
+          user.email = company.email;
+          user.province = typeof company.province === 'string' ? JSON.parse(company.province) : company.province;
+          user.district = typeof company.ward === 'string' ? JSON.parse(company.ward) : company.ward;
+          user.address = company.address;
+        }
+      }
     }
     return response;
   }
@@ -465,7 +481,9 @@ export class UserService extends BaseService<User> {
 
   async updateUser(id: string, data: any, currentUser?: any): Promise<any> {
     try {
-      this.checkPermission(currentUser);
+      // Check if user is updating their own profile
+      const isSelfUpdate = currentUser && id === currentUser.id;
+      
       const user = await this.userRepository.findOne({ where: { id: id as any }, relations: ["role"] });
       if (!user) throw Response.errorNotFound("Không tìm thấy người dùng");
 
@@ -504,6 +522,11 @@ export class UserService extends BaseService<User> {
         } else if (!isAdmin) {
           throw Response.errorForBidden("Bạn không có quyền chỉnh sửa thông tin người dùng này");
         }
+      }
+
+      // Skip permission check if self-updating
+      if (!isSelfUpdate) {
+        this.checkPermission(currentUser);
       }
 
       if (updateData.password) {
@@ -556,6 +579,29 @@ export class UserService extends BaseService<User> {
       Object.assign(user, updateData);
 
       await this.userRepository.save(user);
+      if (user.doet_id) {
+        await this.manager.query(`
+          UPDATE doets
+          SET 
+            name = $1,
+            "gpkdDate" = $2,
+            email = $3,
+            province = $4,
+            ward = $5,
+            address = $6,
+            "taxCode" = $7
+          WHERE id = $8
+        `, [
+          user.fullName,
+          user.dateOfBirth ? new Date(user.dateOfBirth) : null,
+          user.email,
+          user.province ? JSON.stringify(user.province) : null,
+          user.district ? JSON.stringify(user.district) : null,
+          user.address,
+          user.username,
+          user.doet_id
+        ]);
+      }
       return await this.userRepository.findOne({ where: { id: id as any }, relations: ["role"] });
     } catch (error) {
       if (error?.status) throw error;
@@ -564,6 +610,20 @@ export class UserService extends BaseService<User> {
   }
 
   async delete(currentUser: any, id: string): Promise<any> {
+    try {
+      this.checkPermission(currentUser);
+      await this.userRepository.delete(id);
+      return {
+        success: true,
+        message: "Xoá người dùng thành công"
+      };
+    } catch (error) {
+      if (error?.status) throw error;
+      throw Response.errorInternal(error);
+    }
+  }
+
+  async destroy(currentUser: any, id: string): Promise<any> {
     try {
       this.checkPermission(currentUser);
       await this.userRepository.delete(id);

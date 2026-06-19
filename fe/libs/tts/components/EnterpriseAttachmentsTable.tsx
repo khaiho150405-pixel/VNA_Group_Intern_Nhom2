@@ -117,12 +117,25 @@ export const EnterpriseAttachmentsTable = ({
                   )}
                 </TableCell>
                 <TableCell sx={{ ...cellSx, textAlign: 'right' }}>
-                  {file.fileUrl ? (
+                  {file.fileUrl || file.fileName ? (
                     <Tooltip title="Xem">
                       <span>
                         <IconButton
                           size="small"
-                          onClick={() => onPreview(file)}
+                          onClick={() => {
+                            let url = file.fileUrl;
+                            if (!url && file.fileName) {
+                              const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3800/api/v1').replace('/api/v1', '');
+                              url = `${baseUrl}/uploads/${file.fileName}`;
+                            }
+                            if (url) {
+                              if (!url.startsWith('blob:') && !url.startsWith('http') && !url.startsWith('data:')) {
+                                const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3800/api/v1').replace('/api/v1', '');
+                                url = `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+                              }
+                              window.open(url, '_blank');
+                            }
+                          }}
                           sx={{ color: '#2f65f0' }}
                         >
                           <ViewIcon fontSize="small" />

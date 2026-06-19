@@ -105,7 +105,7 @@ export class BaseController<T, F extends BaseService<T>> {
   @Delete('/destroy/:id')
   @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
   @ApiOperation({ summary: 'Destroy item' })
-  async destroy(@Param('id') id: string) {
-    await this.baseService.destroy(id)
+  async destroy(@Req() req: any, @Param('id') id: string) {
+    await this.baseService.destroy(req.user, id);
   }
 }

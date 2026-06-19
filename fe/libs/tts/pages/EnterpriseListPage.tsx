@@ -45,21 +45,12 @@ import {
 import { useEnterpriseListStyles } from "../logic/enterprise/style";
 import { ConfirmDialog } from "@core/components/ConfirmDialog";
 import { useAuth } from "@core/contexts/AuthProvider";
+import { normalizeListResponse } from "@core/utils/helper";
 
 interface WardOption {
   key: string;
   value: string;
 }
-
-const normalizeListResponse = (raw: any): any[] => {
-  if (!raw) return [];
-  if (Array.isArray(raw)) return raw;
-  if (Array.isArray(raw.data)) return raw.data;
-  if (Array.isArray(raw.data?.items)) return raw.data.items;
-  if (Array.isArray(raw.data?.data)) return raw.data.data;
-  if (Array.isArray(raw.items)) return raw.items;
-  return [];
-};
 
 export const EnterpriseListPage = () => {
   const classes = useEnterpriseListStyles();
@@ -182,7 +173,7 @@ export const EnterpriseListPage = () => {
   const handleStatusChange = async (id: number, currentStatus: string) => {
     try {
       const newStatus = currentStatus === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-      
+
       // Optimistic update
       setData((prev) =>
         prev.map((item) =>
@@ -360,7 +351,7 @@ export const EnterpriseListPage = () => {
                           options={Array.isArray(loaiHinhs) ? loaiHinhs : []}
                           getOptionLabel={(option) => option.tenloaihinh || ""}
                           value={loaiHinhs.find(lh => lh.id === filters.loaiHinhId) || null}
-                          onChange={(_, newValue) => 
+                          onChange={(_, newValue) =>
                             handleFilterChange("loaiHinhId", newValue?.id)
                           }
                           renderInput={(params) => (
@@ -372,9 +363,9 @@ export const EnterpriseListPage = () => {
                         <Autocomplete
                           size="small"
                           options={Array.isArray(businessLines) ? businessLines : []}
-                          getOptionLabel={(option) => option.tennganh || ""}
+                          getOptionLabel={(option) => option ? `${option.manganh} - ${option.tennganh}` : ""}
                           value={businessLines.find(bl => bl.id === filters.businessLineId) || null}
-                          onChange={(_, newValue) => 
+                          onChange={(_, newValue) =>
                             handleFilterChange("businessLineId", newValue?.id)
                           }
                           renderInput={(params) => (
@@ -416,7 +407,7 @@ export const EnterpriseListPage = () => {
                             { label: "Hoạt động", value: "ACTIVE" },
                             { label: "Ngưng hoạt động", value: "INACTIVE" }
                           ].find(s => s.value === filters.status) || null}
-                          onChange={(_, newValue) => 
+                          onChange={(_, newValue) =>
                             handleFilterChange("status", newValue?.value)
                           }
                           renderInput={(params) => (
@@ -506,7 +497,7 @@ export const EnterpriseListPage = () => {
                               {item.loaiHinhKinhDoanh?.tenloaihinh || "-"}
                             </TableCell>
                             <TableCell className={classes.bodyCell}>
-                              {item.businessLine?.tennganh || "-"}
+                              {item.businessLine ? `${item.businessLine.manganh} - ${item.businessLine.tennganh}` : "-"}
                             </TableCell>
                             <TableCell className={classes.bodyCell}>
                               {item.ward?.value || "-"}

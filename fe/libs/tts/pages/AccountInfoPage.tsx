@@ -16,6 +16,7 @@ import {
 import { PhotoCamera, Save, Event, Delete } from '@mui/icons-material';
 import { ChangeEmailModal } from '@core/components/ChangeEmailModal';
 import { RequiredLabel } from '@core/components/RequiredLabel';
+import { AppToast } from '@tts/components/AppToast';
 import { useAccountInfoStyles } from '../logic/account-info/style';
 import { useAccountInfo } from '@tts/hooks/useAccountInfo';
 
@@ -29,9 +30,9 @@ export const AccountInfoPage = () => {
     dispatch,
     handleInputChange,
     handleSave,
-    hasChanges
+    hasChanges,
+    isAdmin
   } = useAccountInfo();
-
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [calendarAnchor, setCalendarAnchor] = React.useState<null | HTMLElement>(null);
 
@@ -102,6 +103,13 @@ export const AccountInfoPage = () => {
 
   return (
     <Box className={classes.root}>
+      <AppToast
+        show={toast.show}
+        message={toast.message}
+        type={toast.type}
+        onClose={() => dispatch({ type: 'hideToast' })}
+      />
+
       {/* Page Header */}
       <Box className={classes.pageHeader}>
         <Typography className={classes.headerTitle}>Chi tiết người dùng</Typography>
@@ -297,14 +305,20 @@ export const AccountInfoPage = () => {
                       inputLabel: { shrink: true },
                       select: { displayEmpty: true }
                     }}
-                    disabled={loading}
+                    disabled={loading || !isAdmin}
                   >
                     <MenuItem value="" disabled selected>Chọn vai trò</MenuItem>
-                    {roles && roles.length > 0 && (
+                    {roles && roles.length > 0 ? (
                       roles.map((r) => (
-                        <MenuItem key={r.id} value={String(r.id)}>{r.name}</MenuItem>
+                        <MenuItem key={r.id} value={r.role}>{r.name}</MenuItem>
                       ))
-                    )}
+                    ) : [
+                      <MenuItem key="superAdmin" value="superAdmin">Quản trị viên</MenuItem>,
+                      <MenuItem key="leader" value="leader">Lãnh đạo</MenuItem>,
+                      <MenuItem key="expert" value="expert">Chuyên viên</MenuItem>,
+                      <MenuItem key="employee" value="employee">Nhân viên</MenuItem>,
+                      <MenuItem key="enterprise" value="enterprise">Quản trị DN</MenuItem>
+                    ]}
                   </TextField>
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
