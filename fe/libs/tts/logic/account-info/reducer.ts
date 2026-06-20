@@ -2,7 +2,7 @@ export const initialAccountInfoState = {
   active: true,
   showEmailModal: false,
   username: '',
-  password: '',
+  password: '12345678',
   displayName: '',
   birthday: '',
   gender: '',

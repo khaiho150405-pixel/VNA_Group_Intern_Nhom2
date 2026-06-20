@@ -30,9 +30,9 @@ export const AccountInfoPage = () => {
     dispatch,
     handleInputChange,
     handleSave,
-    hasChanges
+    hasChanges,
+    isAdmin
   } = useAccountInfo();
-
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [calendarAnchor, setCalendarAnchor] = React.useState<null | HTMLElement>(null);
 
@@ -266,6 +266,7 @@ export const AccountInfoPage = () => {
                       open={Boolean(calendarAnchor)}
                       anchorEl={calendarAnchor}
                       value={birthday}
+                      maxDate={new Date()}
                       onChange={(val) => handleInputChange('birthday', val)}
                       onClose={handleCalendarClose}
                     />
@@ -274,12 +275,13 @@ export const AccountInfoPage = () => {
                 <Grid size={{ xs: 12, md: 6 }}>
                   <TextField
                     select fullWidth label="Giới tính" variant="outlined" size="small"
-                    className={classes.field} value={gender}
+                    className={classes.field} value={gender ?? ''}
                     onChange={(e) => handleInputChange('gender', e.target.value)}
                     onFocus={handleInputFocus}
-                    slotProps={{ inputLabel: { shrink: true } }}
+                    slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}
                     disabled={loading}
                   >
+                    <MenuItem value=""><em style={{ color: '#aaa' }}>-- Chọn giới tính --</em></MenuItem>
                     <MenuItem value="Nam">Nam</MenuItem>
                     <MenuItem value="Nữ">Nữ</MenuItem>
                   </TextField>
@@ -305,25 +307,20 @@ export const AccountInfoPage = () => {
                       inputLabel: { shrink: true },
                       select: { displayEmpty: true }
                     }}
-                    disabled={loading}
+                    disabled={loading || !isAdmin || username?.trim().toLowerCase() === 'testuser'}
                   >
                     <MenuItem value="" disabled selected>Chọn vai trò</MenuItem>
                     {roles && roles.length > 0 ? (
-                      roles
-                        .filter((r) => username === 'testuser' ? r.role === 'superAdmin' : true)
-                        .map((r) => (
-                          <MenuItem key={r.id} value={r.role}>{r.name}</MenuItem>
-                        ))
-                    ) : (
-                      username === 'testuser' ? (
-                        <MenuItem key="superAdmin" value="superAdmin">Quản trị viên</MenuItem>
-                      ) : [
-                        <MenuItem key="superAdmin" value="superAdmin">Quản trị viên</MenuItem>,
-                        <MenuItem key="leader" value="leader">Lãnh đạo</MenuItem>,
-                        <MenuItem key="expert" value="expert">Chuyên viên</MenuItem>,
-                        <MenuItem key="employee" value="employee">Nhân viên</MenuItem>
-                      ]
-                    )}
+                      roles.map((r) => (
+                        <MenuItem key={r.id} value={r.role}>{r.name}</MenuItem>
+                      ))
+                    ) : [
+                      <MenuItem key="superAdmin" value="superAdmin">Quản trị viên</MenuItem>,
+                      <MenuItem key="leader" value="leader">Lãnh đạo</MenuItem>,
+                      <MenuItem key="expert" value="expert">Chuyên viên</MenuItem>,
+                      <MenuItem key="employee" value="employee">Nhân viên</MenuItem>,
+                      <MenuItem key="enterprise" value="enterprise">Quản trị DN</MenuItem>
+                    ]}
                   </TextField>
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>

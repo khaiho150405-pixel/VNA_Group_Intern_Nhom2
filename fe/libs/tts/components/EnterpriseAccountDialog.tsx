@@ -1,13 +1,15 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Dialog,
   DialogContent,
   Box,
   Typography,
   Button,
+  IconButton,
 } from '@mui/material';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { VNA_COLORS } from '@core/theme';
 
 interface EnterpriseAccountDialogProps {
@@ -23,6 +25,8 @@ export const EnterpriseAccountDialog = ({
   username,
   password,
 }: EnterpriseAccountDialogProps) => {
+  const [showPassword, setShowPassword] = useState(false);
+
   return (
     <Dialog
       open={open}
@@ -46,9 +50,14 @@ export const EnterpriseAccountDialog = ({
         <Typography sx={{ mb: 1.5, fontSize: '0.95rem' }}>
           • Tài khoản: <strong>{username}</strong>
         </Typography>
-        <Typography sx={{ fontSize: '0.95rem' }}>
-          • Mật khẩu: <strong>{password}</strong>
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography sx={{ fontSize: '0.95rem' }}>
+            • Mật khẩu: <strong>{showPassword ? password : '••••••••'}</strong>
+          </Typography>
+          <IconButton size="small" onClick={() => setShowPassword(!showPassword)}>
+            {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+          </IconButton>
+        </Box>
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
           <Button
             onClick={onClose}

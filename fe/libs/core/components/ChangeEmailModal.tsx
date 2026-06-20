@@ -21,6 +21,25 @@ import { validate, VALIDATION_MESSAGES } from '@core/utils/validation';
 import useLocales from '@core/hooks/useLocales';
 import { RequiredLabel } from './RequiredLabel';
 
+const getChangeEmailErrorMessage = (error: any, defaultMsg: string): string => {
+  const backendMsg = error?.response?.data?.errors || error?.response?.data?.message || error?.message || '';
+  if (!backendMsg) return defaultMsg;
+  if (typeof backendMsg === 'string') {
+    if (backendMsg === 'BAD REQUEST' || backendMsg.toUpperCase() === 'BAD REQUEST') return defaultMsg;
+    return backendMsg;
+  }
+  if (Array.isArray(backendMsg)) {
+    return backendMsg[0];
+  }
+  if (typeof backendMsg === 'object') {
+    const nested = backendMsg.message || backendMsg.error;
+    if (nested) {
+      return Array.isArray(nested) ? nested[0] : String(nested);
+    }
+  }
+  return defaultMsg;
+};
+
 const useStyles = makeStyles((theme: Theme) => ({
   content: {
     padding: theme.spacing(4, 4, 2),
@@ -143,9 +162,10 @@ const useStyles = makeStyles((theme: Theme) => ({
 interface ChangeEmailModalProps {
   open: boolean;
   onClose: () => void;
+  onEmailChanged?: (email: string) => void;
 }
 
-export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClose }) => {
+export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClose, onEmailChanged }) => {
   const classes = useStyles();
   const { user, login } = useAuth();
   const { translate } = useLocales();
@@ -182,7 +202,7 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
         })
         .catch((err: any) => {
           setSuccessMsg(null);
-          const msg = err.response?.data?.errors || err.response?.data?.message || err.message || translate("notifications.error");
+          const msg = getChangeEmailErrorMessage(err, translate("notifications.error"));
           setErrorMsg(msg);
         });
     }
@@ -206,7 +226,7 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
       setSuccessMsg(translate("notifications.otpSentSuccess"));
     } catch (err: any) {
       setSuccessMsg(null);
-      const msg = err.response?.data?.errors || err.response?.data?.message || err.message || translate("notifications.error");
+      const msg = getChangeEmailErrorMessage(err, translate("notifications.error"));
       setErrorMsg(msg);
     }
   };
@@ -217,7 +237,7 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
       return;
     }
     if (!validate.otp(otp)) {
-      setErrorMsg(VALIDATION_MESSAGES.OTP_INVALID);
+      setErrorMsg('Mã OTP không chính xác, vui lòng kiểm tra lại');
       return;
     }
     if (!user?.email) return;
@@ -230,12 +250,15 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
       if (response && response.success) {
         setStep(2);
       } else {
-        const errorMsg = translate("notifications.otpError");
-        setErrorMsg(errorMsg);
+        setErrorMsg('Mã OTP không chính xác, vui lòng kiểm tra lại');
       }
     } catch (err: any) {
-      const msg = err.response?.data?.errors || err.response?.data?.message || err.message || translate("notifications.otpError");
-      setErrorMsg(msg);
+      const backendMsg = err.response?.data?.errors || err.response?.data?.message || err.message || '';
+      let displayMsg = 'Mã OTP không chính xác, vui lòng kiểm tra lại';
+      if (typeof backendMsg === 'string' && backendMsg.toLowerCase().includes('hết hạn')) {
+        displayMsg = 'Mã OTP đã hết hạn, vui lòng kiểm tra lại';
+      }
+      setErrorMsg(displayMsg);
     } finally {
       setLoading(false);
     }
@@ -247,11 +270,11 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
       return;
     }
     if (!validate.email(newEmail)) {
-      setErrorMsg(VALIDATION_MESSAGES.EMAIL_INVALID);
+      setErrorMsg('Email không hợp lệ , vui lòng kiểm tra lại dữ liệu');
       return;
     }
     if (user?.email && newEmail.toLowerCase() === user.email.toLowerCase()) {
-      setErrorMsg('Email mới không được trùng với email hiện tại');
+      setErrorMsg('Email mới không được trùng email hiện tại , vui lòng kiểm tra lại dữ liệu');
       return;
     }
     if (!user?.id) return;
@@ -262,7 +285,7 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
       // 1. Check if email already exists
       const checkRes = await authService.checkEmail(newEmail, user.id);
       if (checkRes && checkRes.existed) {
-        setErrorMsg('Email này đã được sử dụng bởi một tài khoản khác');
+        setErrorMsg('Email mới đã tồn tại trên hệ thống, vui lòng kiểm tra lại dữ liệu');
         setLoading(false);
         return;
       }
@@ -275,11 +298,14 @@ export const ChangeEmailModal: React.FC<ChangeEmailModalProps> = ({ open, onClos
       login({ ...user, email: newEmail }, token, false);
       
       setSuccessMsg(translate("notifications.emailChangeSuccess"));
+      if (onEmailChanged) {
+        onEmailChanged(newEmail);
+      }
       setTimeout(() => {
         handleClose();
       }, 1500);
     } catch (err: any) {
-      const msg = err.response?.data?.errors || err.response?.data?.message || err.message || translate("notifications.error");
+      const msg = getChangeEmailErrorMessage(err, translate("notifications.error"));
       setErrorMsg(msg);
     } finally {
       setLoading(false);

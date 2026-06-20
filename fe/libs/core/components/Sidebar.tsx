@@ -69,38 +69,61 @@ export const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
   }, [pathname]);
 
   const roleObj = user && typeof (user as any).role === 'object' && (user as any).role !== null ? (user as any).role : null;
-  const userRoleId = user ? ((user as any).roleId || roleObj?.id) : undefined;
-  const rawRole = user
-    ? ((user as any).realRole || roleObj?.role || (typeof user.role === 'string' ? user.role : ''))
-    : undefined;
+  const userRoleType = roleObj?.type; // 'SO' or 'DN' from database
 
-  let userRole = rawRole;
-  if (
-    userRoleId === 4 || 
-    userRoleId === 3 || 
-    userRoleId === 2 || 
-    rawRole === 'Admin' || 
-    rawRole === 'ROLE_ADMIN' || 
-    rawRole === 'superAdmin' || 
-    rawRole === 'leader' || 
-    rawRole === 'expert' || 
-    rawRole === 'ROLE_SO'
-  ) {
+  let userRole = 'ROLE_DN'; // default fallback
+  if (userRoleType === 'SO') {
     userRole = 'ROLE_SO';
-  } else if (
-    userRoleId === 1 || 
-    rawRole === 'User' || 
-    rawRole === 'ROLE_USER' || 
-    rawRole === 'employee' || 
-    rawRole === 'ROLE_DN'
-  ) {
+  } else if (userRoleType === 'DN') {
     userRole = 'ROLE_DN';
+  } else {
+    // Fallback for existing tokens without type
+    const userRoleId = user ? ((user as any).roleId || roleObj?.id) : undefined;
+    const rawRole = user
+      ? ((user as any).realRole || roleObj?.role || (typeof user.role === 'string' ? user.role : ''))
+      : undefined;
+
+    if (
+      userRoleId === 4 || 
+      userRoleId === 3 || 
+      userRoleId === 2 || 
+      userRoleId === 1 || 
+      rawRole === 'Admin' || 
+      rawRole === 'ROLE_ADMIN' || 
+      rawRole === 'superAdmin' || 
+      rawRole === 'leader' || 
+      rawRole === 'expert' || 
+      rawRole === 'employee' || 
+      rawRole === 'Nhân viên' || 
+      rawRole === 'nhanvien' || 
+      rawRole === 'ROLE_SO' ||
+      (typeof rawRole === 'string' && (
+        rawRole.toLowerCase().includes('admin') ||
+        rawRole.toLowerCase().includes('quản trị') ||
+        rawRole.toLowerCase().includes('lãnh đạo') ||
+        rawRole.toLowerCase().includes('chuyên viên') ||
+        rawRole.toLowerCase().includes('nhân viên') ||
+        rawRole.toLowerCase().includes('expert') ||
+        rawRole.toLowerCase().includes('employee') ||
+        rawRole.toLowerCase().includes('so')
+      ))
+    ) {
+      userRole = 'ROLE_SO';
+    }
   }
 
-  // Filter items based on user role
-  const filteredItems = NAVIGATION_ITEMS.filter(item => 
-    item.roles.includes(userRole as any)
-  );
+  // Filter items based on user role recursively
+  const filterNavItems = (items: NavItem[]): NavItem[] => {
+    return items
+      .filter(item => item.roles.includes(userRole as any))
+      .map(item => ({
+        ...item,
+        children: item.children ? filterNavItems(item.children) : undefined
+      }))
+      .filter(item => !item.children || item.children.length > 0 || item.path); // Keep if has path or non-empty children
+  };
+
+  const filteredItems = filterNavItems(NAVIGATION_ITEMS);
 
   const handleToggle = (id: string) => {
     setOpenItems(prev => 

@@ -10,16 +10,19 @@ export class DomainMiddleware implements NestMiddleware {
     const fullDomain = req.get("origin") || req.get("host");
     if (fullDomain) {
       const domain = extractHostname(fullDomain);
-      if (domain !== "admin-dev.rcp.com.vn" && domain !== "admin.rcp.com.vn") {
+      // Skip lookup for admin domains and localhost dev
+      const isAdminDomain = ["admin-dev.rcp.com.vn", "admin.rcp.com.vn", "localhost"].includes(domain);
+      
+      if (!isAdminDomain) {
         const manage = getManager();
         (req as any).doet = await manage.findOne(Doet, {
-          where: {
-            domain: domain
-          }
+          where: { domain: domain }
         });
+      } else {
+        (req as any).doet = null;
       }
     } else {
-      throw Response.errorInternal("Cannot get domain");
+      (req as any).doet = null;
     }
     next();
   }

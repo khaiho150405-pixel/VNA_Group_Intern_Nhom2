@@ -14,12 +14,42 @@ export const VALIDATION_PATTERNS = {
   
   // OTP: 6 digits
   OTP: /^[0-9]{6}$/,
+
+  // Password: at least 8 characters, at least one uppercase letter, one lowercase letter and one number
+  PASSWORD: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/,
+
+  // Vietnam tax code: 10 digits or 10 digits followed by - and 3 digits
+  TAX_CODE: /^\d{10}(-\d{3})?$/,
 };
 
 /**
  * Validation functions
  */
 export const validate = {
+  taxCode: (taxCode: string): boolean => {
+    if (!taxCode) return false;
+    const trimmed = taxCode.trim();
+    // Only digits and hyphens
+    if (!/^[0-9-]+$/.test(trimmed)) return false;
+    
+    const digits = trimmed.replace(/-/g, '');
+    // Min 10, Max 20 digits
+    if (digits.length < 10 || digits.length > 20) return false;
+    
+    // If it has exactly 13 digits, it must have a hyphen separating the last 3 digits
+    if (digits.length === 13) {
+      return /^\d{10}-\d{3}$/.test(trimmed);
+    }
+    
+    // For other lengths, ensure at most one hyphen, and not at start or end
+    if (trimmed.includes('-')) {
+      const hyphenCount = (trimmed.match(/-/g) || []).length;
+      if (hyphenCount > 1 || trimmed.startsWith('-') || trimmed.endsWith('-')) return false;
+    }
+    
+    return true;
+  },
+
   /**
    * Check if a string is a valid email
    */
@@ -46,6 +76,13 @@ export const validate = {
    */
   otp: (otp: string): boolean => {
     return VALIDATION_PATTERNS.OTP.test(otp);
+  },
+
+  /**
+   * Check if a string is a valid password (8+ chars, uppercase, lowercase, number)
+   */
+  password: (password: string): boolean => {
+    return VALIDATION_PATTERNS.PASSWORD.test(password);
   },
 
   /**
@@ -84,5 +121,6 @@ export const VALIDATION_MESSAGES = {
   PASSWORD_MIN_LENGTH: (min: number) => `Mật khẩu phải có ít nhất ${min} ký tự`,
   PASSWORD_CONFIRM_NOT_MATCH: 'Mật khẩu xác nhận không khớp',
   OTP_INVALID: 'Mã OTP phải có 6 chữ số',
+  PASSWORD_INVALID: 'Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ cái thường, chữ hoa và số',
   FULL_INFO_REQUIRED: 'Vui lòng nhập đầy đủ thông tin',
 };

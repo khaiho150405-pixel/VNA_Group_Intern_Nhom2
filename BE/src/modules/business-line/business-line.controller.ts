@@ -1,9 +1,10 @@
-import { Controller, Get, UseGuards } from "@nestjs/common";
-import { ApiTags } from "@nestjs/swagger";
-import { BaseController } from "src/commons";
+import { Controller, Get, UseGuards, UseInterceptors, ClassSerializerInterceptor } from "@nestjs/common";
+import { ApiTags, ApiOperation } from "@nestjs/swagger";
+import { BaseController, ResponseInterceptor } from "src/commons";
 import { AuthGuard } from "src/commons/guards/authGuard";
 import { BusinessLine } from "./business-line.entity";
 import { BusinessLineService } from "./business-line.service";
+import Response from "../../commons/response";
 
 @ApiTags("Business Line")
 @Controller("business-line")
@@ -12,6 +13,20 @@ export class BusinessLineController extends BaseController<BusinessLine, Busines
   constructor(private readonly businessLineService: BusinessLineService) {
     super(businessLineService);
   }
+
+  @Get("dropdown/active")
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
+  @ApiOperation({ summary: "Lấy danh sách ngành nghề kinh doanh cấp 4 đang hoạt động" })
+  async getActiveLevel4Dropdown() {
+    const data = await this.businessLineService.getActiveLevel4ForDropdown();
+    return Response.get(data);
+  }
+}
+
+@ApiTags("Public Business Line")
+@Controller("public/business-line")
+export class PublicBusinessLineController {
+  constructor(private readonly businessLineService: BusinessLineService) {}
 
   @Get("dropdown/active")
   async getActiveLevel4Dropdown() {

@@ -4,7 +4,8 @@ import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
     Box, Typography, Button, Table, TableBody, TableCell,
     TableContainer, TableHead, TableRow, Checkbox,
-    Switch, IconButton, TextField, Select, MenuItem, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions, Tooltip, Pagination
+    Switch, IconButton, TextField, Select, MenuItem, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions, Tooltip, Pagination,
+    Autocomplete
 } from '@mui/material';
 import {
     Delete as DeleteIcon,
@@ -15,15 +16,24 @@ import {
     Add as AddIcon,
     FileUpload as UploadIcon,
     FileDownload as DownloadIcon,
+    Visibility,
+    VisibilityOff,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useSnackbar } from 'notistack';
 
 import { MainLayout } from '@core/layouts/MainLayout';
 import { BulkSelectionBar } from '@core/components/BulkSelectionBar';
+import { ConfirmDialog } from '@core/components/ConfirmDialog';
+import { useAuth } from '@core/contexts/AuthProvider';
 import { userService } from '@tts/services/user.services';
+import { roleService } from '@tts/services/role.services';
+import { getCookie } from '@core/services/cookies';
+import { UserPasswordDialog } from '@tts/components';
 import { useUserListStyles } from '../logic/user/style';
 import * as XLSX from 'xlsx';
+import { InputAdornment } from '@mui/material';
+import { validate, VALIDATION_MESSAGES } from '@core/utils/validation';
 
 export const UserManagementPage = () => {
     const classes = useUserListStyles();
@@ -33,6 +43,7 @@ export const UserManagementPage = () => {
 
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<any[]>([]);
+    const [roles, setRoles] = useState<any[]>([]);
     const [total, setTotal] = useState(0);
     const [filters, setFilters] = useState({
         page: 1,
@@ -46,8 +57,11 @@ export const UserManagementPage = () => {
     });
 
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+    const [confirmImportDeleteIndex, setConfirmImportDeleteIndex] = useState<number | null>(null);
+
     const [passwordModal, setPasswordModal] = useState({ open: false, userId: '', userName: '' });
-    const [newPassword, setNewPassword] = useState('');
+
 
     // State for Excel import preview
     const [importUsers, setImportUsers] = useState<any[]>([]);
@@ -62,15 +76,83 @@ export const UserManagementPage = () => {
         roleId: undefined
     });
     const [editImportErrors, setEditImportErrors] = useState<Record<string, string>>({});
+    const [showImportPassword, setShowImportPassword] = useState(false);
+
+    const { user, login, logout } = useAuth();
+    // Phân quyền: 0=VIEW (Nhân viên), 1=WRITE (Chuyên viên), 2=FULL (Admin/Lãnh đạo)
+    // Chuyên viên được phép thêm/sửa mọi user trừ admin/testuser
+    const getPermissionLevel = () => {
+        if (!user) return 0;
+        
+        const roleId = (user as any)?.roleId || (user as any)?.role?.id;
+        const realRole = ((user as any)?.realRole || '').toLowerCase();
+        const roleName = ((user as any)?.role?.name || '').toLowerCase();
+        
+        // Ưu tiên nhận diện theo roleId và realRole
+        // roleId = 4 hoặc có chữ "quản trị"/"admin"/"lãnh đạo"/"leader" -> FULL (2)
+        const isAdminOrLeader = 
+            roleId === 4 ||
+            realRole.includes('quản trị') ||
+            realRole.includes('admin') ||
+            realRole.includes('lãnh đạo') ||
+            realRole.includes('leader') ||
+            roleName.includes('quản trị') ||
+            roleName.includes('admin') ||
+            roleName.includes('lãnh đạo') ||
+            roleName.includes('leader');
+        
+        if (isAdminOrLeader) return 2;
+        
+        // roleId = 2 hoặc có chữ "chuyên viên"/"expert" -> WRITE (1)
+        const isExpert = 
+            roleId === 2 ||
+            realRole.includes('chuyên viên') ||
+            realRole.includes('expert') ||
+            roleName.includes('chuyên viên') ||
+            roleName.includes('expert');
+        
+        if (isExpert) return 1;
+        
+        // roleId = 1 hoặc có chữ "nhân viên"/"employee" -> VIEW (0)
+        // Không xác định được role cũng mặc định là VIEW
+        return 0;
+    };
+
+    // isReadOnly: true nếu chỉ có quyền xem (level 0)
+    const isReadOnly = useMemo(() => {
+        return getPermissionLevel() === 0;
+    }, [user]);
+    
+    // canDeleteOrChangeStatus: true nếu có quyền đầy đủ (level 2)
+    const canDeleteOrChangeStatus = useMemo(() => {
+        return getPermissionLevel() === 2;
+    }, [user]);
 
     const fetchData = async () => {
         setLoading(true);
         try {
-            const res = await userService.getUsers(filters);
-            setData(res.items || []);
-            setTotal(res.count || 0);
+            const [userRes, roleRes] = await Promise.all([
+                userService.getUsers(filters),
+                roleService.getAll()
+            ]);
+            setData(userRes.items || []);
+            setTotal(userRes.count || 0);
+
+            let roleList = [];
+            if (Array.isArray(roleRes)) {
+                roleList = roleRes;
+            } else {
+                roleList = roleRes?.data?.items || roleRes?.items || [];
+            }
+            roleList = roleList.filter((r: any) => 
+                r.role !== 'enterprise' && 
+                r.type !== 'DN' && 
+                r.id !== 5 && 
+                r.name !== 'Doanh nghiệp'
+            );
+            setRoles(roleList);
         } catch (error) {
-            enqueueSnackbar("Lỗi khi tải dữ liệu người dùng", { variant: "error" });
+            enqueueSnackbar("Lỗi khi tải dữ liệu", { variant: "error" });
         } finally {
             setLoading(false);
         }
@@ -103,9 +185,13 @@ export const UserManagementPage = () => {
 
     const handleStatusChange = async (id: string, currentStatus: any) => {
         try {
-            // Support both boolean and string "false"
-            const isCurrentlyActive = currentStatus === false || currentStatus === null || currentStatus === undefined || currentStatus === "false";
-            const nextStatus = isCurrentlyActive ? true : false;
+            // Guard: Chỉ Admin/Lãnh đạo được đổi trạng thái
+            if (getPermissionLevel() < 2) {
+                enqueueSnackbar("Chỉ Admin hoặc Lãnh đạo mới được phép thay đổi trạng thái", { variant: "error" });
+                return;
+            }
+            const isCurrentlyActive = currentStatus === true;
+            const nextStatus = !isCurrentlyActive;
             
             // Optimistic update
             setData((prev) =>
@@ -115,23 +201,52 @@ export const UserManagementPage = () => {
             );
 
             await userService.update(id, { status: nextStatus });
+
+            // Synchronize with AuthProvider if the status change affects the current user
+            if (user && String(user.id) === String(id)) {
+                const updatedUser = { ...user, status: nextStatus };
+                const token = getCookie('accessToken') || '';
+                login(updatedUser as any, token, false);
+            }
+
             enqueueSnackbar("Cập nhật trạng thái thành công", { variant: "success" });
         } catch (error) {
-            enqueueSnackbar("Lỗi khi cập nhật trạng thái", { variant: "error" });
+            enqueueSnackbar("Chuyên viên không được phép thay đổi trạng thái người dùng", { variant: "error" });
             fetchData();
         }
     };
 
-    const handleBulkDelete = async () => {
-        if (window.confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn ${selectedIds.length} người dùng đã chọn?`)) {
-            try {
-                await userService.deleteMany(selectedIds);
-                enqueueSnackbar("Xoá thành công", { variant: "success" });
-                setSelectedIds([]);
-                fetchData();
-            } catch (error) {
-                enqueueSnackbar("Lỗi khi xoá dữ liệu", { variant: "error" });
+    const handleBulkDelete = () => {
+        setConfirmDeleteOpen(true);
+    };
+
+    const performBulkDelete = async () => {
+        try {
+            // Guard: Chỉ Admin/Lãnh đạo được xóa
+            if (getPermissionLevel() < 2) {
+                enqueueSnackbar("Chỉ Admin hoặc Lãnh đạo mới được phép xóa người dùng", { variant: "error" });
+                setConfirmDeleteOpen(false);
+                return;
             }
+            setLoading(true);
+            await userService.deleteMany(selectedIds);
+            
+            // Log out if the current user is among the deleted users
+            if (user && selectedIds.includes(String(user.id))) {
+                enqueueSnackbar("Tài khoản của bạn đã bị xóa. Đang đăng xuất...", { variant: "info" });
+                setTimeout(() => logout(), 2000);
+                return;
+            }
+
+            enqueueSnackbar("Xoá thành công", { variant: "success" });
+            setSelectedIds([]);
+            setConfirmDeleteOpen(false);
+            fetchData();
+        } catch (error: any) {
+            const errorMsg = error.response?.data?.message || error.message || "Chuyên viên không được phép xóa người dùng";
+            enqueueSnackbar(String(errorMsg), { variant: "error" });
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -148,7 +263,7 @@ export const UserManagementPage = () => {
             "Email": user.email || '',
             "Vai trò": user.realRole || 'Chưa phân quyền',
             "Chức danh": user.workUnit || '-',
-            "Trạng thái": (user.status === false || user.status === null || user.status === undefined) ? 'Hoạt động' : 'Đã khóa'
+            "Trạng thái": user.status === true ? 'Hoạt động' : 'Đã khóa'
         }));
 
         const worksheet = XLSX.utils.json_to_sheet(dataToExport);
@@ -189,8 +304,8 @@ export const UserManagementPage = () => {
         if (!row.realRole || row.realRole.trim() === '') {
             errors.realRole = 'Vai trò là bắt buộc';
         } else {
-            const validRoles = ['Nhân viên', 'Chuyên viên', 'Lãnh đạo', 'Quản trị viên'];
-            if (!validRoles.includes(row.realRole.trim())) {
+            const roleNames = roles.map(r => r.name.trim());
+            if (!roleNames.includes(row.realRole.trim())) {
                 errors.realRole = 'Vai trò không hợp lệ';
             }
         }
@@ -221,18 +336,15 @@ export const UserManagementPage = () => {
                     let roleId: number | undefined = undefined;
 
                     const roleClean = rawRole.toLowerCase();
-                    if (roleClean.includes('nhân viên') || roleClean.includes('nhan vien')) {
-                        realRole = 'Nhân viên';
-                        roleId = 1;
-                    } else if (roleClean.includes('chuyên viên') || roleClean.includes('chuyen vien')) {
-                        realRole = 'Chuyên viên';
-                        roleId = 2;
-                    } else if (roleClean.includes('lãnh đạo') || roleClean.includes('lanh dao')) {
-                        realRole = 'Lãnh đạo';
-                        roleId = 3;
-                    } else if (roleClean.includes('quản trị') || roleClean.includes('quan tri') || roleClean.includes('admin')) {
-                        realRole = 'Quản trị viên';
-                        roleId = 4;
+                    const matchedRole = roles.find(r => 
+                        r.name.toLowerCase().includes(roleClean) || 
+                        roleClean.includes(r.name.toLowerCase()) ||
+                        (r.role && r.role.toLowerCase() === roleClean)
+                    );
+
+                    if (matchedRole) {
+                        realRole = matchedRole.name;
+                        roleId = matchedRole.id;
                     } else {
                         realRole = rawRole;
                     }
@@ -265,13 +377,8 @@ export const UserManagementPage = () => {
     const handleEditImportChange = (field: string, value: any) => {
         const updated = { ...editImportForm, [field]: value };
         if (field === 'realRole') {
-            const roleMap: Record<string, number> = {
-                'Nhân viên': 1,
-                'Chuyên viên': 2,
-                'Lãnh đạo': 3,
-                'Quản trị viên': 4,
-            };
-            updated.roleId = roleMap[value];
+            const matched = roles.find(r => r.name === value);
+            updated.roleId = matched?.id;
         }
         setEditImportForm(updated);
         setEditImportErrors(validateRow(updated));
@@ -361,20 +468,6 @@ export const UserManagementPage = () => {
         }
     };
 
-    const handleChangePassword = async () => {
-        if (!newPassword || newPassword.length < 6) {
-            enqueueSnackbar("Mật khẩu phải có ít nhất 6 ký tự!", { variant: "error" });
-            return;
-        }
-        try {
-            await userService.update(passwordModal.userId, { password: newPassword });
-            enqueueSnackbar("Đặt lại mật khẩu thành công!", { variant: "success" });
-            setPasswordModal({ open: false, userId: '', userName: '' });
-            setNewPassword('');
-        } catch (error) {
-            enqueueSnackbar("Có lỗi xảy ra khi cập nhật mật khẩu.", { variant: "error" });
-        }
-    };
 
     const startIndex = useMemo(
         () => (total === 0 ? 0 : filters.limit * (filters.page - 1) + 1),
@@ -387,6 +480,16 @@ export const UserManagementPage = () => {
 
     const isAllSelected = data.length > 0 && selectedIds.length === data.length;
     const isIndeterminate = selectedIds.length > 0 && selectedIds.length < data.length;
+
+    // Cấu hình các cột của bảng để dễ dàng chỉnh sửa độ rộng và thuộc tính
+    const columns = [
+        { id: 'fullName', label: 'Họ và tên', width: '18%', minWidth: 150 },
+        { id: 'username', label: 'Tài khoản', width: '15%', minWidth: 120 },
+        { id: 'email', label: 'Email', width: '20%', minWidth: 180 },
+        { id: 'realRole', label: 'Vai trò', width: '15%', minWidth: 130 },
+        { id: 'workUnit', label: 'Chức danh', width: '15%', minWidth: 130 },
+        { id: 'status', label: 'Trạng thái', width: '10%', minWidth: 100, align: 'center' as const },
+    ];
 
     return (
         <MainLayout>
@@ -403,22 +506,26 @@ export const UserManagementPage = () => {
                         Danh sách người dùng
                     </Typography>
                     <Box className={classes.actions}>
-                        <Button
-                            className={classes.importBtn}
-                            startIcon={<UploadIcon fontSize="small" />}
-                            disableRipple
-                            onClick={() => fileInputRef.current?.click()}
-                        >
-                            Thêm từ file
-                        </Button>
-                        <Button
-                            variant="contained"
-                            className={classes.addBtn}
-                            startIcon={<AddIcon fontSize="small" />}
-                            onClick={() => router.push("/users/create")}
-                        >
-                            Thêm mới
-                        </Button>
+                        {!isReadOnly && (
+                            <>
+                                <Button
+                                    className={classes.importBtn}
+                                    startIcon={<UploadIcon fontSize="small" />}
+                                    disableRipple
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    Thêm từ file
+                                </Button>
+                                <Button
+                                    variant="contained"
+                                    className={classes.addBtn}
+                                    startIcon={<AddIcon fontSize="small" />}
+                                    onClick={() => router.push("/users/create")}
+                                >
+                                    Thêm mới
+                                </Button>
+                            </>
+                        )}
                     </Box>
                 </Box>
 
@@ -429,21 +536,27 @@ export const UserManagementPage = () => {
                                 <Table size="small" stickyHeader>
                                     <TableHead>
                                         <TableRow>
-                                            <TableCell padding="checkbox" className={classes.headerCell}>
-                                                <Checkbox
-                                                    size="small"
-                                                    indeterminate={isIndeterminate}
-                                                    checked={isAllSelected}
-                                                    onChange={handleSelectAll}
-                                                />
+                                            <TableCell padding="checkbox" className={classes.headerCell} width={50}>
+                                                {!isReadOnly && (
+                                                    <Checkbox
+                                                        size="small"
+                                                        indeterminate={isIndeterminate}
+                                                        checked={isAllSelected}
+                                                        onChange={handleSelectAll}
+                                                    />
+                                                )}
                                             </TableCell>
-                                            <TableCell className={classes.headerCell}>Thao tác</TableCell>
-                                            <TableCell className={classes.headerCell}>Họ và tên</TableCell>
-                                            <TableCell className={classes.headerCell}>Tài khoản</TableCell>
-                                            <TableCell className={classes.headerCell}>Email</TableCell>
-                                            <TableCell className={classes.headerCell}>Vai trò</TableCell>
-                                            <TableCell className={classes.headerCell}>Chức danh</TableCell>
-                                            <TableCell className={classes.headerCell} align="center">Trạng thái</TableCell>
+                                            <TableCell className={classes.headerCell} width={100}>Thao tác</TableCell>
+                                            {columns.map((col) => (
+                                                <TableCell
+                                                    key={col.id}
+                                                    className={classes.headerCell}
+                                                    align={col.align}
+                                                    sx={{ width: col.width, minWidth: col.minWidth }}
+                                                >
+                                                    {col.label}
+                                                </TableCell>
+                                            ))}
                                         </TableRow>
                                         <TableRow>
                                             <TableCell className={classes.filterCell} />
@@ -453,7 +566,6 @@ export const UserManagementPage = () => {
                                                     fullWidth
                                                     size="small"
                                                     className={classes.filterField}
-                                                    placeholder="Tìm kiếm..."
                                                     value={filters.fullName}
                                                     onChange={(e) => handleFilterChange("fullName", e.target.value)}
                                                 />
@@ -463,7 +575,6 @@ export const UserManagementPage = () => {
                                                     fullWidth
                                                     size="small"
                                                     className={classes.filterField}
-                                                    placeholder="Tìm kiếm..."
                                                     value={filters.username}
                                                     onChange={(e) => handleFilterChange("username", e.target.value)}
                                                 />
@@ -473,25 +584,25 @@ export const UserManagementPage = () => {
                                                     fullWidth
                                                     size="small"
                                                     className={classes.filterField}
-                                                    placeholder="Tìm kiếm..."
                                                     value={filters.email}
                                                     onChange={(e) => handleFilterChange("email", e.target.value)}
                                                 />
                                             </TableCell>
                                             <TableCell className={classes.filterCell}>
-                                                <Select
-                                                    fullWidth
+                                                <Autocomplete
                                                     size="small"
-                                                    displayEmpty
-                                                    className={classes.filterField}
-                                                    value={filters.role}
-                                                    onChange={(e) => handleFilterChange("role", e.target.value)}
-                                                >
-                                                    <MenuItem value="">Tất cả</MenuItem>
-                                                    <MenuItem value="Chuyên viên">Chuyên viên</MenuItem>
-                                                    <MenuItem value="Lãnh đạo">Lãnh đạo</MenuItem>
-                                                    <MenuItem value="Nhân viên">Nhân viên</MenuItem>
-                                                </Select>
+                                                    options={roles}
+                                                    getOptionLabel={(option) => option.name || ""}
+                                                    value={roles.find((r) => r.name === filters.role) || null}
+                                                    onChange={(_, newValue) => handleFilterChange("role", newValue?.name || "")}
+                                                    renderInput={(params) => (
+                                                        <TextField
+                                                            {...params}
+                                                            placeholder="Tất cả"
+                                                            className={classes.filterField}
+                                                        />
+                                                    )}
+                                                />
                                             </TableCell>
                                             <TableCell className={classes.filterCell}>
                                                 <TextField
@@ -504,31 +615,39 @@ export const UserManagementPage = () => {
                                                 />
                                             </TableCell>
                                             <TableCell className={classes.filterCell}>
-                                                <Select
-                                                    fullWidth
+                                                <Autocomplete
                                                     size="small"
-                                                    displayEmpty
-                                                    className={classes.filterField}
-                                                    value={filters.status}
-                                                    onChange={(e) => handleFilterChange("status", e.target.value)}
-                                                >
-                                                    <MenuItem value="">Tất cả</MenuItem>
-                                                    <MenuItem value="true">Hoạt động</MenuItem>
-                                                    <MenuItem value="false">Đã khóa</MenuItem>
-                                                </Select>
+                                                    options={[
+                                                        { label: 'Hoạt động', value: 'true' },
+                                                        { label: 'Đã khóa', value: 'false' }
+                                                    ]}
+                                                    getOptionLabel={(option) => option.label || ""}
+                                                    value={[
+                                                        { label: 'Hoạt động', value: 'true' },
+                                                        { label: 'Đã khóa', value: 'false' }
+                                                    ].find((o) => o.value === filters.status) || null}
+                                                    onChange={(_, newValue) => handleFilterChange("status", newValue?.value || "")}
+                                                    renderInput={(params) => (
+                                                        <TextField
+                                                            {...params}
+                                                            placeholder="Tất cả"
+                                                            className={classes.filterField}
+                                                        />
+                                                    )}
+                                                />
                                             </TableCell>
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
                                         {loading ? (
                                             <TableRow>
-                                                <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                                                <TableCell colSpan={columns.length + 2} align="center" sx={{ py: 4 }}>
                                                     <CircularProgress size={22} />
                                                 </TableCell>
                                             </TableRow>
                                         ) : data.length === 0 ? (
                                             <TableRow>
-                                                <TableCell colSpan={8} align="center" sx={{ py: 4, color: "#94a3b8" }}>
+                                                <TableCell colSpan={columns.length + 2} align="center" sx={{ py: 4, color: "#94a3b8" }}>
                                                     Không có dữ liệu
                                                 </TableCell>
                                             </TableRow>
@@ -542,38 +661,46 @@ export const UserManagementPage = () => {
                                                         className={checked ? classes.rowSelected : ""}
                                                     >
                                                         <TableCell padding="checkbox" className={classes.bodyCell}>
-                                                            <Checkbox
-                                                                size="small"
-                                                                checked={checked}
-                                                                onChange={() => handleSelectOne(item.id)}
-                                                            />
+                                                            {!isReadOnly && (
+                                                                <Checkbox
+                                                                    size="small"
+                                                                    checked={checked}
+                                                                    onChange={() => handleSelectOne(item.id)}
+                                                                />
+                                                            )}
                                                         </TableCell>
                                                         <TableCell className={classes.bodyCell}>
                                                             <Box sx={{ display: "flex", gap: 0.25 }}>
-                                                                <Tooltip title="Chỉnh sửa">
-                                                                    <IconButton
-                                                                        size="small"
-                                                                        className={classes.actionIcon}
-                                                                        onClick={() => router.push(`/users/${item.id}`)}
-                                                                    >
-                                                                        <EditIcon fontSize="small" />
-                                                                    </IconButton>
-                                                                </Tooltip>
-                                                                <Tooltip title="Cấp lại mật khẩu">
-                                                                    <IconButton
-                                                                        size="small"
-                                                                        className={classes.actionIcon}
-                                                                        onClick={() =>
-                                                                            setPasswordModal({
-                                                                                open: true,
-                                                                                userId: item.id,
-                                                                                userName: item.fullName || item.username
-                                                                            })
-                                                                        }
-                                                                    >
-                                                                        <KeyIcon fontSize="small" />
-                                                                    </IconButton>
-                                                                </Tooltip>
+                                                                {!isReadOnly ? (
+                                                                    <>
+                                                                        <Tooltip title="Chỉnh sửa">
+                                                                            <IconButton
+                                                                                size="small"
+                                                                                className={classes.actionIcon}
+                                                                                onClick={() => router.push(`/users/${item.id}`)}
+                                                                            >
+                                                                                <EditIcon fontSize="small" />
+                                                                            </IconButton>
+                                                                        </Tooltip>
+                                                                        <Tooltip title="Cấp lại mật khẩu">
+                                                                            <IconButton
+                                                                                size="small"
+                                                                                className={classes.actionIcon}
+                                                                                onClick={() =>
+                                                                                    setPasswordModal({
+                                                                                        open: true,
+                                                                                        userId: item.id,
+                                                                                        userName: item.fullName || item.username
+                                                                                    })
+                                                                                }
+                                                                            >
+                                                                                <KeyIcon fontSize="small" />
+                                                                            </IconButton>
+                                                                        </Tooltip>
+                                                                    </>
+                                                                ) : (
+                                                                    <Typography variant="caption" sx={{ color: '#94a3b8', fontStyle: 'italic' }}>Chỉ xem</Typography>
+                                                                )}
                                                             </Box>
                                                         </TableCell>
                                                         <TableCell className={classes.bodyCell}>{item.fullName || item.name || '--'}</TableCell>
@@ -584,7 +711,8 @@ export const UserManagementPage = () => {
                                                         <TableCell className={classes.bodyCell} align="center">
                                                             <Switch
                                                                 size="small"
-                                                                checked={item.status === false || item.status === null || item.status === undefined}
+                                                                disabled={isReadOnly}
+                                                                checked={item.status === true}
                                                                 onChange={() => handleStatusChange(item.id, item.status)}
                                                             />
                                                         </TableCell>
@@ -634,56 +762,29 @@ export const UserManagementPage = () => {
                     </Box>
                 </Box>
 
-                <BulkSelectionBar
-                    count={selectedIds.length}
-                    onDelete={handleBulkDelete}
-                    onClose={() => setSelectedIds([])}
+                {!isReadOnly && (
+                    <BulkSelectionBar
+                        count={selectedIds.length}
+                        onDelete={handleBulkDelete}
+                        onClose={() => setSelectedIds([])}
+                    />
+                )}
+
+                <ConfirmDialog
+                    open={confirmDeleteOpen}
+                    title="Xác nhận xóa"
+                    message={`Bạn có chắc chắn muốn xóa vĩnh viễn ${selectedIds.length} người dùng đã chọn? Thao tác này không thể hoàn tác.`}
+                    onCancel={() => setConfirmDeleteOpen(false)}
+                    onConfirm={performBulkDelete}
+                    confirmText="Xóa"
                 />
 
-                <Dialog
+                <UserPasswordDialog
                     open={passwordModal.open}
                     onClose={() => setPasswordModal({ ...passwordModal, open: false })}
-                    maxWidth="xs"
-                    fullWidth
-                    sx={{ '& .MuiDialog-paper': { borderRadius: '10px' } }}
-                >
-                    <DialogTitle sx={{ bgcolor: '#2f65f0', color: 'white', textAlign: 'center', fontWeight: 700, py: 1.5 }}>
-                        Xác nhận
-                    </DialogTitle>
-                    <DialogContent sx={{ pt: '24px !important', pb: 1 }}>
-                        <Typography sx={{ mb: 2, color: '#333', fontSize: '0.95rem' }}>
-                            Khởi tạo mật khẩu cho tài khoản <strong>{passwordModal.userName}</strong>
-                        </Typography>
-                        <TextField
-                            fullWidth
-                            size="small"
-                            placeholder="Nhập mật khẩu mới mong muốn"
-                            type="text"
-                            variant="outlined"
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                            autoFocus
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' } }}
-                        />
-                    </DialogContent>
-                    <DialogActions sx={{ px: 3, pb: 2.5, pt: 1 }}>
-                        <Button
-                            onClick={() => setPasswordModal({ ...passwordModal, open: false })}
-                            sx={{ color: '#2f65f0', textTransform: 'none', fontWeight: 600 }}
-                        >
-                            Huỷ bỏ
-                        </Button>
-                        <Button
-                            onClick={handleChangePassword}
-                            variant="contained"
-                            disableElevation
-                            startIcon={<SaveIcon fontSize="small" />}
-                            sx={{ textTransform: 'none', bgcolor: '#2f65f0', fontWeight: 600, borderRadius: '6px' }}
-                        >
-                            Lưu
-                        </Button>
-                    </DialogActions>
-                </Dialog>
+                    userId={passwordModal.userId}
+                    userName={passwordModal.userName}
+                />
 
                 {/* Import Excel Preview Dialog */}
                 <Dialog
@@ -699,11 +800,12 @@ export const UserManagementPage = () => {
                             <CloseIcon fontSize="small" />
                         </IconButton>
                     </DialogTitle>
+
                     <DialogContent sx={{ pt: '20px !important', pb: 2 }}>
                         <Box sx={{ mb: 2, p: 1.5, bgcolor: '#f8fafc', borderRadius: '6px', borderLeft: '4px solid #3b82f6' }}>
                             <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
-                                Vui lòng kiểm tra kỹ danh sách tài khoản trước khi nhập vào cơ sở dữ liệu. 
-                                Click nút <strong>Sửa</strong> (hoặc nhấn biểu tượng cây bút) để cập nhật thông tin inline, click <strong>Xóa</strong> để loại bỏ dòng. 
+                                Vui lòng kiểm tra kỹ danh sách tài khoản trước khi nhập vào cơ sở dữ liệu.
+                                Click nút <strong>Sửa</strong> (hoặc nhấn biểu tượng cây bút) để cập nhật thông tin inline, click <strong>Xóa</strong> để loại bỏ dòng.
                                 Các trường lỗi sẽ được đánh dấu cảnh báo màu đỏ.
                             </Typography>
                         </Box>
@@ -831,6 +933,252 @@ export const UserManagementPage = () => {
                                                             fullWidth
                                                             variant="outlined"
                                                             sx={{ '& .MuiOutlinedInput-root': { borderRadius: '4px' } }}
+                                                        />
+                                                    ) : (
+                                                        <Box>
+                                                            <Typography variant="body2">{item.password || '12345678'}</Typography>
+                                                            {errors.password && (
+                                                                <Typography variant="caption" color="error" sx={{ display: 'block', fontSize: '0.75rem' }}>
+                                                                    {errors.password}
+                                                                </Typography>
+                                                            )}
+                                                        </Box>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell align="center">
+                                                    {isEditing ? (
+                                                        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                                                            <Tooltip title="Lưu">
+                                                                <IconButton
+                                                                    size="small"
+                                                                    color="success"
+                                                                    onClick={() => handleSaveEditImport(index)}
+                                                                >
+                                                                    <SaveIcon fontSize="small" />
+                                                                </IconButton>
+                                                            </Tooltip>
+                                                            <Tooltip title="Hủy">
+                                                                <IconButton
+                                                                    size="small"
+                                                                    color="warning"
+                                                                    onClick={handleCancelEditImport}
+                                                                >
+                                                                    <CloseIcon fontSize="small" />
+                                                                </IconButton>
+                                                            </Tooltip>
+                                                        </Box>
+                                                    ) : (
+                                                        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                                                            <Tooltip title="Sửa">
+                                                                <IconButton
+                                                                    size="small"
+                                                                    color="primary"
+                                                                    onClick={() => handleStartEditImport(index, item)}
+                                                                >
+                                                                    <EditIcon fontSize="small" />
+                                                                </IconButton>
+                                                            </Tooltip>
+                                                            <Tooltip title="Xóa">
+                                                                <IconButton
+                                                                    size="small"
+                                                                    color="error"
+                                                                    onClick={() => handleDeleteImportRow(index)}
+                                                                >
+                                                                    <DeleteIcon fontSize="small" />
+                                                                </IconButton>
+                                                            </Tooltip>
+                                                        </Box>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    </DialogContent>
+                    <DialogActions sx={{ px: 3, pb: 2.5, pt: 1.5, borderTop: '1px solid #e2e8f0' }}>
+                        <Button
+                            onClick={handleCancelImport}
+                            sx={{ color: '#64748b', textTransform: 'none', fontWeight: 600 }}
+                            disabled={loading}
+                        >
+                            Hủy bỏ
+                        </Button>
+                        <Button
+                            onClick={handleConfirmImport}
+                            variant="contained"
+                            disableElevation
+                            disabled={loading || importUsers.length === 0 || importUsers.some(item => Object.keys(validateRow(item)).length > 0)}
+                            startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <UploadIcon fontSize="small" />}
+                            sx={{ textTransform: 'none', bgcolor: '#2f65f0', fontWeight: 600, borderRadius: '6px' }}
+                        >
+                            Xác nhận nhập ({importUsers.length})
+                        </Button>
+                    </DialogActions>
+                </Dialog>
+
+                {/* Import Excel Preview Dialog */}
+                <Dialog
+                    open={isPreviewOpen}
+                    onClose={handleCancelImport}
+                    maxWidth="md"
+                    fullWidth
+                    sx={{ '& .MuiDialog-paper': { borderRadius: '10px' } }}
+                >
+                    <DialogTitle sx={{ bgcolor: '#2f65f0', color: 'white', fontWeight: 700, py: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography sx={{ fontWeight: 700, fontSize: '1.1rem' }}>Xác nhận danh sách người dùng nhập từ file</Typography>
+                        <IconButton size="small" onClick={handleCancelImport} sx={{ color: 'white' }}>
+                            <CloseIcon fontSize="small" />
+                        </IconButton>
+                    </DialogTitle>
+                    <DialogContent sx={{ pt: '20px !important', pb: 2 }}>
+                        <Box sx={{ mb: 2, p: 1.5, bgcolor: '#f8fafc', borderRadius: '6px', borderLeft: '4px solid #3b82f6' }}>
+                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
+                                Vui lòng kiểm tra kỹ danh sách tài khoản trước khi nhập vào cơ sở dữ liệu. 
+                                Click nút <strong>Sửa</strong> (hoặc nhấn biểu tượng cây bút) để cập nhật thông tin inline, click <strong>Xóa</strong> để loại bỏ dòng. 
+                                Các trường lỗi sẽ được đánh dấu cảnh báo màu đỏ.
+                            </Typography>
+                        </Box>
+                        <TableContainer sx={{ maxHeight: 380, border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+                            <Table size="small" stickyHeader>
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }} width={60}>STT</TableCell>
+                                        <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Họ và tên</TableCell>
+                                        <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Tên đăng nhập *</TableCell>
+                                        <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Email</TableCell>
+                                        <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Vai trò *</TableCell>
+                                        <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Mật khẩu</TableCell>
+                                        <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }} align="center" width={110}>Thao tác</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {importUsers.map((item, index) => {
+                                        const errors = validateRow(item);
+                                        const hasError = Object.keys(errors).length > 0;
+                                        const isEditing = editingImportIndex === index;
+
+                                        return (
+                                            <TableRow key={index} sx={{ bgcolor: hasError ? '#fff5f5' : 'inherit', '&:hover': { bgcolor: hasError ? '#fee2e2' : '#f8fafc' } }}>
+                                                <TableCell>{index + 1}</TableCell>
+                                                <TableCell>
+                                                    {isEditing ? (
+                                                        <TextField
+                                                            size="small"
+                                                            value={editImportForm.fullName}
+                                                            onChange={(e) => handleEditImportChange('fullName', e.target.value)}
+                                                            fullWidth
+                                                            variant="outlined"
+                                                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '4px' } }}
+                                                        />
+                                                    ) : (
+                                                        item.fullName || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>--</span>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {isEditing ? (
+                                                        <TextField
+                                                            size="small"
+                                                            value={editImportForm.username}
+                                                            error={!!editImportErrors.username}
+                                                            helperText={editImportErrors.username}
+                                                            onChange={(e) => handleEditImportChange('username', e.target.value)}
+                                                            fullWidth
+                                                            required
+                                                            variant="outlined"
+                                                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '4px' } }}
+                                                        />
+                                                    ) : (
+                                                        <Box>
+                                                            <Typography variant="body2" sx={{ fontWeight: 500, color: !item.username ? '#ef4444' : 'inherit' }}>
+                                                                {item.username || 'Trống'}
+                                                            </Typography>
+                                                            {errors.username && (
+                                                                <Typography variant="caption" color="error" sx={{ display: 'block', fontSize: '0.75rem' }}>
+                                                                    {errors.username}
+                                                                </Typography>
+                                                            )}
+                                                        </Box>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {isEditing ? (
+                                                        <TextField
+                                                            size="small"
+                                                            value={editImportForm.email}
+                                                            error={!!editImportErrors.email}
+                                                            helperText={editImportErrors.email}
+                                                            onChange={(e) => handleEditImportChange('email', e.target.value)}
+                                                            fullWidth
+                                                            variant="outlined"
+                                                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '4px' } }}
+                                                        />
+                                                    ) : (
+                                                        <Box>
+                                                            <Typography variant="body2">{item.email || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>--</span>}</Typography>
+                                                            {errors.email && (
+                                                                <Typography variant="caption" color="error" sx={{ display: 'block', fontSize: '0.75rem' }}>
+                                                                    {errors.email}
+                                                                </Typography>
+                                                            )}
+                                                        </Box>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {isEditing ? (
+                                                        <Select
+                                                            size="small"
+                                                            fullWidth
+                                                            value={editImportForm.realRole || ''}
+                                                            onChange={(e) => handleEditImportChange('realRole', e.target.value)}
+                                                            variant="outlined"
+                                                            sx={{ borderRadius: '4px' }}
+                                                        >
+                                                            {roles.map((r) => (
+                                                                <MenuItem key={r.id} value={r.name}>{r.name}</MenuItem>
+                                                            ))}
+                                                        </Select>
+                                                    ) : (
+                                                        <Box>
+                                                            <Typography variant="body2" sx={{ fontWeight: 500, color: !item.realRole ? '#ef4444' : 'inherit' }}>
+                                                                {item.realRole || 'Trống'}
+                                                            </Typography>
+                                                            {errors.realRole && (
+                                                                <Typography variant="caption" color="error" sx={{ display: 'block', fontSize: '0.75rem' }}>
+                                                                    {errors.realRole}
+                                                                </Typography>
+                                                            )}
+                                                        </Box>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {isEditing ? (
+                                                        <TextField
+                                                            size="small"
+                                                            value={editImportForm.password}
+                                                            error={!!editImportErrors.password}
+                                                            helperText={editImportErrors.password}
+                                                            onChange={(e) => handleEditImportChange('password', e.target.value)}
+                                                            fullWidth
+                                                            variant="outlined"
+                                                            type={showImportPassword ? 'text' : 'password'}
+                                                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '4px' } }}
+                                                            slotProps={{
+                                                                input: {
+                                                                    endAdornment: (
+                                                                        <InputAdornment position="end">
+                                                                            <IconButton
+                                                                                size="small"
+                                                                                onClick={() => setShowImportPassword(!showImportPassword)}
+                                                                                edge="end"
+                                                                            >
+                                                                                {showImportPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                                                                            </IconButton>
+                                                                        </InputAdornment>
+                                                                    )
+                                                                }
+                                                            }}
                                                         />
                                                     ) : (
                                                         <Box>

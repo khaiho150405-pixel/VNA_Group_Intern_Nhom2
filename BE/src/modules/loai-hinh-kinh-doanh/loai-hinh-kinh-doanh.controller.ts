@@ -1,9 +1,10 @@
-import { Controller, Get, UseGuards } from "@nestjs/common";
-import { ApiTags } from "@nestjs/swagger";
-import { BaseController } from "src/commons";
+import { Controller, Get, UseGuards, UseInterceptors, ClassSerializerInterceptor } from "@nestjs/common";
+import { ApiTags, ApiOperation } from "@nestjs/swagger";
+import { BaseController, ResponseInterceptor } from "src/commons";
 import { AuthGuard } from "src/commons/guards/authGuard";
 import { LoaiHinhKinhDoanh } from "./loai-hinh-kinh-doanh.entity";
 import { LoaiHinhKinhDoanhService } from "./loai-hinh-kinh-doanh.service";
+import Response from "../../commons/response";
 
 @ApiTags("Loai Hinh Kinh Doanh")
 @Controller("loai-hinh-kinh-doanh")
@@ -12,6 +13,20 @@ export class LoaiHinhKinhDoanhController extends BaseController<LoaiHinhKinhDoan
   constructor(private readonly loaiHinhKinhDoanhService: LoaiHinhKinhDoanhService) {
     super(loaiHinhKinhDoanhService);
   }
+
+  @Get("dropdown/active")
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
+  @ApiOperation({ summary: "Lấy danh sách loại hình kinh doanh đang hoạt động" })
+  async getActiveDropdown() {
+    const data = await this.loaiHinhKinhDoanhService.getActiveForDropdown();
+    return Response.get(data);
+  }
+}
+
+@ApiTags("Public Loai Hinh Kinh Doanh")
+@Controller("public/loai-hinh-kinh-doanh")
+export class PublicLoaiHinhKinhDoanhController {
+  constructor(private readonly loaiHinhKinhDoanhService: LoaiHinhKinhDoanhService) {}
 
   @Get("dropdown/active")
   async getActiveDropdown() {

@@ -1,5 +1,6 @@
 import axiosClient from '@core/services/axiosClient';
 import { Doet, DoetFilters } from '@shared/tts/models';
+import { locationService } from './location.services';
 
 const DoetService = {
   getList: (filters: DoetFilters) => {
@@ -14,8 +15,20 @@ const DoetService = {
     return axiosClient.post('/doets', data);
   },
 
+  publicRegister: (data: Partial<Doet>) => {
+    return axiosClient.post('/public/doets/register', data);
+  },
+
   update: (id: number, data: Partial<Doet>) => {
     return axiosClient.put(`/doets/${id}`, data);
+  },
+
+  getMyCompany: () => {
+    return axiosClient.get('/doets/my-company');
+  },
+
+  updateMyCompany: (data: Partial<Doet>) => {
+    return axiosClient.post('/doets/my-company', data);
   },
 
   delete: (id: number) => {
@@ -31,15 +44,18 @@ const DoetService = {
   },
 
   checkEmail: (email: string, id?: number) => {
-    return axiosClient.get('/doets/check-email', { params: { email, id } });
+    if (id !== undefined) return axiosClient.get('/doets/check-email', { params: { email, id } });
+    return axiosClient.get('/public/doets/check-email', { params: { email } });
   },
 
   checkTaxCode: (taxCode: string, id?: number) => {
-    return axiosClient.get('/doets/check-tax-code', { params: { taxCode, id } });
+    if (id !== undefined) return axiosClient.get('/doets/check-tax-code', { params: { taxCode, id } });
+    return axiosClient.get('/public/doets/check-tax-code', { params: { taxCode } });
   },
 
   checkName: (name: string, id?: number) => {
-    return axiosClient.get('/doets/check-name', { params: { name, id } });
+    if (id !== undefined) return axiosClient.get('/doets/check-name', { params: { name, id } });
+    return axiosClient.get('/public/doets/check-name', { params: { name } });
   },
 
   importExcel: (file: File) => {
@@ -63,29 +79,22 @@ const DoetService = {
   },
 
   // Helpers for dropdowns
-  getLoaiHinhKinhDoanh: () => {
-    return axiosClient.get('/loai-hinh-kinh-doanh/dropdown/active');
+  getLoaiHinhKinhDoanh: (isPublic = false) => {
+    const url = isPublic ? '/public/loai-hinh-kinh-doanh/dropdown/active' : '/loai-hinh-kinh-doanh/dropdown/active';
+    return axiosClient.get(url);
   },
 
-  getBusinessLines: () => {
-    return axiosClient.get('/business-line/dropdown/active');
+  getBusinessLines: (isPublic = false) => {
+    const url = isPublic ? '/public/business-line/dropdown/active' : '/business-line/dropdown/active';
+    return axiosClient.get(url);
   },
 
-  // Address API from esgoo
-  getProvinces: async () => {
-    const res = await fetch('https://esgoo.net/api-tinhthanh-new/1/0.htm');
-    return res.json();
-  },
+  // Address API from esgoo delegated to locationService
+  getProvinces: locationService.getProvinces,
 
-  getDistricts: async (provinceId: string) => {
-    const res = await fetch(`https://esgoo.net/api-tinhthanh-new/2/${provinceId}.htm`);
-    return res.json();
-  },
+  getDistricts: locationService.getDistricts,
 
-  getWards: async (districtId: string) => {
-    const res = await fetch(`https://esgoo.net/api-tinhthanh-new/3/${districtId}.htm`);
-    return res.json();
-  }
+  getWards: locationService.getWards
 
 };
 

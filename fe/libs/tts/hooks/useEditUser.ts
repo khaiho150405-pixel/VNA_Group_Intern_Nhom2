@@ -2,26 +2,30 @@
 import { useState, useEffect, useReducer } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { accountInfoReducer, initialAccountInfoState, AccountInfoState } from "@tts/logic/account-info/reducer";
+import { userService, roleService, DoetService } from "@tts/services";
 import { validate, VALIDATION_MESSAGES } from "@core/utils/validation";
-import { userService } from "@tts/services/user.services";
-import { roleService } from "@tts/services/role.services";
 import useLocales from "@core/hooks/useLocales";
+import { useAuth } from "@core/contexts/AuthProvider";
+import { getCookie } from "@core/services/cookies";
+import { useNotification } from "@core/hooks/useNotification";
 
 export const useEditUser = () => {
     const router = useRouter();
     const params = useParams();
     const userId = params?.id as string;
     const { translate } = useLocales();
+    const { user, login } = useAuth();
+    const { success, error: notifyError } = useNotification();
 
     const [state, dispatch] = useReducer(accountInfoReducer, initialAccountInfoState);
 
     useEffect(() => {
         const fetchProvinces = async () => {
             try {
-                const res = await fetch('https://esgoo.net/api-tinhthanh/1/0.htm');
-                const data = await res.json();
-                if (data && Array.isArray(data.data)) {
-                    const mapped = data.data.map((p: any) => ({ code: String(p.id), name: p.full_name }));
+                const res: any = await DoetService.getProvinces();
+                const items = res?.data || res || [];
+                if (Array.isArray(items)) {
+                    const mapped = items.map((p: any) => ({ code: String(p.id), name: p.full_name || p.name }));
                     const sorted = mapped.sort((a: any, b: any) => a.name.localeCompare(b.name, 'vi'));
                     dispatch({ type: 'onChange', name: 'provinces', value: sorted });
                 }
@@ -34,10 +38,10 @@ export const useEditUser = () => {
         if (state.city) {
             const fetchDistricts = async () => {
                 try {
-                    const res = await fetch(`https://esgoo.net/api-tinhthanh/2/${state.city}.htm`);
-                    const data = await res.json();
-                    if (data && Array.isArray(data.data)) {
-                        const mapped = data.data.map((d: any) => ({ code: String(d.id), name: d.full_name }));
+                    const res: any = await DoetService.getDistricts(state.city);
+                    const items = res?.data || res || [];
+                    if (Array.isArray(items)) {
+                        const mapped = items.map((d: any) => ({ code: String(d.id), name: d.full_name || d.name }));
                         const sorted = mapped.sort((a: any, b: any) => a.name.localeCompare(b.name, 'vi'));
                         dispatch({ type: 'onChange', name: 'districts', value: sorted });
                     }
@@ -65,6 +69,12 @@ export const useEditUser = () => {
                 } else {
                     roleList = rolesRes?.data?.items || rolesRes?.items || [];
                 }
+                roleList = roleList.filter((r: any) => 
+                    r.role !== 'enterprise' && 
+                    r.type !== 'DN' && 
+                    r.id !== 5 && 
+                    r.name !== 'Doanh nghiệp'
+                );
 
                 const userData = userRes.data || userRes;
                 const matchedRole = roleList.find((r: any) => r.name === userData.realRole);
@@ -72,7 +82,8 @@ export const useEditUser = () => {
 
                 let genderStr = '';
                 if (userData.gender === 1) genderStr = 'Nam';
-                else if (userData.gender === 0 || userData.gender === null) genderStr = 'Nữ';
+                else if (userData.gender === 0) genderStr = 'Nữ';
+                // gender === null means not set → leave as ''
                 dispatch({
                     type: 'setInitialData',
                     data: {
@@ -86,7 +97,7 @@ export const useEditUser = () => {
                         city: userData.province?.key || '',
                         district: userData.district?.key || '',
                         address: userData.address || '',
-                        active: userData.status === false || userData.status === null || userData.status === undefined,
+                        active: userData.status === true,
                         avatarUrl: userData.avatar || '',
                         title: userData.workUnit || ''
                     }
@@ -94,7 +105,7 @@ export const useEditUser = () => {
 
             } catch (error) {
                 console.error("Lỗi khi tải dữ liệu:", error);
-                dispatch({ type: 'showToast', message: 'Không thể tải dữ liệu người dùng', toastType: 'error' });
+                notifyError('Không thể tải dữ liệu người dùng');
             } finally {
                 dispatch({ type: 'setLoading', value: false });
             }
@@ -104,26 +115,31 @@ export const useEditUser = () => {
     }, [userId]);
 
     const handleInputChange = (name: keyof AccountInfoState, value: any) => {
+        if (name === 'city' && String(value) !== String(state.city)) {
+            dispatch({ type: 'onChange', name: 'district', value: '' });
+        }
         dispatch({ type: "onChange", name, value });
     };
 
     const handleSave = async () => {
         if (!validate.required(state.displayName)) {
-            dispatch({
-                type: 'showToast',
-                message: 'Họ và tên không được để trống',
-                toastType: 'error'
-            });
+            notifyError('Họ và tên không được để trống');
             return;
         }
 
         if (state.email && !validate.email(state.email)) {
-            dispatch({
-                type: 'showToast',
-                message: 'Email không hợp lệ',
-                toastType: 'error'
-            });
+            notifyError('Email không hợp lệ');
             return;
+        }
+
+        if (state.birthday) {
+            const birthDay = new Date(state.birthday);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (birthDay >= today) {
+                notifyError('Ngày sinh phải là ngày trong quá khứ');
+                return;
+            }
         }
 
         dispatch({ type: 'setLoading', value: true });
@@ -149,22 +165,62 @@ export const useEditUser = () => {
                 address: state.address || null,
                 avatar: state.avatarUrl || null,
                 workUnit: state.title,
-                status: state.active ? false : true
+                status: state.active
             };
 
 
             const response = await userService.update(userId, payload);
 
-            if (response.success || response) {
-                dispatch({ type: 'showToast', message: 'Cập nhật thông tin thành công!', toastType: 'success' });
+            if (response && (response.success || response)) {
+                // Synchronize with AuthProvider if the edited user is the current user
+                if (user && String(user.id) === String(userId)) {
+                    const updatedUser = {
+                        ...user,
+                        fullName: state.displayName,
+                        email: state.email || user.email,
+                        gender: payload.gender,
+                        realRole: roleNameToSave,
+                        roleId: payload.roleId || (user as any).roleId,
+                        province: payload.province,
+                        district: payload.district,
+                        address: state.address,
+                        avatar: state.avatarUrl || '',
+                        workUnit: state.title,
+                        status: state.active
+                    };
+                    const token = getCookie('accessToken') || '';
+                    login(updatedUser as any, token, false);
+                }
+
+                success('Cập nhật thông tin thành công!');
 
                 // Đợi 1 giây để người dùng đọc thông báo rồi đẩy về trang danh sách
                 setTimeout(() => router.push('/users'), 1000);
             }
         } catch (error: any) {
             // Bắt lỗi từ Backend trả về
-            const errorMsg = error.response?.data?.message || error.response?.data?.errors || "Có lỗi xảy ra khi lưu dữ liệu";
-            dispatch({ type: 'showToast', message: String(errorMsg), toastType: 'error' });
+            const data = error.response?.data;
+            let errorMsg = "Có lỗi xảy ra khi lưu dữ liệu";
+            if (data) {
+                if (typeof data.errors === 'string') {
+                    errorMsg = data.errors;
+                } else if (data.errors && typeof data.errors === 'object') {
+                    if (typeof data.errors.message === 'string') {
+                        errorMsg = data.errors.message;
+                    } else if (Array.isArray(data.errors.message)) {
+                        errorMsg = data.errors.message.join(', ');
+                    } else if (typeof data.errors.error === 'string') {
+                        errorMsg = data.errors.error;
+                    } else {
+                        errorMsg = data.message || JSON.stringify(data.errors);
+                    }
+                } else {
+                    errorMsg = data.message || error.message || errorMsg;
+                }
+            } else {
+                errorMsg = error.message || errorMsg;
+            }
+            notifyError(String(errorMsg));
         } finally {
             dispatch({ type: 'setLoading', value: false });
         }

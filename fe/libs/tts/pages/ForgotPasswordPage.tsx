@@ -45,19 +45,20 @@ export const ForgotPasswordPage = () => {
 
   const getPasswordStrength = (password: string) => {
     if (!password) return { label: '', color: 'transparent', score: 0 };
-    if (password.length < 6) return { label: 'Yếu (Ít nhất 6 kí tự)', color: '#f44336', score: 1 };
-    
-    const hasLetter = /[a-zA-Z]/.test(password);
+    if (password.length < 8) return { label: 'Yếu (Yêu cầu ít nhất 8 kí tự)', color: '#f44336', score: 1 };
+
+    const hasLower = /[a-z]/.test(password);
+    const hasUpper = /[A-Z]/.test(password);
     const hasNumber = /[0-9]/.test(password);
     const hasSpecial = /[^a-zA-Z0-9]/.test(password);
 
-    if (password.length >= 8 && hasLetter && hasNumber && hasSpecial) {
-      return { label: 'Mạnh', color: '#4caf50', score: 3 };
+    if (password.length >= 8 && hasLower && hasUpper && hasNumber && hasSpecial) {
+      return { label: 'Rất mạnh', color: '#4caf50', score: 3 };
     }
-    if (hasLetter && hasNumber) {
-      return { label: 'Trung bình', color: '#ff9800', score: 2 };
+    if (hasLower && hasUpper && hasNumber) {
+      return { label: 'Đạt yêu cầu', color: '#2f65f0', score: 2 };
     }
-    return { label: 'Yếu (Cần có cả chữ và số)', color: '#f44336', score: 1 };
+    return { label: 'Yếu (Cần chữ thường, chữ hoa và số)', color: '#f44336', score: 1 };
   };
 
   const strength = getPasswordStrength(newPassword);

@@ -151,7 +151,7 @@ export class BaseService<T> {
       const _entity: any = {
         ...itemDto,
         createdAt: new Date(),
-        createdBy: currentUser.id
+        createdBy: currentUser?.id || null
       };
       if (doet && doet.id && !ignoreDoet.includes(this.baseRepository.metadata.tableName)) {
         _entity.doet_id = doet.id;
@@ -256,7 +256,7 @@ export class BaseService<T> {
     }
   }
 
-  async destroy(id: string): Promise<ResponseData<DeleteResult>> {
+  async destroy(currentUser: any, id: string): Promise<ResponseData<DeleteResult>> {
     try {
       const result = await this.baseRepository.delete(id);
 

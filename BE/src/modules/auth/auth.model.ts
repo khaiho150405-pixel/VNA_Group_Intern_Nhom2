@@ -2,8 +2,9 @@ class Role {
   id?: number;
   role?: string;
   name?: string;
+  type?: string;
 
-  constructor(role?: Partial<Role>, keys: string[] = ['id', 'role', 'name']) {
+  constructor(role?: Partial<Role>, keys: string[] = ['id', 'role', 'name', 'type']) {
     role &&
       keys.forEach((key) => {
         (role as any)[key] !== undefined && ((this as any)[key] = (role as any)[key]);

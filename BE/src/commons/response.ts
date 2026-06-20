@@ -24,10 +24,10 @@ interface Code {
 export default class Response {
    static SUCCESSFULLY = {
       code: HttpStatus.OK,
-      message: 'Successfully!',
+      message: 'Cập nhật thành công',
       success: true
    };
-   static SOMETHING_WRONG = { code: 3000, message: 'Something wrong' };
+   static SOMETHING_WRONG = { code: 3000, message: 'Có lỗi xảy ra' };
    static NOT_FOUND(name: string): Code {
       return { code: 3001, message: `${name} not found` };
    }
@@ -83,5 +83,10 @@ export default class Response {
    static errorForBidden(error?: any): ERROR.ForBiddenException {
       console.error(error);
       return new ERROR.ForBiddenException(error);
+   }
+
+   static errorUnauthorized(error?: any): ERROR.UnAuthorizedException {
+      console.error(error);
+      return new ERROR.UnAuthorizedException(error);
    }
 }

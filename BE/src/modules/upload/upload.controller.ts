@@ -27,8 +27,8 @@ export class UploadController {
         },
       }),
       fileFilter: (req, file, cb) => {
-        if (!file.originalname.match(/\.(pdf)$/i)) {
-          return cb(new BadRequestException('Chỉ chấp nhận file định dạng PDF'), false);
+        if (!file.originalname.match(/\.(pdf|jpg|jpeg|png)$/i)) {
+          return cb(new BadRequestException('Chỉ chấp nhận file định dạng PDF, JPG, JPEG, PNG'), false);
         }
         cb(null, true);
       },

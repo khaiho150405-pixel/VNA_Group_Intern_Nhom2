@@ -43,27 +43,56 @@ import {
   BusinessLine,
 } from "@shared/tts/models";
 import { useEnterpriseListStyles } from "../logic/enterprise/style";
+import { ConfirmDialog } from "@core/components/ConfirmDialog";
+import { useAuth } from "@core/contexts/AuthProvider";
+import { normalizeListResponse } from "@core/utils/helper";
 
 interface WardOption {
   key: string;
   value: string;
 }
 
-const normalizeListResponse = (raw: any): any[] => {
-  if (!raw) return [];
-  if (Array.isArray(raw)) return raw;
-  if (Array.isArray(raw.data)) return raw.data;
-  if (Array.isArray(raw.data?.items)) return raw.data.items;
-  if (Array.isArray(raw.data?.data)) return raw.data.data;
-  if (Array.isArray(raw.items)) return raw.items;
-  return [];
-};
-
 export const EnterpriseListPage = () => {
   const classes = useEnterpriseListStyles();
   const router = useRouter();
   const { enqueueSnackbar } = useSnackbar();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const { user } = useAuth();
+
+  const isReadOnly = useMemo(() => {
+    if (!user) return true;
+    
+    const roleId = (user as any)?.roleId || (user as any)?.role?.id;
+    const realRole = ((user as any)?.realRole || '').toLowerCase();
+    const roleName = ((user as any)?.role?.name || '').toLowerCase();
+    
+    // Admin/Lãnh đạo - full quyền (không read-only)
+    const isAdminOrLeader = 
+        roleId === 4 ||
+        realRole.includes('quản trị') ||
+        realRole.includes('admin') ||
+        realRole.includes('lãnh đạo') ||
+        realRole.includes('leader') ||
+        roleName.includes('quản trị') ||
+        roleName.includes('admin') ||
+        roleName.includes('lãnh đạo') ||
+        roleName.includes('leader');
+    
+    if (isAdminOrLeader) return false;
+    
+    // Chuyên viên - có quyền thêm/sửa (không read-only)
+    const isExpert = 
+        roleId === 2 ||
+        realRole.includes('chuyên viên') ||
+        realRole.includes('expert') ||
+        roleName.includes('chuyên viên') ||
+        roleName.includes('expert');
+    
+    if (isExpert) return false;
+    
+    // Nhân viên hoặc không xác định - chỉ xem (read-only)
+    return true;
+  }, [user]);
 
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<Doet[]>([]);
@@ -80,6 +109,7 @@ export const EnterpriseListPage = () => {
   const [businessLines, setBusinessLines] = useState<BusinessLine[]>([]);
   const [wards, setWards] = useState<WardOption[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const [resetModal, setResetModal] = useState<{
     open: boolean;
@@ -152,8 +182,17 @@ export const EnterpriseListPage = () => {
 
   const handleStatusChange = async (id: number, currentStatus: string) => {
     try {
+      // Guard: Chỉ Admin/Lãnh đạo được đổi trạng thái
+      const realRole = ((user as any)?.realRole || '').toLowerCase();
+      const roleId = (user as any)?.roleId || (user as any)?.role?.id;
+      const isAdminOrLeader = realRole.includes('quản trị') || realRole.includes('admin') || 
+                              realRole.includes('lãnh đạo') || realRole.includes('leader') || roleId === 4;
+      if (!isAdminOrLeader) {
+        enqueueSnackbar("Chỉ Admin hoặc Lãnh đạo mới được phép thay đổi trạng thái", { variant: "error" });
+        return;
+      }
       const newStatus = currentStatus === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-      
+
       // Optimistic update
       setData((prev) =>
         prev.map((item) =>
@@ -164,19 +203,30 @@ export const EnterpriseListPage = () => {
       await DoetService.update(id, { status: newStatus as any });
       enqueueSnackbar("Cập nhật trạng thái thành công", { variant: "success" });
     } catch (error) {
-      enqueueSnackbar("Lỗi khi cập nhật trạng thái", { variant: "error" });
+      enqueueSnackbar("Chuyên viên không được phép thay đổi trạng thái doanh nghiệp", { variant: "error" });
       fetchData();
     }
   };
 
   const handleBulkDelete = async () => {
     try {
+      // Guard: Chỉ Admin/Lãnh đạo được xóa
+      const realRole = ((user as any)?.realRole || '').toLowerCase();
+      const roleId = (user as any)?.roleId || (user as any)?.role?.id;
+      const isAdminOrLeader = realRole.includes('quản trị') || realRole.includes('admin') || 
+                              realRole.includes('lãnh đạo') || realRole.includes('leader') || roleId === 4;
+      if (!isAdminOrLeader) {
+        enqueueSnackbar("Chỉ Admin hoặc Lãnh đạo mới được phép xóa doanh nghiệp", { variant: "error" });
+        setConfirmDeleteOpen(false);
+        return;
+      }
       await DoetService.deleteMany(selectedIds);
       enqueueSnackbar("Xoá thành công", { variant: "success" });
       setSelectedIds([]);
+      setConfirmDeleteOpen(false);
       fetchData();
     } catch (error) {
-      enqueueSnackbar("Lỗi khi xoá dữ liệu", { variant: "error" });
+      enqueueSnackbar("Chuyên viên không được phép xóa doanh nghiệp", { variant: "error" });
     }
   };
 
@@ -224,6 +274,16 @@ export const EnterpriseListPage = () => {
   const isIndeterminate =
     selectedIds.length > 0 && selectedIds.length < data.length;
 
+  // Cấu hình các cột của bảng để dễ dàng chỉnh sửa độ rộng và thuộc tính
+  const columns = [
+    { id: 'name', label: 'Tên doanh nghiệp', width: '20%', minWidth: 150 },
+    { id: 'taxCode', label: 'Mã số thuế', width: '12%', minWidth: 120 },
+    { id: 'loaiHinh', label: 'Loại hình kinh doanh', width: '10%', minWidth: 120 },
+    { id: 'businessLine', label: 'Ngành nghề kinh doanh', width: '20%', minWidth: 180 },
+    { id: 'ward', label: 'Phường/ xã', width: '12%', minWidth: 120 },
+    { id: 'status', label: 'Trạng thái', width: '10%', minWidth: 100, align: 'center' as const },
+  ];
+
   return (
     <MainLayout>
       <Box className={classes.root}>
@@ -239,22 +299,26 @@ export const EnterpriseListPage = () => {
             Danh sách doanh nghiệp
           </Typography>
           <Box className={classes.actions}>
-            <Button
-              className={classes.importBtn}
-              startIcon={<UploadIcon fontSize="small" />}
-              disableRipple
-              onClick={() => fileInputRef.current?.click()}
-            >
-              Thêm từ file
-            </Button>
-            <Button
-              variant="contained"
-              className={classes.addBtn}
-              startIcon={<AddIcon fontSize="small" />}
-              onClick={() => router.push("/doets/create")}
-            >
-              Thêm mới
-            </Button>
+            {!isReadOnly && (
+              <>
+                <Button
+                  className={classes.importBtn}
+                  startIcon={<UploadIcon fontSize="small" />}
+                  disableRipple
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  Thêm từ file
+                </Button>
+                <Button
+                  variant="contained"
+                  className={classes.addBtn}
+                  startIcon={<AddIcon fontSize="small" />}
+                  onClick={() => router.push("/doets/create")}
+                >
+                  Thêm mới
+                </Button>
+              </>
+            )}
           </Box>
         </Box>
 
@@ -265,21 +329,27 @@ export const EnterpriseListPage = () => {
                 <Table size="small" stickyHeader>
                   <TableHead>
                     <TableRow>
-                      <TableCell padding="checkbox" className={classes.headerCell}>
-                        <Checkbox
-                          size="small"
-                          indeterminate={isIndeterminate}
-                          checked={isAllSelected}
-                          onChange={handleSelectAll}
-                        />
+                      <TableCell padding="checkbox" className={classes.headerCell} width={50}>
+                        {!isReadOnly && (
+                          <Checkbox
+                            size="small"
+                            indeterminate={isIndeterminate}
+                            checked={isAllSelected}
+                            onChange={handleSelectAll}
+                          />
+                        )}
                       </TableCell>
-                      <TableCell className={classes.headerCell}>Thao tác</TableCell>
-                      <TableCell className={classes.headerCell}>Tên doanh nghiệp</TableCell>
-                      <TableCell className={classes.headerCell}>Mã số thuế</TableCell>
-                      <TableCell className={classes.headerCell}>Loại hình kinh doanh</TableCell>
-                      <TableCell className={classes.headerCell}>Ngành nghề kinh doanh</TableCell>
-                      <TableCell className={classes.headerCell}>Phường/ xã</TableCell>
-                      <TableCell className={classes.headerCell} align="center">Trạng thái</TableCell>
+                      <TableCell className={classes.headerCell} width={100}>Thao tác</TableCell>
+                      {columns.map((col) => (
+                        <TableCell
+                          key={col.id}
+                          className={classes.headerCell}
+                          align={col.align}
+                          sx={{ width: col.width, minWidth: col.minWidth }}
+                        >
+                          {col.label}
+                        </TableCell>
+                      ))}
                     </TableRow>
                     <TableRow>
                       <TableCell className={classes.filterCell} />
@@ -288,6 +358,7 @@ export const EnterpriseListPage = () => {
                         <TextField
                           fullWidth
                           size="small"
+                          placeholder="Tìm kiếm..."
                           className={classes.filterField}
                           value={filters.name || ""}
                           onChange={(e) => handleFilterChange("name", e.target.value)}
@@ -297,6 +368,7 @@ export const EnterpriseListPage = () => {
                         <TextField
                           fullWidth
                           size="small"
+                          placeholder="Tìm kiếm..."
                           className={classes.filterField}
                           value={filters.taxCode || ""}
                           onChange={(e) => handleFilterChange("taxCode", e.target.value)}
@@ -308,7 +380,7 @@ export const EnterpriseListPage = () => {
                           options={Array.isArray(loaiHinhs) ? loaiHinhs : []}
                           getOptionLabel={(option) => option.tenloaihinh || ""}
                           value={loaiHinhs.find(lh => lh.id === filters.loaiHinhId) || null}
-                          onChange={(_, newValue) => 
+                          onChange={(_, newValue) =>
                             handleFilterChange("loaiHinhId", newValue?.id)
                           }
                           renderInput={(params) => (
@@ -322,7 +394,7 @@ export const EnterpriseListPage = () => {
                           options={Array.isArray(businessLines) ? businessLines : []}
                           getOptionLabel={(option) => option ? `${option.manganh} - ${option.tennganh}` : ""}
                           value={businessLines.find(bl => bl.id === filters.businessLineId) || null}
-                          onChange={(_, newValue) => 
+                          onChange={(_, newValue) =>
                             handleFilterChange("businessLineId", newValue?.id)
                           }
                           renderInput={(params) => (
@@ -364,7 +436,7 @@ export const EnterpriseListPage = () => {
                             { label: "Hoạt động", value: "ACTIVE" },
                             { label: "Ngưng hoạt động", value: "INACTIVE" }
                           ].find(s => s.value === filters.status) || null}
-                          onChange={(_, newValue) => 
+                          onChange={(_, newValue) =>
                             handleFilterChange("status", newValue?.value)
                           }
                           renderInput={(params) => (
@@ -377,13 +449,13 @@ export const EnterpriseListPage = () => {
                   <TableBody>
                     {loading ? (
                       <TableRow>
-                        <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                        <TableCell colSpan={columns.length + 2} align="center" sx={{ py: 4 }}>
                           <CircularProgress size={22} />
                         </TableCell>
                       </TableRow>
                     ) : data.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} align="center" sx={{ py: 4, color: "#94a3b8" }}>
+                        <TableCell colSpan={columns.length + 2} align="center" sx={{ py: 4, color: "#94a3b8" }}>
                           Không có dữ liệu
                         </TableCell>
                       </TableRow>
@@ -397,11 +469,13 @@ export const EnterpriseListPage = () => {
                             className={checked ? classes.rowSelected : ""}
                           >
                             <TableCell padding="checkbox" className={classes.bodyCell}>
-                              <Checkbox
-                                size="small"
-                                checked={checked}
-                                onChange={() => handleSelectOne(item.id!)}
-                              />
+                              {!isReadOnly && (
+                                <Checkbox
+                                  size="small"
+                                  checked={checked}
+                                  onChange={() => handleSelectOne(item.id!)}
+                                />
+                              )}
                             </TableCell>
                             <TableCell className={classes.bodyCell}>
                               <Box sx={{ display: "flex", gap: 0.25 }}>
@@ -414,30 +488,36 @@ export const EnterpriseListPage = () => {
                                     <ViewIcon fontSize="small" />
                                   </IconButton>
                                 </Tooltip>
-                                <Tooltip title="Chỉnh sửa">
-                                  <IconButton
-                                    size="small"
-                                    className={classes.actionIcon}
-                                    onClick={() => router.push(`/doets/edit/${item.id}`)}
-                                  >
-                                    <EditIcon fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
-                                <Tooltip title="Cấp lại mật khẩu">
-                                  <IconButton
-                                    size="small"
-                                    className={classes.actionIcon}
-                                    onClick={() =>
-                                      setResetModal({
-                                        open: true,
-                                        id: item.id!,
-                                        name: item.taxCode || item.name,
-                                      })
-                                    }
-                                  >
-                                    <KeyIcon fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
+                                {!isReadOnly ? (
+                                  <>
+                                    <Tooltip title="Chỉnh sửa">
+                                      <IconButton
+                                        size="small"
+                                        className={classes.actionIcon}
+                                        onClick={() => router.push(`/doets/edit/${item.id}`)}
+                                      >
+                                        <EditIcon fontSize="small" />
+                                      </IconButton>
+                                    </Tooltip>
+                                    <Tooltip title="Cấp lại mật khẩu">
+                                      <IconButton
+                                        size="small"
+                                        className={classes.actionIcon}
+                                        onClick={() =>
+                                          setResetModal({
+                                            open: true,
+                                            id: item.id!,
+                                            name: item.taxCode || item.name,
+                                          })
+                                        }
+                                      >
+                                        <KeyIcon fontSize="small" />
+                                      </IconButton>
+                                    </Tooltip>
+                                  </>
+                                ) : (
+                                  <Typography variant="caption" sx={{ color: '#94a3b8', fontStyle: 'italic', ml: 1 }}>Chỉ xem</Typography>
+                                )}
                               </Box>
                             </TableCell>
                             <TableCell className={classes.bodyCell}>{item.name}</TableCell>
@@ -454,6 +534,7 @@ export const EnterpriseListPage = () => {
                             <TableCell className={classes.bodyCell} align="center">
                               <Switch
                                 size="small"
+                                disabled={isReadOnly}
                                 checked={item.status === "ACTIVE"}
                                 onChange={() => handleStatusChange(item.id!, item.status)}
                               />
@@ -494,11 +575,21 @@ export const EnterpriseListPage = () => {
           </Box>
         </Box>
 
-        <BulkSelectionBar
-          count={selectedIds.length}
-          onDelete={handleBulkDelete}
-          onClose={() => setSelectedIds([])}
+        <ConfirmDialog
+          open={confirmDeleteOpen}
+          title="Xác nhận xóa"
+          message={`Bạn có chắc chắn muốn xóa vĩnh viễn ${selectedIds.length} doanh nghiệp đã chọn? Hành động này không thể hoàn tác.`}
+          onConfirm={handleBulkDelete}
+          onCancel={() => setConfirmDeleteOpen(false)}
+          confirmText="Xóa"
         />
+        {!isReadOnly && (
+          <BulkSelectionBar
+            count={selectedIds.length}
+            onDelete={() => setConfirmDeleteOpen(true)}
+            onClose={() => setSelectedIds([])}
+          />
+        )}
 
         <ResetPasswordModal
           open={resetModal.open}

@@ -39,7 +39,11 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
       if (!user) {
         throw new NotFoundException('Account not found');
       }
-      if (user.status === true) {
+      if (user && (user.role?.id === 4 || user.role?.role === 'superAdmin' || user.roleId === 4) && user.username !== 'testuser') {
+        throw Response.errorBad("Tài khoản của bạn đang có quyền Admin. Hệ thống chỉ cho phép duy nhất tài khoản testuser có quyền Admin, vui lòng yêu cầu thay đổi vai trò của tài khoản này.");
+      }
+      // Logical status: true = Active, false = Locked
+      if (user.status === false) {
         throw new NotAcceptableException({ message: 'Account is locked' });
       }
       const isMatch = await argon.verify(user.password, password);

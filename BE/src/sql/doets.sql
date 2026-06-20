@@ -1,14 +1,9 @@
--- insert into doets (id, name, "parentId", address, quarter, ward, district, province, domain)
--- values (1, 'Sở Thương binh và Lao động TPHCM', null, '1234/1', 'tổ 9', '{"key": 7, "value": "Trung an"}', '{"key": 1, "value": "Củ chi"}', '{"key": 2, "value": "TPHCM"}', 'admin-dev.rcp.com.vn');
+INSERT INTO doets (id, name, "parentId", address, quarter, ward, district, province, domain, tax_code, email)
+VALUES (1, 'Công ty TNHH Giải pháp Phần mềm VNA', null, '123 Cách Mạng Tháng 8', 'Quận 3', '{"key": 1, "value": "Phường 5"}', '{"key": 1, "value": "Quận 3"}', '{"key": 2, "value": "TPHCM"}', 'vna.rcp.com.vn', '0101234567', 'contact@vna.com.vn')
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, domain = EXCLUDED.domain, tax_code = EXCLUDED.tax_code, email = EXCLUDED.email;
 
--- insert into doets (name, "parentId", address, quarter, ward, district, province  )
--- values ('Phòng Thương binh và Lao động Quận 1', 1, '1234/1', 'tổ 9', '{"key": 8, "value": "Phường 1"}', '{"key": 4, "value": "Quận 1"}', '{"key": 2, "value": "TPHCM"}');
+INSERT INTO doets (id, name, "parentId", address, quarter, ward, district, province, domain, tax_code, email)
+VALUES (2, 'Tổng Công ty Tân Cảng Sài Gòn', null, '722 Điện Biên Phủ', 'Bình Thạnh', '{"key": 2, "value": "Phường 22"}', '{"key": 2, "value": "Bình Thạnh"}', '{"key": 2, "value": "TPHCM"}', 'tancang.rcp.com.vn', '0107654321', 'info@saigonnewport.com.vn')
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, domain = EXCLUDED.domain, tax_code = EXCLUDED.tax_code, email = EXCLUDED.email;
 
--- insert into doets (name, "parentId", address, quarter, ward, district, province  )
--- values ('Phòng Thương binh và Lao động Quận 2', 1, '1234/1', 'tổ 9', '{"key": 9, "value": "Phường 2"}', '{"key": 5, "value": "Quận 2"}', '{"key": 2, "value": "TPHCM"}');
-
--- insert into doets (name, "parentId", address, quarter, ward, district, province  )
--- values ('Phòng Thương binh và Lao động Quận 3', 1, '1234/1', 'tổ 9', '{"key": 10, "value": "Phường 3"}',  '{"key": 6, "value": "Quận 3"}', '{"key": 2, "value": "TPHCM"}');
-
--- insert into doets (name, "parentId", address, quarter, ward, district, province  )
--- values ('Phòng Thương binh và Lao động Quận 4', 1, '1234/1', 'tổ 9', '{"key": 11, "value": "Phường 4"}', '{"key": 7, "value": "Quận 4"}', '{"key": 2, "value": "TPHCM"}' );
+SELECT setval('doets_id_seq', (SELECT MAX(id) FROM doets));

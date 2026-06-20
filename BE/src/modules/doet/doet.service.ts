@@ -24,6 +24,152 @@ export class DoetService extends BaseService<Doet> {
     this.manager = getManager();
   }
 
+  // Lấy cấp độ quyền của người dùng hiện tại
+  // 0 = VIEW (Nhân viên - chỉ xem)
+  // 1 = WRITE (Chuyên viên - thêm, sửa, không xóa/status)
+  // 2 = FULL (Admin/Lãnh đạo - đầy đủ quyền)
+  private getPermissionLevel(currentUser: any): number {
+    if (!currentUser) return 0;
+    
+    const roleType = currentUser.role?.type;
+    const roleId = currentUser.role?.id;
+    const realRole = (currentUser.realRole || '').toLowerCase();
+    const roleName = (currentUser.role?.name || '').toLowerCase();
+    
+    // Doanh nghiệp - không quản lý doanh nghiệp
+    if (roleType === 'DN') return 0;
+    
+    // Nhóm Sở - phân quyền chi tiết
+    if (roleType === 'SO') {
+      // Admin/Lãnh đạo có quyền đầy đủ
+      const isAdminOrLeader = roleName.includes('admin') || roleName.includes('quản trị') || 
+                              roleName.includes('lãnh đạo') || roleName.includes('leader') ||
+                              realRole.includes('quản trị') || realRole.includes('admin') ||
+                              realRole.includes('lãnh đạo') || realRole.includes('leader') ||
+                              roleId === 4 || roleId === 3;
+      if (isAdminOrLeader) return 2;
+      
+      // Chuyên viên có quyền thêm/sửa, không được xóa/cập nhật trạng thái
+      const isExpert = realRole.includes('chuyên viên') || realRole.includes('expert') || roleId === 2;
+      if (isExpert) return 1;
+      
+      // Nhân viên chỉ có quyền xem
+      const isEmployee = realRole.includes('nhân viên') || realRole.includes('employee') || roleId === 1;
+      if (isEmployee) return 0;
+    }
+    
+    return 0;
+  }
+
+  // Kiểm tra quyền ghi (thêm, sửa) - Chuyên viên trở lên
+  private checkWritePermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser?.role?.type === 'DN' && currentUser.isUpdatingSelf) return;
+    const level = this.getPermissionLevel(currentUser);
+    if (level < 1) {
+      throw Response.errorForBidden("Tài khoản của bạn chỉ có quyền xem, không được thực hiện thao tác này.");
+    }
+  }
+
+  // Kiểm tra quyền đầy đủ (xóa, cập nhật trạng thái) - Admin/Lãnh đạo
+  private checkFullPermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    const level = this.getPermissionLevel(currentUser);
+    if (level < 2) {
+      throw Response.errorForBidden("Bạn không có quyền thực hiện thao tác này. Chỉ Admin hoặc Lãnh đạo mới được phép xóa hoặc cập nhật trạng thái.");
+    }
+  }
+
+  private checkPermission(currentUser: any) {
+    this.checkWritePermission(currentUser);
+  }
+
+  async post(currentUser: any, itemDto: any, doet: any): Promise<any> {
+    // Kiem tra quyen cap nhat trang thai - chi Admin/Lanh dao duoc phep khi set trang thai khac ACTIVE
+    if (itemDto && Object.prototype.hasOwnProperty.call(itemDto, "status") && itemDto.status !== "ACTIVE") {
+      this.checkFullPermission(currentUser);
+    }
+    this.checkWritePermission(currentUser);
+    const data = this.normalizeDoetPayload(itemDto);
+    const result = await super.post(currentUser, data, doet);
+    
+    // Automatically create user account
+    const savedDoet = result.data;
+    if (savedDoet && savedDoet.id) {
+       await this.createUserForDoet(savedDoet);
+    }
+    
+    return result;
+  }
+
+  async put(currentUser: any, id: string, itemDto: any): Promise<any> {
+    // Kiem tra quyen cap nhat trang thai - chi Admin/Lanh dao duoc phep khi thuc su thay doi trang thai
+    if (itemDto && Object.prototype.hasOwnProperty.call(itemDto, "status")) {
+      const existing = await this.doetRepository.findOne({ where: { id } });
+      if (existing && existing.status !== itemDto.status) {
+        this.checkFullPermission(currentUser);
+      }
+    }
+    this.checkWritePermission(currentUser);
+    const data = this.normalizeDoetPayload(itemDto);
+    const result = await super.put(currentUser, id, data);
+
+    // Synchronize status with associated users
+    if (Object.prototype.hasOwnProperty.call(data, 'status')) {
+      const isInactive = data.status === 'INACTIVE';
+      // In DB: user.status true = Locked, false = Active
+      await this.manager.query(`
+        UPDATE users 
+        SET status = $1 
+        WHERE doet_id = $2
+      `, [isInactive, id]);
+    }
+
+    // Synchronize other fields to user details
+    await this.syncUserWithDoet(Number(id));
+
+    return result;
+  }
+
+  async delete(currentUser: any, id: string): Promise<any> {
+    this.checkFullPermission(currentUser);
+    // Delete associated users first
+    await this.manager.query(`DELETE FROM users WHERE doet_id = $1`, [id]);
+    return await super.delete(currentUser, id);
+  }
+
+  async destroy(currentUser: any, id: string): Promise<any> {
+    this.checkFullPermission(currentUser);
+    // Delete associated users first
+    await this.manager.query(`DELETE FROM users WHERE doet_id = $1`, [id]);
+    return await super.destroy(currentUser, id);
+  }
+
+  async destroys(currentUser: any, ids: string[], doet: any): Promise<any> {
+    this.checkFullPermission(currentUser);
+    if (ids && ids.length > 0) {
+      // Delete associated users for all specified enterprises
+      await this.manager.query(`
+        DELETE FROM users 
+        WHERE doet_id = ANY($1)
+      `, [ids]);
+    }
+    return await super.destroys(currentUser, ids, doet);
+  }
+
+  async updateMyCompany(currentUser: any, body: any) {
+    const doetId = currentUser?.doet || currentUser?.doet_id;
+    if (!currentUser || !doetId) {
+      throw Response.errorForBidden("Tài khoản không thuộc doanh nghiệp nào");
+    }
+    // Flag to allow DN to update their own profile
+    currentUser.isUpdatingSelf = true;
+    const data = this.normalizeDoetPayload(body);
+    const result = await this.put(currentUser, String(doetId), data);
+    delete currentUser.isUpdatingSelf;
+    return result;
+  }
+
   private validatePasswordStrength(password: string) {
     if (!password || password.length < 6) {
       throw Response.errorBad('Mật khẩu mới phải có ít nhất 6 kí tự');
@@ -71,11 +217,23 @@ export class DoetService extends BaseService<Doet> {
       const defaultPassword = "12345678";
       const hashedPassword = await argon.hash(defaultPassword);
 
+      // Find enterprise role dynamically from database
+      const enterpriseRole = await this.manager.query(`SELECT id, name FROM roles WHERE role = 'enterprise' LIMIT 1`);
+      const roleId = enterpriseRole?.[0]?.id || 5;
+      const realRole = enterpriseRole?.[0]?.name || 'Quản trị DN';
+
       const user = new User({
         username: username,
         password: hashedPassword,
         email: doet.email,
+        fullName: (doet as any).name,
+        dateOfBirth: (doet as any).gpkdDate ? new Date((doet as any).gpkdDate) : null,
+        province: (doet as any).province,
+        district: (doet as any).ward,
+        address: (doet as any).address,
         doet_id: doet.id,
+        roleId: roleId,
+        realRole: realRole
       } as any);
 
       await this.userRepository.save(user);
@@ -86,157 +244,82 @@ export class DoetService extends BaseService<Doet> {
     }
   }
 
-  private async deleteUsersOfDoets(doetIds: Array<number | string>) {
-    if (!doetIds || doetIds.length === 0) return;
-    const ids = doetIds.map((x) => Number(x)).filter((x) => Number.isFinite(x));
-    if (ids.length === 0) return;
+  private async syncUserWithDoet(doetId: number) {
     try {
-      await this.userRepository.delete({ doet_id: In(ids) as any });
+      const doet = await this.doetRepository.findOne({ where: { id: doetId } });
+      if (!doet) return;
+
+      const users = await this.manager.query(`SELECT id FROM users WHERE doet_id = $1`, [doetId]);
+      if (!users || users.length === 0) return;
+
+      const userId = users[0].id;
+      
+      await this.manager.query(`
+        UPDATE users
+        SET 
+          username = $1,
+          "fullName" = $2,
+          "dateOfBirth" = $3,
+          email = $4,
+          province = $5,
+          district = $6,
+          address = $7
+        WHERE id = $8
+      `, [
+        doet.taxCode,
+        doet.name,
+        doet.gpkdDate ? new Date(doet.gpkdDate) : null,
+        doet.email,
+        doet.province ? JSON.stringify(doet.province) : null,
+        doet.ward ? JSON.stringify(doet.ward) : null,
+        doet.address,
+        userId
+      ]);
     } catch (error) {
-      console.error("Lỗi khi xoá tài khoản của doanh nghiệp:", error);
+      console.error("Lỗi khi đồng bộ tài khoản doanh nghiệp:", error);
     }
   }
 
-  async post(currentUser: any, itemDto: any, doet: Doet) {
-    const result = await super.post(currentUser, this.normalizeDoetPayload(itemDto), doet);
-    const created: any = (result as any)?.data || result;
-    if (created?.id && created?.taxCode) {
-      const credentials = await this.createUserForDoet(created);
-      if (credentials && (result as any).data) {
-        (result as any).data.generatedAccount = credentials;
-      }
+  async getMyCompany(currentUser: any) {
+    const doetId = currentUser?.doet || currentUser?.doet_id;
+    if (!currentUser || !doetId) {
+      throw Response.errorForBidden("Tài khoản không thuộc doanh nghiệp nào");
     }
-    return result;
-  }
-
-  async put(currentUser: any, id: string, itemDto: any) {
-    try {
-      const normalizedData = this.normalizeDoetPayload(itemDto);
-
-      // Admin check for status field
-      if (normalizedData && normalizedData.status !== undefined) {
-        const roleName = (currentUser?.realRole || '').toUpperCase();
-        const roleCode = (currentUser?.role?.role || '').toUpperCase();
-        const isAdmin = roleName.includes('ADMIN') || roleCode.includes('ADMIN') ||
-          roleName.includes('QUẢN TRỊ') || roleName.includes('QUAN TRI');
-
-        if (!isAdmin) {
-          delete normalizedData.status;
-        }
-      }
-
-      const updateData = {
-        ...normalizedData,
-        id: Number(id),
-        updatedAt: new Date(),
-        updatedBy: currentUser?.id
-      };
-
-      // Use save() instead of super.put()'s update() to handle relations correctly
-      const saved = await this.doetRepository.save(updateData);
-
-      // Sync status to associated users (asynchronous, don't block the response)
-      if (itemDto && itemDto.status !== undefined) {
-        const isActive = (itemDto.status === true || itemDto.status === 'true' || itemDto.status === 'ACTIVE');
-        // In the users table:
-        // - status = false/null means active (can login)
-        // - status = true means locked (cannot login)
-        // So if the enterprise is active (isActive = true), the user's status must be false (active).
-        // If the enterprise is inactive (isActive = false), the user's status must be true (locked).
-        const nextUserStatus = !isActive;
-        this.userRepository.update(
-          { doet_id: Number(id) as any },
-          { status: nextUserStatus }
-        ).catch(err => {
-          console.error(`Lỗi khi đồng bộ trạng thái sang tài khoản người dùng của doanh nghiệp ${id}:`, err);
-        });
-      }
-
-      return Response.get(saved);
-    } catch (error) {
-      throw Response.errorInternal(error);
+    const doet = await this.doetRepository.findOne({ where: { id: doetId } });
+    if (!doet) {
+      throw Response.errorNotFound("Không tìm thấy thông tin doanh nghiệp");
     }
+    return Response.get(doet);
   }
 
-  async delete(currentUser: any, id: string) {
-    const result = await super.delete(currentUser, id);
-    await this.deleteUsersOfDoets([id]);
-    return result;
-  }
-
-  async deletes(currentUser: any, ids: string[], doetCtx: Doet | null) {
-    const result = await super.deletes(currentUser, ids, doetCtx);
-    await this.deleteUsersOfDoets(ids);
-    return result;
-  }
-
-  async destroy(id: string) {
-    const result = await super.destroy(id);
-    await this.deleteUsersOfDoets([id]);
-    return result;
-  }
-
-  async destroys(currentUser: any, ids: string[], doetCtx: Doet | null) {
-    const result = await super.destroys(currentUser, ids, doetCtx);
-    await this.deleteUsersOfDoets(ids);
-    return result;
-  }
-
-  async getSetting(doet: Doet) {
-    if (doet && doet.id) {
-      return {
-        name: doet.name2,
-        province: doet.province2,
-        logo: doet.logo ? { url: doet.logo } : null,
-        favicon: doet.favicon ? { url: doet.favicon } : null
-      };
-    }
-    throw Response.errorNotFound(Response.NOT_FOUND("doet_id"));
-  }
-
-  async getDistinctWards(): Promise<{ key: any; value: string }[]> {
-    const rows = await this.doetRepository
-      .createQueryBuilder("doet")
-      .select("doet.ward", "ward")
-      .where("doet.deletedAt IS NULL")
-      .andWhere("doet.ward IS NOT NULL")
-      .getRawMany<{ ward: any }>();
-
-    const map = new Map<string, { key: any; value: string }>();
-    for (const row of rows) {
-      const w = row.ward;
-      if (!w) continue;
-      const key = String(w.key ?? "").trim();
-      const value = String(w.value ?? "").trim();
-      if (!value) continue;
-      const dedupeKey = key || value;
-      if (!map.has(dedupeKey)) {
-        map.set(dedupeKey, { key: w.key, value: w.value });
-      }
-    }
-    return Array.from(map.values()).sort((a, b) =>
-      String(a.value).localeCompare(String(b.value), "vi"),
-    );
+  async getDistinctWards(): Promise<WardOption[]> {
+    const raw = await this.doetRepository
+      .createQueryBuilder('doet')
+      .select("DISTINCT doet.ward ->> 'key'", 'key')
+      .addSelect("doet.ward ->> 'value'", 'value')
+      .where('doet.ward IS NOT NULL')
+      .andWhere('doet.deletedAt IS NULL')
+      .orderBy("doet.ward ->> 'value'", 'ASC')
+      .getRawMany();
+    return raw.filter(r => r.key && r.value);
   }
 
   async checkEmailExists(email: string, excludeId?: number): Promise<{ exists: boolean }> {
     if (!email || !email.trim()) return { exists: false };
     const emailTrimmed = email.trim();
-
-    // Check in Doets table
-    const qbDoet = this.doetRepository
+    const qb = this.doetRepository
       .createQueryBuilder('doet')
-      .where('doet.email = :email', { email: emailTrimmed })
+      .where('LOWER(doet.email) = LOWER(:email)', { email: emailTrimmed })
       .andWhere('doet.deletedAt IS NULL');
-    if (excludeId) qbDoet.andWhere('doet.id <> :id', { id: excludeId });
-    const foundInDoet = await qbDoet.getOne();
-
-    if (foundInDoet) return { exists: true };
+    if (excludeId) qb.andWhere('doet.id <> :id', { id: excludeId });
+    const found = await qb.getOne();
+    if (found) return { exists: true };
 
     // Check in Users table
     const qbUser = this.userRepository
       .createQueryBuilder('user')
-      .where('user.email = :email', { email: emailTrimmed });
+      .where('LOWER(user.email) = LOWER(:email)', { email: emailTrimmed })
+      .andWhere('user.deletedAt IS NULL');
 
     // If updating a Doet, we should also exclude the email of the User currently linked to this Doet
     if (excludeId) {
@@ -244,8 +327,18 @@ export class DoetService extends BaseService<Doet> {
     }
 
     const foundInUser = await qbUser.getOne();
-
     return { exists: !!foundInUser };
+  }
+
+  async checkNameExists(name: string, excludeId?: number): Promise<{ exists: boolean }> {
+    if (!name || !name.trim()) return { exists: false };
+    const qb = this.doetRepository
+      .createQueryBuilder('doet')
+      .where('LOWER(doet.name) = LOWER(:name)', { name: name.trim() })
+      .andWhere('doet.deletedAt IS NULL');
+    if (excludeId) qb.andWhere('doet.id <> :id', { id: excludeId });
+    const found = await qb.getOne();
+    return { exists: !!found };
   }
 
   async checkTaxCodeExists(taxCode: string, excludeId?: number): Promise<{ exists: boolean }> {
@@ -259,15 +352,16 @@ export class DoetService extends BaseService<Doet> {
     return { exists: !!found };
   }
 
-  async checkNameExists(name: string, excludeId?: number): Promise<{ exists: boolean }> {
-    if (!name || !name.trim()) return { exists: false };
-    const qb = this.doetRepository
-      .createQueryBuilder('doet')
-      .where('LOWER(doet.name) = LOWER(:name)', { name: name.trim() })
-      .andWhere('doet.deletedAt IS NULL');
-    if (excludeId) qb.andWhere('doet.id <> :id', { id: excludeId });
-    const found = await qb.getOne();
-    return { exists: !!found };
+  async getSetting(doet: Doet) {
+    if (!doet) return null;
+    const found = await this.doetRepository.findOne(doet.id);
+    if (!found) return null;
+    return Response.get({
+      name: found.name2 || found.name,
+      logo: found.logo,
+      favicon: found.favicon,
+      province: found.province2 || found.province
+    });
   }
 
   async updateSetting(doet: Doet, name, logo, favicon, province) {
@@ -406,7 +500,8 @@ export class DoetService extends BaseService<Doet> {
     return { success: true, message: "Cấp lại mật khẩu thành công" };
   }
 
-  async importExcel(buffer: Buffer) {
+  async importExcel(currentUser: any, buffer: Buffer) {
+    this.checkPermission(currentUser);
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(buffer as any);
     const worksheet = workbook.worksheets[0];
@@ -460,8 +555,8 @@ export class DoetService extends BaseService<Doet> {
       if (!address) errors.push('Địa chỉ ĐKKD không được để trống');
 
       // 2. Format checks
-      if (taxCode && !/^\d{10}(-\d{3})?$/.test(taxCode)) {
-        errors.push('Mã số thuế không đúng định dạng (10 hoặc 13 số)');
+      if (taxCode && !/^[a-zA-Z0-9-]{10,20}$/.test(taxCode)) {
+        errors.push('Mã số thuế phải từ 10 đến 20 ký tự');
       }
       if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         errors.push('Email không đúng định dạng');
@@ -529,4 +624,9 @@ export class DoetService extends BaseService<Doet> {
 
     return items;
   }
+}
+
+export interface WardOption {
+  key: string;
+  value: string;
 }
