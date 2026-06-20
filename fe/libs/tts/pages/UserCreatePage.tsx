@@ -258,6 +258,7 @@ export const UserCreatePage = () => {
                                                 open={Boolean(calendarAnchor)}
                                                 anchorEl={calendarAnchor}
                                                 value={birthday}
+                                                maxDate={new Date()}
                                                 onChange={(val) => handleInputChange('birthday', val)}
                                                 onClose={handleCalendarClose}
                                             />
@@ -266,10 +267,12 @@ export const UserCreatePage = () => {
                                     <Grid size={{ xs: 12, md: 6 }}>
                                         <TextField
                                             select fullWidth label="Giới tính" variant="outlined" size="small"
-                                            className={classes.field} value={gender}
+                                            className={classes.field} value={gender ?? ''}
                                             onChange={(e) => handleInputChange('gender', e.target.value)}
                                             disabled={loading}
+                                            slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}
                                         >
+                                            <MenuItem value=""><em style={{ color: '#aaa' }}>-- Chọn giới tính --</em></MenuItem>
                                             <MenuItem value="Nam">Nam</MenuItem>
                                             <MenuItem value="Nữ">Nữ</MenuItem>
                                         </TextField>

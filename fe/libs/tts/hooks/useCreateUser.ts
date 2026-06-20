@@ -104,6 +104,16 @@ export const useCreateUser = () => {
             return;
         }
 
+        if (state.birthday) {
+            const birthDay = new Date(state.birthday);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (birthDay >= today) {
+                notifyError('Ngày sinh phải là ngày trong quá khứ');
+                return;
+            }
+        }
+
         dispatch({ type: 'setLoading', value: true });
 
         try {

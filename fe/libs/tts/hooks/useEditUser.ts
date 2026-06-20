@@ -82,7 +82,8 @@ export const useEditUser = () => {
 
                 let genderStr = '';
                 if (userData.gender === 1) genderStr = 'Nam';
-                else if (userData.gender === 0 || userData.gender === null) genderStr = 'Nữ';
+                else if (userData.gender === 0) genderStr = 'Nữ';
+                // gender === null means not set → leave as ''
                 dispatch({
                     type: 'setInitialData',
                     data: {
@@ -129,6 +130,16 @@ export const useEditUser = () => {
         if (state.email && !validate.email(state.email)) {
             notifyError('Email không hợp lệ');
             return;
+        }
+
+        if (state.birthday) {
+            const birthDay = new Date(state.birthday);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (birthDay >= today) {
+                notifyError('Ngày sinh phải là ngày trong quá khứ');
+                return;
+            }
         }
 
         dispatch({ type: 'setLoading', value: true });

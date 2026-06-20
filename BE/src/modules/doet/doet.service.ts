@@ -63,6 +63,7 @@ export class DoetService extends BaseService<Doet> {
 
   // Kiểm tra quyền ghi (thêm, sửa) - Chuyên viên trở lên
   private checkWritePermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
     if (currentUser?.role?.type === 'DN' && currentUser.isUpdatingSelf) return;
     const level = this.getPermissionLevel(currentUser);
     if (level < 1) {
@@ -72,6 +73,7 @@ export class DoetService extends BaseService<Doet> {
 
   // Kiểm tra quyền đầy đủ (xóa, cập nhật trạng thái) - Admin/Lãnh đạo
   private checkFullPermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
     const level = this.getPermissionLevel(currentUser);
     if (level < 2) {
       throw Response.errorForBidden("Bạn không có quyền thực hiện thao tác này. Chỉ Admin hoặc Lãnh đạo mới được phép xóa hoặc cập nhật trạng thái.");

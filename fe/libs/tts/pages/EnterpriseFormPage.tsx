@@ -524,6 +524,13 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
 
     if (dateInput?.trim() && !formData.gpkdDate) {
       errs.gpkdDate = 'Ngày cấp GPKD không đúng định dạng DD/MM/YYYY';
+    } else if (formData.gpkdDate) {
+      const gpkdDay = new Date(formData.gpkdDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (gpkdDay >= today) {
+        errs.gpkdDate = 'Ngày cấp GPKD phải là ngày trong quá khứ';
+      }
     }
 
     setErrors(errs);
@@ -884,6 +891,7 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
               open={Boolean(calendarAnchor)}
               anchorEl={calendarAnchor}
               value={formData.gpkdDate ? formatDateInput(formData.gpkdDate) : ''}
+              maxDate={new Date()}
               onChange={(val) => {
                 setField('gpkdDate', val ? new Date(val) : null);
                 setCalendarAnchor(null);
