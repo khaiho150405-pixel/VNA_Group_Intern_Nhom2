@@ -61,27 +61,37 @@ export const EnterpriseListPage = () => {
 
   const isReadOnly = useMemo(() => {
     if (!user) return true;
-    const roleType = (user as any)?.role?.type;
+    
     const roleId = (user as any)?.roleId || (user as any)?.role?.id;
-    const realRole = (user as any)?.realRole || '';
+    const realRole = ((user as any)?.realRole || '').toLowerCase();
+    const roleName = ((user as any)?.role?.name || '').toLowerCase();
     
-    // Đối với nhóm Sở: Nhân viên và Chuyên viên chỉ có quyền xem
-    if (roleType === 'SO') {
-      const isRestricted = roleId === 1 || roleId === 2 || 
-                          realRole.includes('Nhân viên') || realRole.includes('Chuyên viên') ||
-                          realRole.includes('Employee') || realRole.includes('Expert');
-      
-      const roleName = (user as any)?.role?.name?.toUpperCase() || '';
-      const isAdminOrLeader = roleName.includes('ADMIN') || roleName.includes('QUẢN TRỊ') || 
-                              roleName.includes('LÃNH ĐẠO') || roleName.includes('LEADER');
-
-      return isRestricted && !isAdminOrLeader;
-    }
+    // Admin/Lãnh đạo - full quyền (không read-only)
+    const isAdminOrLeader = 
+        roleId === 4 ||
+        realRole.includes('quản trị') ||
+        realRole.includes('admin') ||
+        realRole.includes('lãnh đạo') ||
+        realRole.includes('leader') ||
+        roleName.includes('quản trị') ||
+        roleName.includes('admin') ||
+        roleName.includes('lãnh đạo') ||
+        roleName.includes('leader');
     
-    // Đối với nhóm Doanh nghiệp: Không được phép quản lý danh sách doanh nghiệp chung
-    if (roleType === 'DN') return true;
-
-    return false;
+    if (isAdminOrLeader) return false;
+    
+    // Chuyên viên - có quyền thêm/sửa (không read-only)
+    const isExpert = 
+        roleId === 2 ||
+        realRole.includes('chuyên viên') ||
+        realRole.includes('expert') ||
+        roleName.includes('chuyên viên') ||
+        roleName.includes('expert');
+    
+    if (isExpert) return false;
+    
+    // Nhân viên hoặc không xác định - chỉ xem (read-only)
+    return true;
   }, [user]);
 
   const [loading, setLoading] = useState(false);
@@ -172,6 +182,15 @@ export const EnterpriseListPage = () => {
 
   const handleStatusChange = async (id: number, currentStatus: string) => {
     try {
+      // Guard: Chỉ Admin/Lãnh đạo được đổi trạng thái
+      const realRole = ((user as any)?.realRole || '').toLowerCase();
+      const roleId = (user as any)?.roleId || (user as any)?.role?.id;
+      const isAdminOrLeader = realRole.includes('quản trị') || realRole.includes('admin') || 
+                              realRole.includes('lãnh đạo') || realRole.includes('leader') || roleId === 4;
+      if (!isAdminOrLeader) {
+        enqueueSnackbar("Chỉ Admin hoặc Lãnh đạo mới được phép thay đổi trạng thái", { variant: "error" });
+        return;
+      }
       const newStatus = currentStatus === "ACTIVE" ? "INACTIVE" : "ACTIVE";
 
       // Optimistic update
@@ -184,20 +203,30 @@ export const EnterpriseListPage = () => {
       await DoetService.update(id, { status: newStatus as any });
       enqueueSnackbar("Cập nhật trạng thái thành công", { variant: "success" });
     } catch (error) {
-      enqueueSnackbar("Lỗi khi cập nhật trạng thái", { variant: "error" });
+      enqueueSnackbar("Chuyên viên không được phép thay đổi trạng thái doanh nghiệp", { variant: "error" });
       fetchData();
     }
   };
 
   const handleBulkDelete = async () => {
     try {
+      // Guard: Chỉ Admin/Lãnh đạo được xóa
+      const realRole = ((user as any)?.realRole || '').toLowerCase();
+      const roleId = (user as any)?.roleId || (user as any)?.role?.id;
+      const isAdminOrLeader = realRole.includes('quản trị') || realRole.includes('admin') || 
+                              realRole.includes('lãnh đạo') || realRole.includes('leader') || roleId === 4;
+      if (!isAdminOrLeader) {
+        enqueueSnackbar("Chỉ Admin hoặc Lãnh đạo mới được phép xóa doanh nghiệp", { variant: "error" });
+        setConfirmDeleteOpen(false);
+        return;
+      }
       await DoetService.deleteMany(selectedIds);
       enqueueSnackbar("Xoá thành công", { variant: "success" });
       setSelectedIds([]);
       setConfirmDeleteOpen(false);
       fetchData();
     } catch (error) {
-      enqueueSnackbar("Lỗi khi xoá dữ liệu", { variant: "error" });
+      enqueueSnackbar("Chuyên viên không được phép xóa doanh nghiệp", { variant: "error" });
     }
   };
 

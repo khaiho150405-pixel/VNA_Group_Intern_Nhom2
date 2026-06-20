@@ -23,7 +23,7 @@ const getFullUrl = (file?: FileAttachment | null) => {
   const url = file.fileUrl;
   if (url && (url.startsWith('blob:') || url.startsWith('http') || url.startsWith('data:'))) return url;
   
-  const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3800/api/v1').replace('/api/v1', '');
+  const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3333/api/v1').replace('/api/v1', '');
   
   if (url) return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
   

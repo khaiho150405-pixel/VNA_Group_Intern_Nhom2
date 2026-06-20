@@ -41,6 +41,12 @@ export const useAccountInfo = () => {
         } else {
             roleList = response?.data?.items || response?.items || [];
         }
+        roleList = roleList.filter((r: any) => 
+            r.role !== 'enterprise' && 
+            r.type !== 'DN' && 
+            r.id !== 5 && 
+            r.name !== 'Doanh nghiệp'
+        );
         hasFetchedRolesRef.current = true;
         dispatch({ type: 'onChange', name: 'roles', value: roleList });
       } catch (error) { console.error(error); }
@@ -175,6 +181,16 @@ export const useAccountInfo = () => {
     if (state.email && !validate.email(state.email)) {
       notifyError(VALIDATION_MESSAGES.EMAIL_INVALID);
       return;
+    }
+
+    if (state.birthday) {
+      const birthDay = new Date(state.birthday);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (birthDay >= today) {
+        notifyError('Ngày sinh phải là ngày trong quá khứ');
+        return;
+      }
     }
 
     dispatch({ type: 'setLoading', value: true });

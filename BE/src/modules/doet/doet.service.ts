@@ -24,36 +24,72 @@ export class DoetService extends BaseService<Doet> {
     this.manager = getManager();
   }
 
-  private checkPermission(currentUser: any) {
-    if (!currentUser) return;
+  // Lấy cấp độ quyền của người dùng hiện tại
+  // 0 = VIEW (Nhân viên - chỉ xem)
+  // 1 = WRITE (Chuyên viên - thêm, sửa, không xóa/status)
+  // 2 = FULL (Admin/Lãnh đạo - đầy đủ quyền)
+  private getPermissionLevel(currentUser: any): number {
+    if (!currentUser) return 0;
+    
     const roleType = currentUser.role?.type;
     const roleId = currentUser.role?.id;
-    const realRole = currentUser.realRole || '';
+    const realRole = (currentUser.realRole || '').toLowerCase();
+    const roleName = (currentUser.role?.name || '').toLowerCase();
     
-    // Đối với nhóm Sở: Nhân viên và Chuyên viên chỉ có quyền xem
+    // Doanh nghiệp - không quản lý doanh nghiệp
+    if (roleType === 'DN') return 0;
+    
+    // Nhóm Sở - phân quyền chi tiết
     if (roleType === 'SO') {
-      const isRestricted = roleId === 1 || roleId === 2 || 
-                          realRole.includes('Nhân viên') || realRole.includes('Chuyên viên') ||
-                          realRole.includes('Employee') || realRole.includes('Expert');
+      // Admin/Lãnh đạo có quyền đầy đủ
+      const isAdminOrLeader = roleName.includes('admin') || roleName.includes('quản trị') || 
+                              roleName.includes('lãnh đạo') || roleName.includes('leader') ||
+                              realRole.includes('quản trị') || realRole.includes('admin') ||
+                              realRole.includes('lãnh đạo') || realRole.includes('leader') ||
+                              roleId === 4 || roleId === 3;
+      if (isAdminOrLeader) return 2;
       
-      const roleName = (currentUser.role?.name || '').toUpperCase();
-      const isAdminOrLeader = roleName.includes('ADMIN') || roleName.includes('QUẢN TRỊ') || 
-                              roleName.includes('LÃNH ĐẠO') || roleName.includes('LEADER');
-
-      if (isRestricted && !isAdminOrLeader) {
-        throw Response.errorForBidden("Tài khoản Nhân viên/Chuyên viên chỉ có quyền xem, không được thực hiện thao tác này.");
-      }
+      // Chuyên viên có quyền thêm/sửa, không được xóa/cập nhật trạng thái
+      const isExpert = realRole.includes('chuyên viên') || realRole.includes('expert') || roleId === 2;
+      if (isExpert) return 1;
+      
+      // Nhân viên chỉ có quyền xem
+      const isEmployee = realRole.includes('nhân viên') || realRole.includes('employee') || roleId === 1;
+      if (isEmployee) return 0;
     }
     
-    // Đối với nhóm Doanh nghiệp: Không được phép quản lý danh sách doanh nghiệp chung
-    // Sẽ được phép nếu gọi qua hàm updateMyCompany
-    if (roleType === 'DN' && !currentUser.isUpdatingSelf) {
-      throw Response.errorForBidden("Tài khoản Doanh nghiệp không có quyền quản lý danh sách doanh nghiệp.");
+    return 0;
+  }
+
+  // Kiểm tra quyền ghi (thêm, sửa) - Chuyên viên trở lên
+  private checkWritePermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser?.role?.type === 'DN' && currentUser.isUpdatingSelf) return;
+    const level = this.getPermissionLevel(currentUser);
+    if (level < 1) {
+      throw Response.errorForBidden("Tài khoản của bạn chỉ có quyền xem, không được thực hiện thao tác này.");
     }
   }
 
+  // Kiểm tra quyền đầy đủ (xóa, cập nhật trạng thái) - Admin/Lãnh đạo
+  private checkFullPermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    const level = this.getPermissionLevel(currentUser);
+    if (level < 2) {
+      throw Response.errorForBidden("Bạn không có quyền thực hiện thao tác này. Chỉ Admin hoặc Lãnh đạo mới được phép xóa hoặc cập nhật trạng thái.");
+    }
+  }
+
+  private checkPermission(currentUser: any) {
+    this.checkWritePermission(currentUser);
+  }
+
   async post(currentUser: any, itemDto: any, doet: any): Promise<any> {
-    this.checkPermission(currentUser);
+    // Kiem tra quyen cap nhat trang thai - chi Admin/Lanh dao duoc phep khi set trang thai khac ACTIVE
+    if (itemDto && Object.prototype.hasOwnProperty.call(itemDto, "status") && itemDto.status !== "ACTIVE") {
+      this.checkFullPermission(currentUser);
+    }
+    this.checkWritePermission(currentUser);
     const data = this.normalizeDoetPayload(itemDto);
     const result = await super.post(currentUser, data, doet);
     
@@ -67,7 +103,14 @@ export class DoetService extends BaseService<Doet> {
   }
 
   async put(currentUser: any, id: string, itemDto: any): Promise<any> {
-    this.checkPermission(currentUser);
+    // Kiem tra quyen cap nhat trang thai - chi Admin/Lanh dao duoc phep khi thuc su thay doi trang thai
+    if (itemDto && Object.prototype.hasOwnProperty.call(itemDto, "status")) {
+      const existing = await this.doetRepository.findOne({ where: { id } });
+      if (existing && existing.status !== itemDto.status) {
+        this.checkFullPermission(currentUser);
+      }
+    }
+    this.checkWritePermission(currentUser);
     const data = this.normalizeDoetPayload(itemDto);
     const result = await super.put(currentUser, id, data);
 
@@ -89,21 +132,21 @@ export class DoetService extends BaseService<Doet> {
   }
 
   async delete(currentUser: any, id: string): Promise<any> {
-    this.checkPermission(currentUser);
+    this.checkFullPermission(currentUser);
     // Delete associated users first
     await this.manager.query(`DELETE FROM users WHERE doet_id = $1`, [id]);
     return await super.delete(currentUser, id);
   }
 
   async destroy(currentUser: any, id: string): Promise<any> {
-    this.checkPermission(currentUser);
+    this.checkFullPermission(currentUser);
     // Delete associated users first
     await this.manager.query(`DELETE FROM users WHERE doet_id = $1`, [id]);
     return await super.destroy(currentUser, id);
   }
 
   async destroys(currentUser: any, ids: string[], doet: any): Promise<any> {
-    this.checkPermission(currentUser);
+    this.checkFullPermission(currentUser);
     if (ids && ids.length > 0) {
       // Delete associated users for all specified enterprises
       await this.manager.query(`

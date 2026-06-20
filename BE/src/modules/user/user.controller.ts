@@ -110,7 +110,7 @@ export class UserController extends BaseController<User, UserService> {
   @Put(":id")
   @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
   @ApiOperation({ summary: "Cập nhật thông tin user" })
-  async updateProfile(
+  async put(
     @Req() req: any,
     @Param("id") id: string,
     @Body() body: any

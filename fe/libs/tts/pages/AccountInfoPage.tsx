@@ -266,6 +266,7 @@ export const AccountInfoPage = () => {
                       open={Boolean(calendarAnchor)}
                       anchorEl={calendarAnchor}
                       value={birthday}
+                      maxDate={new Date()}
                       onChange={(val) => handleInputChange('birthday', val)}
                       onClose={handleCalendarClose}
                     />
@@ -274,12 +275,13 @@ export const AccountInfoPage = () => {
                 <Grid size={{ xs: 12, md: 6 }}>
                   <TextField
                     select fullWidth label="Giới tính" variant="outlined" size="small"
-                    className={classes.field} value={gender}
+                    className={classes.field} value={gender ?? ''}
                     onChange={(e) => handleInputChange('gender', e.target.value)}
                     onFocus={handleInputFocus}
-                    slotProps={{ inputLabel: { shrink: true } }}
+                    slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}
                     disabled={loading}
                   >
+                    <MenuItem value=""><em style={{ color: '#aaa' }}>-- Chọn giới tính --</em></MenuItem>
                     <MenuItem value="Nam">Nam</MenuItem>
                     <MenuItem value="Nữ">Nữ</MenuItem>
                   </TextField>
@@ -305,7 +307,7 @@ export const AccountInfoPage = () => {
                       inputLabel: { shrink: true },
                       select: { displayEmpty: true }
                     }}
-                    disabled={loading || !isAdmin}
+                    disabled={loading || !isAdmin || username?.trim().toLowerCase() === 'testuser'}
                   >
                     <MenuItem value="" disabled selected>Chọn vai trò</MenuItem>
                     {roles && roles.length > 0 ? (

@@ -295,6 +295,15 @@ export const RegisterEnterprisePage = () => {
       errs.headPhone = 'Số điện thoại không đúng định dạng';
     }
 
+    if (formData.gpkdDate) {
+      const gpkdDay = new Date(formData.gpkdDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (gpkdDay >= today) {
+        errs.gpkdDate = 'Ngày cấp GPKD phải là ngày trong quá khứ';
+      }
+    }
+
     setErrors(errs);
     return Object.values(errs).every((v) => !v);
   };
@@ -369,11 +378,7 @@ export const RegisterEnterprisePage = () => {
       enqueueSnackbar('Đăng ký tài khoản doanh nghiệp thành công!', { variant: 'success' });
       const username = formData.taxCode || '';
       const password = '12345678';
-      setTimeout(() => {
-        setAccountDialog({ open: true, username, password });
-      }, 1200);
-
-      router.push('/login');
+      setAccountDialog({ open: true, username, password });
     } catch (error: any) {
       const msg = getRegisterErrorMessage(error, 'Có lỗi xảy ra');
       if (Array.isArray(msg)) {
@@ -506,6 +511,7 @@ export const RegisterEnterprisePage = () => {
               open={Boolean(calendarAnchor)}
               anchorEl={calendarAnchor}
               value={formData.gpkdDate ? formatDateInput(formData.gpkdDate) : ''}
+              maxDate={new Date()}
               onChange={(val) => setField('gpkdDate', val ? new Date(val) : null)}
               onClose={() => setCalendarAnchor(null)}
             />
@@ -745,7 +751,7 @@ export const RegisterEnterprisePage = () => {
             open={accountDialog.open}
             onClose={() => {
               setAccountDialog((prev) => ({ ...prev, open: false }));
-              router.push('/doets');
+              router.push('/login');
             }}
             username={accountDialog.username}
             password={accountDialog.password}

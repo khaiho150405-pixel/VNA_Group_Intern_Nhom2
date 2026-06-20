@@ -426,6 +426,15 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
       errs.headPhone = 'Số điện thoại không đúng định dạng';
     }
 
+    if (formData.gpkdDate) {
+      const gpkdDay = new Date(formData.gpkdDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (gpkdDay >= today) {
+        errs.gpkdDate = 'Ngày cấp GPKD phải là ngày trong quá khứ';
+      }
+    }
+
     setErrors(errs);
     return Object.values(errs).every((v) => !v);
   };
@@ -652,7 +661,7 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
             options={businessLineOptions}
             value={selectedBusinessLine}
             onChange={(_, v) => setField('businessLineId', v?.id || undefined)}
-            getOptionLabel={(opt) => opt?.tennganh || ''}
+            getOptionLabel={(opt) => opt ? `${opt.manganh} - ${opt.tennganh}` : ''}
             isOptionEqualToValue={(o, v) => o.id === v.id}
             size="small"
             fullWidth
@@ -682,12 +691,12 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
                               e.stopPropagation();
                               let url = gpkdFile.fileUrl;
                               if (!url && gpkdFile.fileName) {
-                                const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3800/api/v1').replace('/api/v1', '');
+                                const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3333/api/v1').replace('/api/v1', '');
                                 url = `${baseUrl}/uploads/${gpkdFile.fileName}`;
                               }
                               if (url) {
                                 if (!url.startsWith('blob:') && !url.startsWith('http') && !url.startsWith('data:')) {
-                                  const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3800/api/v1').replace('/api/v1', '');
+                                  const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3333/api/v1').replace('/api/v1', '');
                                   url = `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
                                 }
                                 window.open(url, '_blank');
@@ -710,6 +719,7 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
               open={Boolean(calendarAnchor)}
               anchorEl={calendarAnchor}
               value={formData.gpkdDate ? formatDateInput(formData.gpkdDate) : ''}
+              maxDate={new Date()}
               onChange={(val) => { setField('gpkdDate', val ? new Date(val) : null); setCalendarAnchor(null); }}
               onClose={() => setCalendarAnchor(null)}
             />
@@ -918,7 +928,7 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
         </Box>,
       ],
       ['Loại hình kinh doanh:', selectedLoaiHinh?.tenloaihinh || ''],
-      ['Ngành nghề kinh doanh :', selectedBusinessLine?.tennganh || ''],
+      ['Ngành nghề kinh doanh :', selectedBusinessLine ? `${selectedBusinessLine.manganh} - ${selectedBusinessLine.tennganh}` : ''],
       ['Địa chỉ đăng kí giấy phép kinh doanh :', [formData.address, formData.ward?.value, formData.province?.value].filter(Boolean).join(', ')],
       ['Địa điểm kinh doanh :', [formData.operatingAddress, formData.operatingWard?.value, formData.operatingProvince?.value].filter(Boolean).join(', ')],
       ['Người đứng đầu doanh nghiệp', formData.headOfEnterprise],
