@@ -14,6 +14,9 @@ import { DoetModule } from "./modules/doet/doet.module";
 import { LoaiHinhKinhDoanhModule } from "./modules/loai-hinh-kinh-doanh/loai-hinh-kinh-doanh.module";
 import { BusinessLineModule } from "./modules/business-line/business-line.module";
 import { UploadModule } from "./modules/upload/upload.module";
+import { InjuryTypeModule } from "./modules/injury-type/injury-type.module";
+import { InjuryFactorModule } from "./modules/injury-factor/injury-factor.module";
+import { PeriodicReportModule } from "./modules/periodic-report/periodic-report.module";
 import { DomainMiddleware } from "./commons/middleware/domain.middleware";
 
 @Module({
@@ -39,6 +42,9 @@ import { DomainMiddleware } from "./commons/middleware/domain.middleware";
     LoaiHinhKinhDoanhModule,
     BusinessLineModule,
     UploadModule,
+    InjuryTypeModule,
+    InjuryFactorModule,
+    PeriodicReportModule,
   ],
   controllers: [AppController],
   providers: [AppService]

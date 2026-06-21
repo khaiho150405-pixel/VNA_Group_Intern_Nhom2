@@ -36,6 +36,7 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
       });
 
       const user = get(data, "items[0]");
+      console.log("LocalStrategy user:", user);
       if (!user) {
         throw new NotFoundException('Account not found');
       }

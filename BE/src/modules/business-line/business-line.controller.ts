@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards, UseInterceptors, ClassSerializerInterceptor } from "@nestjs/common";
+import { Controller, Get, Query, UseGuards, UseInterceptors, ClassSerializerInterceptor } from "@nestjs/common";
 import { ApiTags, ApiOperation } from "@nestjs/swagger";
 import { BaseController, ResponseInterceptor } from "src/commons";
 import { AuthGuard } from "src/commons/guards/authGuard";
@@ -12,6 +12,24 @@ import Response from "../../commons/response";
 export class BusinessLineController extends BaseController<BusinessLine, BusinessLineService> {
   constructor(private readonly businessLineService: BusinessLineService) {
     super(businessLineService);
+  }
+
+  @Get("list")
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
+  @ApiOperation({ summary: "Lấy danh sách ngành nghề kinh doanh (phân trang, tìm kiếm)" })
+  async findAll(
+    @Query("manganh") manganh?: string,
+    @Query("tennganh") tennganh?: string,
+    @Query("cap") cap?: string,
+    @Query("trangthai") trangthai?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+  ) {
+    return await this.businessLineService.findAll({
+      manganh, tennganh, cap, trangthai,
+      page: page ? +page : 1,
+      limit: limit ? +limit : 10,
+    });
   }
 
   @Get("dropdown/active")
