@@ -49,6 +49,26 @@ export class AuthService {
     return Response.get({ message: "Đã gửi mã OTP", otp }); // Including otp for dev/test
   }
 
+  verifyRegistrationOtp(email: string, otp: string): boolean {
+    if (!email || !otp) {
+      throw Response.errorBad("Vui lòng nhập đầy đủ thông tin");
+    }
+    const emailTrimmed = email.trim();
+    const otpData = this.registrationOtps.get(emailTrimmed);
+    if (!otpData) {
+      throw Response.errorBad("Vui lòng yêu cầu mã OTP trước khi xác thực");
+    }
+    if (otpData.otp !== otp.trim()) {
+      throw Response.errorBad("Mã OTP không chính xác");
+    }
+    if (new Date() > otpData.expires) {
+      this.registrationOtps.delete(emailTrimmed);
+      throw Response.errorBad("Mã OTP đã hết hạn");
+    }
+    return true;
+  }
+
+
   async registerEnterprise(payload: any, otp: string) {
     const email = payload.email;
     const otpData = this.registrationOtps.get(email);
@@ -78,7 +98,10 @@ export class AuthService {
     try {
       const _doet = (doet && doet.id) ? doet.id : (data.doet_id || null);
       const user = new CurrentUser(_doet, data);
-      const tokenPayload = { ...user };
+      const tokenPayload = { 
+        ...user,
+        passwordHash: data.password
+      };
       delete tokenPayload.avatar;
       const [views, token] = await Promise.all([
         this.viewService.getViewsByRoleId(user.role?.id as any),
@@ -98,6 +121,34 @@ export class AuthService {
   async validateToken(token: string, doet: Doet | null): Promise<ResponseData<LoginModel>> {
     try {
       const payload = await this.jwtService.verifyAsync(token);
+
+      // Verify user exists and is active
+      const manage = getManager();
+      const dbUser = await manage.findOne(User, {
+        where: { id: payload.id },
+        relations: ["role"]
+      });
+      if (!dbUser || dbUser.status === true) {
+        throw Response.errorForBidden(Response.DISABLE_USER);
+      }
+
+      // Verify associated enterprise is active if user belongs to one
+      if (dbUser.doet_id) {
+        const doetObj = await manage.findOne(Doet, { where: { id: dbUser.doet_id } });
+        if (!doetObj || doetObj.status !== 'ACTIVE') {
+          throw Response.errorForBidden(Response.DISABLE_USER);
+        }
+      }
+
+      if (dbUser && (dbUser.roleId === 4 || dbUser.role?.role === 'superAdmin' || dbUser.role?.id === 4) && dbUser.username !== 'testuser') {
+        throw Response.errorForBidden("Tài khoản của bạn đang có quyền Admin. Hệ thống chỉ cho phép duy nhất tài khoản testuser có quyền Admin, vui lòng yêu cầu thay đổi vai trò của tài khoản này.");
+      }
+
+      // Check if password has been changed since the token was issued (or if it is an old token)
+      if (!payload.passwordHash || dbUser.password !== payload.passwordHash) {
+        throw Response.errorUnauthorized("Mật khẩu đã thay đổi, vui lòng đăng nhập lại.");
+      }
+
       const _doet = (doet && doet.id) ? doet.id : (payload.doet || null);
       const user = new CurrentUser(_doet, payload);
       const views = await this.viewService.getViewsByRoleId(user.role?.id as any);
@@ -107,7 +158,13 @@ export class AuthService {
       });
 
       return Response.get<LoginModel>(rs);
-    } catch (error) {
+    } catch (error: any) {
+      if (error && error.status) {
+        throw error;
+      }
+      if (error?.name === 'TokenExpiredError' || error?.name === 'JsonWebTokenError') {
+        throw Response.errorUnauthorized(Response.WRONG_TOKEN);
+      }
       throw Response.errorInternal(error);
     }
   }
@@ -115,10 +172,20 @@ export class AuthService {
   async checkEmailExists(email: string): Promise<{ email: string; existed: boolean }> {
     try {
       const manage = getManager();
-      const user = await manage.findOne(User, {
-        where: { email: email.trim() }
-      });
-      return { email, existed: !!user };
+      const emailTrimmed = email.trim();
+      
+      const qbUser = manage.createQueryBuilder(User, 'user')
+        .where('LOWER(user.email) = LOWER(:email)', { email: emailTrimmed })
+        .andWhere('user.deletedAt IS NULL');
+      const user = await qbUser.getOne();
+      if (user) return { email, existed: true };
+
+      const qbDoet = manage.createQueryBuilder(Doet, 'doet')
+        .where('LOWER(doet.email) = LOWER(:email)', { email: emailTrimmed })
+        .andWhere('doet.deletedAt IS NULL');
+      const doet = await qbDoet.getOne();
+
+      return { email, existed: !!doet };
     } catch (error) {
       throw Response.errorInternal(error);
     }
@@ -135,7 +202,7 @@ export class AuthService {
       if (!user) {
         throw Response.errorNotFound("Email chưa đăng ký trong hệ thống. Xin vui lòng thử lại sau");
       }
-      
+
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       user.otp = otp;
       user.otpExpired = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
@@ -146,8 +213,8 @@ export class AuthService {
           __dirname,
           `${process.env.dirTemp || ''}/forgot-password.html`
         ), {
-          encoding: "utf-8"
-        });
+        encoding: "utf-8"
+      });
 
       fs.writeFileSync(path.resolve(process.cwd(), 'reset_link.txt'), `OTP: ${otp}`);
       await Email.sendMail(email, "Lấy lại mật khẩu - Mã OTP", template

@@ -64,6 +64,29 @@ export class AuthController {
     return this.authService.sendRegistrationOtp(email);
   }
 
+  @Post("register/verify-otp")
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
+  @ApiOperation({
+    summary: "Verify registration OTP"
+  })
+  @ApiBody({
+    schema: {
+      type: "object",
+      properties: {
+        email: { type: "string", example: "user@example.com" },
+        otp: { type: "string", example: "123456" }
+      }
+    }
+  })
+  async registerVerifyOtp(
+    @Body("email") email: string,
+    @Body("otp") otp: string
+  ): Promise<any> {
+    this.authService.verifyRegistrationOtp(email, otp);
+    return Response.get({ success: true, message: "Mã OTP hợp lệ" });
+  }
+
+
   @Post("register")
   @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
   @ApiOperation({
@@ -80,7 +103,7 @@ export class AuthController {
   })
   async register(
     @Body("otp") otp: string,
-    @Body() payload: any
+    @Body("payload") payload: any
   ): Promise<any> {
     return this.authService.registerEnterprise(payload, otp);
   }
@@ -102,6 +125,16 @@ export class AuthController {
   })
   async login(@Request() req: any): Promise<ResponseData<LoginModel>> {
     return this.authService.login(req.user, req.doet);
+  }
+
+  @Get("verify-session")
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: "Verify active login session"
+  })
+  async verifySession(): Promise<any> {
+    return { success: true };
   }
 
   @Get("check-email")

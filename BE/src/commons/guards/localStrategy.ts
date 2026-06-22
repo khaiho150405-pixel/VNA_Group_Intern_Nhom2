@@ -36,8 +36,12 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
       });
 
       const user = get(data, "items[0]");
+      console.log("LocalStrategy user:", user);
       if (!user) {
         throw new NotFoundException('Account not found');
+      }
+      if (user && (user.role?.id === 4 || user.role?.role === 'superAdmin' || user.roleId === 4) && user.username !== 'testuser') {
+        throw Response.errorBad("Tài khoản của bạn đang có quyền Admin. Hệ thống chỉ cho phép duy nhất tài khoản testuser có quyền Admin, vui lòng yêu cầu thay đổi vai trò của tài khoản này.");
       }
       // Logical status: true = Active, false = Locked
       if (user.status === false) {

@@ -4,3 +4,6 @@ export * from './HomePage';
 export * from './LoginPage';
 export * from './EnterpriseListPage';
 export * from './EnterpriseFormPage';
+export * from './UserManagementPage';
+export * from './UserEditPage';
+export * from './RegisterEnterprisePage';

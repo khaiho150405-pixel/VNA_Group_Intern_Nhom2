@@ -11,7 +11,8 @@ import {
     MenuItem,
     InputAdornment,
     CircularProgress,
-    IconButton
+    IconButton,
+    Autocomplete
 } from '@mui/material';
 import { PhotoCamera, Save, Event, Delete, Visibility, VisibilityOff } from '@mui/icons-material';
 import { ChangeEmailModal } from '@core/components/ChangeEmailModal';
@@ -98,7 +99,7 @@ export const UserCreatePage = () => {
                 <Box className={classes.pageHeader}>
                     <Typography className={classes.headerTitle}>Chi tiết người dùng</Typography>
                     <Box className={classes.actions}>
-                        <Button className={classes.cancelBtn} disableRipple disabled={loading} onClick={() => router.push('/')}>Hủy bỏ</Button>
+                        <Button className={classes.cancelBtn} disableRipple disabled={loading} onClick={() => router.push('/users')}>Hủy bỏ</Button>
                         <Button
                             variant="contained"
                             startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Save fontSize="small" />}
@@ -225,9 +226,9 @@ export const UserCreatePage = () => {
                                     <Grid size={{ xs: 12, md: 6 }}>
                                         <Box sx={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
                                             <TextField
-                                                fullWidth label={<RequiredLabel label="Ngày tháng năm sinh" />} variant="outlined" size="small"
+                                                fullWidth label="Ngày tháng năm sinh" variant="outlined" size="small"
                                                 className={classes.field} value={formatDateDisplay(birthday)}
-                                                placeholder="DD/MM/YYYY"
+                                                placeholder="Ngày tháng năm sinh"
                                                 autoComplete="off"
                                                 disabled={loading}
                                                 onClick={handleCalendarOpen}
@@ -257,6 +258,7 @@ export const UserCreatePage = () => {
                                                 open={Boolean(calendarAnchor)}
                                                 anchorEl={calendarAnchor}
                                                 value={birthday}
+                                                maxDate={new Date()}
                                                 onChange={(val) => handleInputChange('birthday', val)}
                                                 onClose={handleCalendarClose}
                                             />
@@ -265,10 +267,12 @@ export const UserCreatePage = () => {
                                     <Grid size={{ xs: 12, md: 6 }}>
                                         <TextField
                                             select fullWidth label="Giới tính" variant="outlined" size="small"
-                                            className={classes.field} value={gender}
+                                            className={classes.field} value={gender ?? ''}
                                             onChange={(e) => handleInputChange('gender', e.target.value)}
                                             disabled={loading}
+                                            slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}
                                         >
+                                            <MenuItem value=""><em style={{ color: '#aaa' }}>-- Chọn giới tính --</em></MenuItem>
                                             <MenuItem value="Nam">Nam</MenuItem>
                                             <MenuItem value="Nữ">Nữ</MenuItem>
                                         </TextField>
@@ -295,11 +299,12 @@ export const UserCreatePage = () => {
                                         >
                                             <MenuItem value="" disabled selected>Chọn vai trò</MenuItem>
                                             {state.roles && state.roles.length > 0 ? (
-                                                state.roles.map((r: any) => (
-                                                    <MenuItem key={r.id} value={r.id}>
-                                                        {r.name}
-                                                    </MenuItem>
-                                                ))
+                                                state.roles
+                                                    .map((r: any) => (
+                                                        <MenuItem key={r.id} value={r.id}>
+                                                            {r.name}
+                                                        </MenuItem>
+                                                    ))
                                             ) : (
                                                 <MenuItem value="" disabled>
                                                     Đang tải dữ liệu...
@@ -317,38 +322,32 @@ export const UserCreatePage = () => {
                                 <Typography className={classes.sectionTitle} style={{ marginTop: '12px' }}>Thông tin liên hệ</Typography>
                                 <Grid container spacing={3}>
                                     <Grid size={{ xs: 12, md: 6 }}>
-                                        <TextField
-                                            select fullWidth label="Tỉnh / Thành phố" variant="outlined" size="small"
-                                            className={classes.field} value={city}
-                                            onChange={(e) => handleInputChange('city', e.target.value)}
-                                            slotProps={{
-                                                inputLabel: { shrink: true },
-                                                select: { displayEmpty: true }
-                                            }}
+                                        <Autocomplete
+                                            size="small"
+                                            fullWidth
+                                            options={provinces || []}
+                                            getOptionLabel={(option: any) => option.name || ''}
+                                            value={provinces?.find((p: any) => String(p.code) === String(city)) || null}
+                                            onChange={(_, newValue: any) => handleInputChange('city', newValue?.code || '')}
                                             disabled={loading}
-                                        >
-                                            <MenuItem value="" disabled selected>Chọn Tỉnh / Thành phố</MenuItem>
-                                            {provinces && provinces.map((p) => (
-                                                <MenuItem key={p.code} value={String(p.code)}>{p.name}</MenuItem>
-                                            ))}
-                                        </TextField>
+                                            renderInput={(params) => (
+                                                <TextField {...params} label="Tỉnh / Thành phố" variant="outlined" size="small" className={classes.field}  />
+                                            )}
+                                        />
                                     </Grid>
                                     <Grid size={{ xs: 12, md: 6 }}>
-                                        <TextField
-                                            select fullWidth label="Phường xã" variant="outlined" size="small"
-                                            className={classes.field} value={district}
-                                            onChange={(e) => handleInputChange('district', e.target.value)}
-                                            slotProps={{
-                                                inputLabel: { shrink: true },
-                                                select: { displayEmpty: true }
-                                            }}
+                                        <Autocomplete
+                                            size="small"
+                                            fullWidth
+                                            options={districts || []}
+                                            getOptionLabel={(option: any) => option.name || ''}
+                                            value={districts?.find((d: any) => String(d.code) === String(district)) || null}
+                                            onChange={(_, newValue: any) => handleInputChange('district', newValue?.code || '')}
                                             disabled={loading || !city}
-                                        >
-                                            <MenuItem value="" disabled selected>Chọn phường xã</MenuItem>
-                                            {districts && districts.map((d) => (
-                                                <MenuItem key={d.code} value={String(d.code)}>{d.name}</MenuItem>
-                                            ))}
-                                        </TextField>
+                                            renderInput={(params) => (
+                                                <TextField {...params} label="Phường xã" variant="outlined" size="small" className={classes.field}  />
+                                            )}
+                                        />
                                     </Grid>
                                     <Grid size={{ xs: 12 }}>
                                         <TextField

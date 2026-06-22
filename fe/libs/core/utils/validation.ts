@@ -10,19 +10,46 @@ export const VALIDATION_PATTERNS = {
   PHONE: /^(0[2|3|5|7|8|9])([0-9]{8})$/,
   
   // Username: 3-50 characters, alphanumeric, underscore and hyphen
-  USERNAME: /^[a-zA-Z0-9_-]{3,50}$/,
+  USERNAME: /^[a-zA-Z0-9_.-]{3,50}$/,
   
   // OTP: 6 digits
   OTP: /^[0-9]{6}$/,
 
   // Password: at least 8 characters, at least one uppercase letter, one lowercase letter and one number
   PASSWORD: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/,
+
+  // Vietnam tax code: 10 digits or 10 digits followed by - and 3 digits
+  TAX_CODE: /^\d{10}(-\d{3})?$/,
 };
 
 /**
  * Validation functions
  */
 export const validate = {
+  taxCode: (taxCode: string): boolean => {
+    if (!taxCode) return false;
+    const trimmed = taxCode.trim();
+    // Only digits and hyphens
+    if (!/^[0-9-]+$/.test(trimmed)) return false;
+    
+    const digits = trimmed.replace(/-/g, '');
+    // Min 10, Max 20 digits
+    if (digits.length < 10 || digits.length > 20) return false;
+    
+    // If it has exactly 13 digits, it must have a hyphen separating the last 3 digits
+    if (digits.length === 13) {
+      return /^\d{10}-\d{3}$/.test(trimmed);
+    }
+    
+    // For other lengths, ensure at most one hyphen, and not at start or end
+    if (trimmed.includes('-')) {
+      const hyphenCount = (trimmed.match(/-/g) || []).length;
+      if (hyphenCount > 1 || trimmed.startsWith('-') || trimmed.endsWith('-')) return false;
+    }
+    
+    return true;
+  },
+
   /**
    * Check if a string is a valid email
    */

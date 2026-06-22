@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards, UseInterceptors, ClassSerializerInterceptor } from "@nestjs/common";
+import { Controller, Get, Query, UseGuards, UseInterceptors, ClassSerializerInterceptor } from "@nestjs/common";
 import { ApiTags, ApiOperation } from "@nestjs/swagger";
 import { BaseController, ResponseInterceptor } from "src/commons";
 import { AuthGuard } from "src/commons/guards/authGuard";
@@ -14,11 +14,40 @@ export class BusinessLineController extends BaseController<BusinessLine, Busines
     super(businessLineService);
   }
 
+  @Get("list")
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
+  @ApiOperation({ summary: "Lấy danh sách ngành nghề kinh doanh (phân trang, tìm kiếm)" })
+  async findAll(
+    @Query("manganh") manganh?: string,
+    @Query("tennganh") tennganh?: string,
+    @Query("cap") cap?: string,
+    @Query("trangthai") trangthai?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+  ) {
+    return await this.businessLineService.findAll({
+      manganh, tennganh, cap, trangthai,
+      page: page ? +page : 1,
+      limit: limit ? +limit : 10,
+    });
+  }
+
   @Get("dropdown/active")
   @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
   @ApiOperation({ summary: "Lấy danh sách ngành nghề kinh doanh cấp 4 đang hoạt động" })
   async getActiveLevel4Dropdown() {
     const data = await this.businessLineService.getActiveLevel4ForDropdown();
     return Response.get(data);
+  }
+}
+
+@ApiTags("Public Business Line")
+@Controller("public/business-line")
+export class PublicBusinessLineController {
+  constructor(private readonly businessLineService: BusinessLineService) {}
+
+  @Get("dropdown/active")
+  async getActiveLevel4Dropdown() {
+    return await this.businessLineService.getActiveLevel4ForDropdown();
   }
 }

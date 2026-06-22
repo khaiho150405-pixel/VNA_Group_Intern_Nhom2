@@ -32,6 +32,20 @@ export class UserController extends BaseController<User, UserService> {
     super(userService);
   }
 
+  @Post()
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
+  @ApiOperation({ summary: "Create user" })
+  async post(@Req() req: any, @Body() body: any): Promise<any> {
+    const username = body.username;
+    if (username) {
+      const usernamePattern = /^[a-zA-Z0-9_.-]{3,50}$/;
+      if (!usernamePattern.test(username)) {
+        throw new BadRequestException('Tên đăng nhập không hợp lệ (3-50 ký tự, chỉ cho phép chữ cái không dấu, chữ số, dấu chấm, dấu gạch dưới, gạch ngang, không chứa dấu cách hoặc ký tự đặc biệt)');
+      }
+    }
+    return await super.post(req, body);
+  }
+
   @Get("checkUsername")
   @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
   @ApiOperation({ summary: "Get items" })
@@ -52,6 +66,7 @@ export class UserController extends BaseController<User, UserService> {
   }
 
   @Get()
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
   @ApiOperation({ summary: "Get items" })
   async getAll(@Query() query: GetAllDto): Promise<any> {
     return await this.userService.getAll(query);
@@ -95,7 +110,7 @@ export class UserController extends BaseController<User, UserService> {
   @Put(":id")
   @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
   @ApiOperation({ summary: "Cập nhật thông tin user" })
-  async updateProfile(
+  async put(
     @Req() req: any,
     @Param("id") id: string,
     @Body() body: any

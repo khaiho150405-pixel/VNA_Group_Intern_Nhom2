@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { useRouter } from 'next/navigation';
 import { getCookie, deleteCookie, setCookie } from '@core/services/cookies';
 import { IUser } from '@shared/tts/models/auth.model';
+import axiosClient from '@core/services/axiosClient';
 
 interface AuthContextType {
   user: IUser | null;
@@ -50,6 +51,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (storedUser && token) {
         setUser(JSON.parse(storedUser));
+        axiosClient.get('/auth/verify-session').catch((err) => {
+          console.error('Session verification failed on mount:', err);
+        });
       } else {
         // Clear both if either is missing
         localStorage.removeItem('user');
@@ -80,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(finalUser);
     localStorage.setItem('user', JSON.stringify(finalUser));
     setCookie('accessToken', token, 7); // Essential for Middleware
-    
+
     if (redirect) {
       window.location.href = '/';
     }
@@ -95,6 +99,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Use window.location.href for a full refresh to clear any cached states
     window.location.href = '/login';
   };
+
+  // Periodic session verification heartbeat (every 10 seconds)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const interval = setInterval(() => {
+      axiosClient.get('/auth/verify-session').catch((err) => {
+        console.error('Session verification failed during heartbeat:', err);
+      });
+    }, 2000); // 2 seconds
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
 
   // Guard for Auth pages: redirect to home if already authenticated
   useEffect(() => {

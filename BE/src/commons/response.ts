@@ -84,4 +84,9 @@ export default class Response {
       console.error(error);
       return new ERROR.ForBiddenException(error);
    }
+
+   static errorUnauthorized(error?: any): ERROR.UnAuthorizedException {
+      console.error(error);
+      return new ERROR.UnAuthorizedException(error);
+   }
 }

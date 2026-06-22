@@ -17,6 +17,7 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
+  Collapse,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import {
@@ -24,7 +25,11 @@ import {
   KeyboardArrowRight as ChevronRightIcon,
   DoneAll as DoneAllIcon,
   Visibility as ViewIcon,
+  Visibility,
+  VisibilityOff,
   Event as EventIcon,
+  ErrorOutlined as ErrorOutlinedIcon,
+  CheckCircleOutlined as CheckCircleOutlinedIcon,
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
 
@@ -63,6 +68,27 @@ const normalizeListResponse = (raw: any): any[] => {
   return [];
 };
 
+const getRegisterErrorMessage = (error: any, defaultMsg: string): string | string[] => {
+  const backendMsg = error?.response?.data?.errors || error?.response?.data?.message || error?.message || '';
+  if (!backendMsg) return defaultMsg;
+  if (typeof backendMsg === 'string') {
+    if (backendMsg === 'BAD REQUEST' || backendMsg.toUpperCase() === 'BAD REQUEST') return defaultMsg;
+    return backendMsg;
+  }
+  if (Array.isArray(backendMsg)) {
+    return backendMsg;
+  }
+  if (typeof backendMsg === 'object') {
+    const nested = backendMsg.message || backendMsg.error;
+    if (nested) {
+      if (Array.isArray(nested)) return nested;
+      if (typeof nested === 'string' && nested !== 'BAD REQUEST') return nested;
+    }
+  }
+  return defaultMsg;
+};
+
+
 const formatDateInput = (value?: string | Date | null) => {
   if (!value) return '';
   const date = typeof value === 'string' ? new Date(value) : value;
@@ -83,8 +109,11 @@ const formatDateDisplay = (value?: string | Date | null) => {
   return `${dd}/${mm}/${yyyy}`;
 };
 
-const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-const isValidTaxCode = (taxCode: string) => /^\d{10}(-\d{3})?$/.test(taxCode);
+import { validate, VALIDATION_MESSAGES } from '@core/utils/validation';
+import { VNA_COLORS } from '@core/theme';
+
+const isValidEmail = (email: string) => validate.email(email);
+const isValidTaxCode = (taxCode: string) => validate.taxCode(taxCode);
 
 const RequiredLabel = ({ text }: { text: string }) => (
   <span>{text} <span style={{ color: '#ef4444' }}>*</span></span>
@@ -146,7 +175,22 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [otp, setOtp] = useState('');
   const [otpError, setOtpError] = useState('');
+  const [otpSuccess, setOtpSuccess] = useState('');
   const [countdown, setCountdown] = useState(60);
+
+  // Auto-dismiss OTP messages after 3 seconds
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (otpError || otpSuccess) {
+      if (otpSuccess !== 'Đang gửi mã OTP...' && otpSuccess !== 'Đang gửi lại mã OTP...') {
+        timer = setTimeout(() => {
+          setOtpError('');
+          setOtpSuccess('');
+        }, 3000);
+      }
+    }
+    return () => clearTimeout(timer);
+  }, [otpError, otpSuccess]);
 
   const [loaiHinhs, setLoaiHinhs] = useState<LoaiHinhKinhDoanh[]>([]);
   const [businessLines, setBusinessLines] = useState<BusinessLine[]>([]);
@@ -158,11 +202,15 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
   const [dateInput, setDateInput] = useState('');
 
   const [previewFile, setPreviewFile] = useState<FileAttachment | null>(null);
+  const [showSuccessPassword, setShowSuccessPassword] = useState(false);
 
   useEffect(() => {
     if (!open) {
       setStep(0);
       setOtp('');
+      setOtpError('');
+      setOtpSuccess('');
+      setShowSuccessPassword(false);
       setFormData({
         name: '',
         name2: '',
@@ -294,14 +342,14 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
     const email = (formData.email || '').trim();
     if (!email) return;
     if (!isValidEmail(email)) {
-      setErrors((prev) => ({ ...prev, email: 'Email không đúng định dạng' }));
+      setErrors((prev) => ({ ...prev, email: 'Email không hợp lệ , vui lòng kiểm tra lại dữ liệu' }));
       return;
     }
     try {
       const res: any = await authService.checkEmailPublic(email);
       const exists = res?.existed ?? res?.data?.existed ?? false;
       if (exists) {
-        setErrors((prev) => ({ ...prev, email: 'Email này đã được đăng ký' }));
+        setErrors((prev) => ({ ...prev, email: 'Email mới đã tồn tại trên hệ thống, vui lòng kiểm tra lại dữ liệu' }));
       } else {
         setErrors((prev) => ({ ...prev, email: '' }));
       }
@@ -310,26 +358,83 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
     }
   };
 
+  const handleTaxCodeBlur = async () => {
+    const taxCode = (formData.taxCode || '').trim();
+    if (!taxCode) return;
+    if (!isValidTaxCode(taxCode)) {
+      setErrors((prev) => ({ ...prev, taxCode: 'Mã số thuế không hợp lệ (Gồm 10 đến 20 số, nếu có 13 số thì bắt buộc dùng dấu gạch ngang phân tách 3 số cuối, VD: 0101234567-001)' }));
+      return;
+    }
+    try {
+      const res: any = await DoetService.checkTaxCode(taxCode);
+      const exists = res?.exists ?? res?.data?.exists ?? false;
+      if (exists) {
+        setErrors((prev) => ({ ...prev, taxCode: 'Mã số thuế này đã tồn tại trong hệ thống' }));
+      } else {
+        setErrors((prev) => ({ ...prev, taxCode: '' }));
+      }
+    } catch (error) { }
+  };
+
+  const handleNameBlur = async () => {
+    const name = (formData.name || '').trim();
+    if (!name) return;
+    try {
+      const res: any = await DoetService.checkName(name);
+      const exists = res?.exists ?? res?.data?.exists ?? false;
+      if (exists) {
+        setErrors((prev) => ({ ...prev, name: 'Tên doanh nghiệp này đã tồn tại trong hệ thống' }));
+      } else {
+        setErrors((prev) => ({ ...prev, name: '' }));
+      }
+    } catch (error) { }
+  };
+
   const validateStep1 = (): boolean => {
     const errs: Record<string, string> = {};
-    if (!formData.name?.trim()) errs.name = 'Tên doanh nghiệp không được để trống';
+    if (!formData.name?.trim()) {
+      errs.name = 'Tên doanh nghiệp không được để trống';
+    } else if (errors.name) {
+      errs.name = errors.name;
+    }
+
     if (!formData.taxCode?.trim()) {
       errs.taxCode = 'Mã số thuế không được để trống';
     } else if (!isValidTaxCode(formData.taxCode)) {
-      errs.taxCode = 'Mã số thuế không hợp lệ';
+      errs.taxCode = 'Mã số thuế không hợp lệ (Gồm 10 đến 20 số, nếu có 13 số thì bắt buộc dùng dấu gạch ngang phân tách 3 số cuối, VD: 0101234567-001)';
+    } else if (errors.taxCode) {
+      errs.taxCode = errors.taxCode;
     }
+
     if (!formData.loaiHinhId) errs.loaiHinhId = 'Vui lòng chọn loại hình kinh doanh';
     if (!formData.businessLineId) errs.businessLineId = 'Vui lòng chọn ngành nghề';
     if (!formData.province?.key) errs.province = 'Vui lòng chọn tỉnh/thành';
     if (!formData.ward?.key) errs.ward = 'Vui lòng chọn phường/xã';
-    if (!formData.address?.trim()) errs.address = 'Địa chỉ không được để trống';
+    
     if (!formData.email?.trim()) {
       errs.email = 'Email không được để trống';
     } else if (!isValidEmail(formData.email)) {
-      errs.email = 'Email không đúng định dạng';
+      errs.email = 'Email không hợp lệ , vui lòng kiểm tra lại dữ liệu';
     } else if (errors.email) {
       errs.email = errors.email;
     }
+
+    if (formData.officePhone?.trim() && !validate.phone(formData.officePhone.trim())) {
+      errs.officePhone = 'Số điện thoại không đúng định dạng';
+    }
+    if (formData.headPhone?.trim() && !validate.phone(formData.headPhone.trim())) {
+      errs.headPhone = 'Số điện thoại không đúng định dạng';
+    }
+
+    if (formData.gpkdDate) {
+      const gpkdDay = new Date(formData.gpkdDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (gpkdDay >= today) {
+        errs.gpkdDate = 'Ngày cấp GPKD phải là ngày trong quá khứ';
+      }
+    }
+
     setErrors(errs);
     return Object.values(errs).every((v) => !v);
   };
@@ -337,13 +442,16 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
   const handleSendOtp = async () => {
     try {
       setLoading(true);
+      setOtpError('');
+      setOtpSuccess('Đang gửi mã OTP...');
       await authService.sendRegistrationOtp((formData.email || '').trim());
       setCountdown(60);
       setStep(1); // Go to OTP
-      enqueueSnackbar('Đã gửi mã xác thực đến email', { variant: 'success' });
+      setOtpSuccess('Mã OTP đã được gửi đến email của bạn!');
     } catch (error: any) {
-      const msg = error.response?.data?.message || 'Có lỗi khi gửi OTP';
-      enqueueSnackbar(msg, { variant: 'error' });
+      setOtpSuccess('');
+      const msg = getRegisterErrorMessage(error, 'Có lỗi khi gửi OTP');
+      setOtpError(Array.isArray(msg) ? msg[0] : msg);
     } finally {
       setLoading(false);
     }
@@ -355,16 +463,70 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
       enqueueSnackbar('Vui lòng kiểm tra các trường bắt buộc', { variant: 'warning' });
       return;
     }
+
+    try {
+      setLoading(true);
+      const taxCode = (formData.taxCode || '').trim();
+      const name = (formData.name || '').trim();
+      const email = (formData.email || '').trim();
+
+      const [taxRes, nameRes, emailRes]: any[] = await Promise.all([
+        DoetService.checkTaxCode(taxCode),
+        DoetService.checkName(name),
+        DoetService.checkEmail(email),
+      ]);
+
+      const taxExists = taxRes?.exists ?? taxRes?.data?.exists ?? false;
+      const nameExists = nameRes?.exists ?? nameRes?.data?.exists ?? false;
+      const emailExists = emailRes?.exists ?? emailRes?.data?.exists ?? false;
+
+      const newErrors: Record<string, string> = {};
+      if (taxExists) newErrors.taxCode = 'Mã số thuế này đã tồn tại trong hệ thống';
+      if (nameExists) newErrors.name = 'Tên doanh nghiệp này đã tồn tại trong hệ thống';
+      if (emailExists) newErrors.email = 'Email này đã được đăng ký';
+
+      if (taxExists || nameExists || emailExists) {
+        setErrors((prev) => ({ ...prev, ...newErrors }));
+        if (taxExists) enqueueSnackbar('Mã số thuế này đã tồn tại trong hệ thống', { variant: 'error' });
+        if (nameExists) enqueueSnackbar('Tên doanh nghiệp này đã tồn tại trong hệ thống', { variant: 'error' });
+        if (emailExists) enqueueSnackbar('Email này đã được đăng ký', { variant: 'error' });
+        return;
+      }
+    } catch (error) {
+      // Ignore network errors, fallback to backend validation at submission
+    } finally {
+      setLoading(false);
+    }
+
     await handleSendOtp();
   };
 
-  const handleVerifyOtp = () => {
-    if (!otp || otp.length < 6) {
-      setOtpError('Mã OTP không hợp lệ');
+
+  const handleVerifyOtp = async () => {
+    if (!validate.required(otp)) {
+      setOtpError(VALIDATION_MESSAGES.REQUIRED);
       return;
     }
-    setOtpError('');
-    setStep(2); // Go to confirmation. Verification actually happens on final submit to prevent double-spending OTP
+    if (!validate.otp(otp)) {
+      setOtpError(VALIDATION_MESSAGES.OTP_INVALID);
+      return;
+    }
+    try {
+      setLoading(true);
+      setOtpError('');
+      setOtpSuccess('');
+      await authService.verifyRegistrationOtp((formData.email || '').trim(), otp);
+      setStep(2); // Go to confirmation
+    } catch (error: any) {
+      const backendMsg = error.response?.data?.errors || error.response?.data?.message || error.message || '';
+      let displayMsg = 'Mã OTP không chính xác, vui lòng kiểm tra lại';
+      if (typeof backendMsg === 'string' && backendMsg.toLowerCase().includes('hết hạn')) {
+        displayMsg = 'Mã OTP đã hết hạn, vui lòng kiểm tra lại';
+      }
+      setOtpError(displayMsg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const buildPayload = () => {
@@ -394,14 +556,14 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
       enqueueSnackbar('Đăng ký doanh nghiệp thành công', { variant: 'success' });
       setStep(3); // Success account view
     } catch (error: any) {
-      const messages = error?.response?.data?.message || 'Có lỗi xảy ra';
-      if (Array.isArray(messages)) {
-        messages.forEach((m: string) => enqueueSnackbar(m, { variant: 'error' }));
+      const msg = getRegisterErrorMessage(error, 'Có lỗi xảy ra');
+      if (Array.isArray(msg)) {
+        msg.forEach((m: string) => enqueueSnackbar(m, { variant: 'error' }));
       } else {
-        enqueueSnackbar(messages, { variant: 'error' });
-        if (messages.includes('OTP')) {
+        enqueueSnackbar(msg, { variant: 'error' });
+        if (msg.includes('OTP')) {
             setStep(1); // go back to OTP if invalid
-            setOtpError(messages);
+            setOtpError(msg);
         }
       }
     } finally {
@@ -467,6 +629,7 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
             label={<RequiredLabel text="Tên doanh nghiệp" />}
             value={formData.name || ''}
             onChange={(e) => setField('name', e.target.value)}
+            onBlur={handleNameBlur}
             error={!!errors.name}
             helperText={errors.name}
             size="small"
@@ -476,6 +639,7 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
             label={<RequiredLabel text="Mã số thuế" />}
             value={formData.taxCode || ''}
             onChange={(e) => setField('taxCode', e.target.value)}
+            onBlur={handleTaxCodeBlur}
             error={!!errors.taxCode}
             helperText={errors.taxCode}
             size="small"
@@ -497,7 +661,7 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
             options={businessLineOptions}
             value={selectedBusinessLine}
             onChange={(_, v) => setField('businessLineId', v?.id || undefined)}
-            getOptionLabel={(opt) => opt?.tennganh || ''}
+            getOptionLabel={(opt) => opt ? `${opt.manganh} - ${opt.tennganh}` : ''}
             isOptionEqualToValue={(o, v) => o.id === v.id}
             size="small"
             fullWidth
@@ -521,7 +685,24 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
                     <InputAdornment position="end">
                       {gpkdFile && (
                         <Tooltip title="Xem GPKD">
-                          <IconButton size="small" onClick={(e) => { e.stopPropagation(); setPreviewFile(gpkdFile); }}>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              let url = gpkdFile.fileUrl;
+                              if (!url && gpkdFile.fileName) {
+                                const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3333/api/v1').replace('/api/v1', '');
+                                url = `${baseUrl}/uploads/${gpkdFile.fileName}`;
+                              }
+                              if (url) {
+                                if (!url.startsWith('blob:') && !url.startsWith('http') && !url.startsWith('data:')) {
+                                  const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3333/api/v1').replace('/api/v1', '');
+                                  url = `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+                                }
+                                window.open(url, '_blank');
+                              }
+                            }}
+                          >
                             <ViewIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -538,6 +719,7 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
               open={Boolean(calendarAnchor)}
               anchorEl={calendarAnchor}
               value={formData.gpkdDate ? formatDateInput(formData.gpkdDate) : ''}
+              maxDate={new Date()}
               onChange={(val) => { setField('gpkdDate', val ? new Date(val) : null); setCalendarAnchor(null); }}
               onClose={() => setCalendarAnchor(null)}
             />
@@ -583,9 +765,9 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
         <Box className={classes.formGrid}>
           <TextField label="Tên viết bằng tiếng nước ngoài" value={formData.name2 || ''} onChange={(e) => setField('name2', e.target.value)} size="small" fullWidth />
           <TextField label={<RequiredLabel text="Email" />} value={formData.email || ''} onChange={(e) => setField('email', e.target.value)} onBlur={handleEmailBlur} error={!!errors.email} helperText={errors.email} size="small" fullWidth />
-          <TextField label="Số điện thoại cơ quan" value={formData.officePhone || ''} onChange={(e) => setField('officePhone', e.target.value)} size="small" fullWidth />
+          <TextField label="Số điện thoại cơ quan" value={formData.officePhone || ''} onChange={(e) => setField('officePhone', e.target.value)} error={!!errors.officePhone} helperText={errors.officePhone} size="small" fullWidth />
           <TextField label="Người đứng đầu doanh nghiệp" value={formData.headOfEnterprise || ''} onChange={(e) => setField('headOfEnterprise', e.target.value)} size="small" fullWidth />
-          <TextField label="SĐT liên hệ người đứng đầu" value={formData.headPhone || ''} onChange={(e) => setField('headPhone', e.target.value)} size="small" fullWidth />
+          <TextField label="SĐT liên hệ người đứng đầu" value={formData.headPhone || ''} onChange={(e) => setField('headPhone', e.target.value)} error={!!errors.headPhone} helperText={errors.headPhone} size="small" fullWidth />
           <Autocomplete
             options={provinceOptions}
             value={selectedOpProvince}
@@ -617,63 +799,117 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
   );
 
   const renderOtpStep = () => (
-    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 4 }}>
-      <Typography sx={{ fontWeight: 700, fontSize: '1.25rem', color: '#2f65f0', textTransform: 'uppercase', mb: 2 }}>
+    <Dialog
+      open={step === 1}
+      onClose={() => setStep(0)}
+      maxWidth="xs"
+      fullWidth
+      slotProps={{ paper: { sx: { borderRadius: 2, overflow: 'hidden', minWidth: 320 } } }}
+    >
+      <Box
+        sx={{
+          bgcolor: VNA_COLORS.primary,
+          color: '#fff',
+          textAlign: 'center',
+          py: 1.25,
+          fontWeight: 600,
+          fontSize: '1.1rem',
+        }}
+      >
         Xác thực Email
-      </Typography>
-      <Typography sx={{ color: '#4b5563', fontSize: '0.9rem', mb: 0.5 }}>
-        Chúng tôi đã gửi mã xác minh qua số email
-      </Typography>
-      <Typography sx={{ fontWeight: 700, fontSize: '0.95rem', mb: 2 }}>
-        {formData.email}
-      </Typography>
-      <Typography sx={{ color: '#4b5563', fontSize: '0.9rem', mb: 3 }}>
-        Bạn vui lòng kiểm tra và điền mã xác thực
-      </Typography>
+      </Box>
+      <DialogContent sx={{ p: 3 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <Typography sx={{ color: '#4b5563', fontSize: '0.9rem', mb: 1.5, textAlign: 'center' }}>
+            Chúng tôi đã gửi mã xác minh qua email<br/>
+            <strong>{formData.email}</strong><br/>
+            Bạn vui lòng kiểm tra và điền mã xác thực
+          </Typography>
 
-      <TextField
-        label={<RequiredLabel text="OTP" />}
-        value={otp}
-        onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ''))}
-        error={!!otpError}
-        helperText={otpError}
-        size="small"
-        fullWidth
-        sx={{ maxWidth: 300, mb: 2 }}
-        slotProps={{ htmlInput: { maxLength: 6, style: { textAlign: 'center', letterSpacing: '4px', fontSize: '1.2rem', fontWeight: 600 } } }}
-      />
+          <Collapse in={!!otpError} sx={{ width: '100%', maxWidth: 300, mb: 2 }}>
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 1, 
+              bgcolor: 'rgba(255, 69, 58, 0.05)', 
+              border: `1px solid ${VNA_COLORS.error}`, 
+              borderRadius: 1, 
+              p: 1.5,
+              textAlign: 'left'
+            }}>
+              <ErrorOutlinedIcon sx={{ color: VNA_COLORS.error, fontSize: '1.2rem' }} />
+              <Typography style={{ color: VNA_COLORS.error, fontSize: "0.85rem", fontWeight: 500 }}>
+                {otpError}
+              </Typography>
+            </Box>
+          </Collapse>
+          <Collapse in={!!otpSuccess} sx={{ width: '100%', maxWidth: 300, mb: 2 }}>
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 1, 
+              bgcolor: 'rgba(52, 199, 89, 0.05)', 
+              border: `1px solid ${VNA_COLORS.success}`, 
+              borderRadius: 1, 
+              p: 1.5,
+              textAlign: 'left'
+            }}>
+              <CheckCircleOutlinedIcon sx={{ color: VNA_COLORS.success, fontSize: '1.2rem' }} />
+              <Typography style={{ color: VNA_COLORS.success, fontSize: "0.85rem", fontWeight: 500 }}>
+                {otpSuccess}
+              </Typography>
+            </Box>
+          </Collapse>
 
-      <Typography sx={{ color: '#2f65f0', fontWeight: 600, mb: 1 }}>
-        00:{countdown.toString().padStart(2, '0')}
-      </Typography>
-      
-      <Typography sx={{ fontSize: '0.85rem', color: '#6b7280', mb: 4 }}>
-        Chưa nhận được mã?{' '}
-        <Button 
-          sx={{ textTransform: 'none', p: 0, minWidth: 'auto', fontWeight: 600 }} 
-          disabled={countdown > 0}
-          onClick={handleSendOtp}
-        >
-          Gửi lại
-        </Button>
-      </Typography>
+          <TextField
+            fullWidth
+            variant="outlined"
+            size="small"
+            label={<RequiredLabel text="Mã OTP" />}
+            placeholder="Nhập mã OTP"
+            value={otp}
+            onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ''))}
+            onFocus={() => { setOtpError(''); setOtpSuccess(''); }}
+            disabled={loading}
+            sx={{ maxWidth: 300, mb: 2 }}
+            slotProps={{ htmlInput: { maxLength: 6, style: { textAlign: 'center', letterSpacing: '4px', fontSize: '1.2rem', fontWeight: 600 } } }}
+          />
 
-      <Button
-        variant="contained"
-        fullWidth
-        sx={{ maxWidth: 300, bgcolor: '#2f65f0', py: 1.2, mb: 2 }}
-        onClick={handleVerifyOtp}
-      >
-        Xác nhận
-      </Button>
-      
-      <Button
-        sx={{ color: '#6b7280', textTransform: 'none' }}
-        onClick={() => setStep(0)}
-      >
-        Hủy bỏ
-      </Button>
-    </Box>
+          <Typography sx={{ color: '#2f65f0', fontWeight: 600, mb: 1 }}>
+            00:{countdown.toString().padStart(2, '0')}
+          </Typography>
+          
+          <Typography sx={{ fontSize: '0.85rem', color: '#6b7280', mb: 4 }}>
+            Chưa nhận được mã?{' '}
+            <Button 
+              sx={{ textTransform: 'none', p: 0, minWidth: 'auto', fontWeight: 600 }} 
+              disabled={countdown > 0 || loading}
+              onClick={handleSendOtp}
+            >
+              Gửi lại
+            </Button>
+          </Typography>
+
+          <Box sx={{ display: 'flex', width: '100%', gap: 1.5, justifyContent: 'flex-end' }}>
+            <Button
+              disabled={loading}
+              onClick={() => setStep(0)}
+              sx={{ color: '#666', textTransform: 'none', fontWeight: 500 }}
+            >
+              Hủy bỏ
+            </Button>
+            <Button
+              variant="contained"
+              disabled={loading}
+              sx={{ bgcolor: VNA_COLORS.primary, textTransform: 'none', fontWeight: 500, boxShadow: 'none', '&:hover': { bgcolor: VNA_COLORS.primaryHover } }}
+              onClick={handleVerifyOtp}
+            >
+              Xác nhận
+            </Button>
+          </Box>
+        </Box>
+      </DialogContent>
+    </Dialog>
   );
 
   const renderConfirmStep = () => {
@@ -692,7 +928,7 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
         </Box>,
       ],
       ['Loại hình kinh doanh:', selectedLoaiHinh?.tenloaihinh || ''],
-      ['Ngành nghề kinh doanh :', selectedBusinessLine?.tennganh || ''],
+      ['Ngành nghề kinh doanh :', selectedBusinessLine ? `${selectedBusinessLine.manganh} - ${selectedBusinessLine.tennganh}` : ''],
       ['Địa chỉ đăng kí giấy phép kinh doanh :', [formData.address, formData.ward?.value, formData.province?.value].filter(Boolean).join(', ')],
       ['Địa điểm kinh doanh :', [formData.operatingAddress, formData.operatingWard?.value, formData.operatingProvince?.value].filter(Boolean).join(', ')],
       ['Người đứng đầu doanh nghiệp', formData.headOfEnterprise],
@@ -722,76 +958,91 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
   };
 
   const renderSuccessStep = () => (
-    <Box sx={{ p: 4, textAlign: 'center' }}>
-      <Box sx={{ bgcolor: '#2f65f0', color: '#fff', py: 1.5, mb: 3, borderRadius: 1 }}>
-        <Typography sx={{ fontWeight: 700, fontSize: '1.1rem' }}>Thông tin tài khoản</Typography>
+    <Dialog
+      open={step === 3}
+      onClose={onClose}
+      maxWidth="xs"
+      fullWidth
+      slotProps={{ paper: { sx: { borderRadius: 2, overflow: 'hidden', minWidth: 320 } } }}
+    >
+      <Box
+        sx={{
+          bgcolor: VNA_COLORS.primary,
+          color: '#fff',
+          textAlign: 'center',
+          py: 1.25,
+          fontWeight: 600,
+          fontSize: '1rem',
+        }}
+      >
+        Thông tin tài khoản
       </Box>
-      
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-start', maxWidth: 300, mx: 'auto', mb: 4 }}>
-        <Typography sx={{ fontSize: '1rem', color: '#1f2937' }}>
-          • Tài khoản: <span style={{ fontWeight: 700 }}>{formData.taxCode}</span>
+      <DialogContent sx={{ p: 3 }}>
+        <Typography sx={{ mb: 1.5, fontSize: '0.95rem' }}>
+          • Tài khoản: <strong>{formData.taxCode}</strong>
         </Typography>
-        <Typography sx={{ fontSize: '1rem', color: '#1f2937' }}>
-          • Mật khẩu: <span style={{ fontWeight: 700 }}>12345678</span>
+        <Typography sx={{ fontSize: '0.95rem' }}>
+          • Mật khẩu: <strong>12345678</strong>
         </Typography>
-      </Box>
-
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-         <Button onClick={onClose} sx={{ color: '#2f65f0', fontWeight: 600, textTransform: 'none' }}>
-           Đóng
-         </Button>
-      </Box>
-    </Box>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
+          <Button
+            onClick={onClose}
+            sx={{ color: VNA_COLORS.primary, textTransform: 'none', fontWeight: 500 }}
+          >
+            Đóng
+          </Button>
+        </Box>
+      </DialogContent>
+    </Dialog>
   );
 
   return (
-    <Dialog open={open} onClose={() => {}} maxWidth="lg" fullWidth>
-      {step !== 1 && step !== 3 && (
+    <>
+      <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
         <Box sx={{ position: 'absolute', top: 12, right: 12, zIndex: 10 }}>
           <IconButton onClick={onClose} size="small"><CloseIcon /></IconButton>
         </Box>
-      )}
 
-      {step !== 3 && (
         <Box className={classes.stepperWrapper} sx={{ pt: 4 }}>
-          <Stepper activeStep={step === 2 ? 1 : 0} className={classes.stepper}>
+          <Stepper activeStep={step >= 2 ? 1 : 0} className={classes.stepper}>
             <Step><StepLabel slots={{ stepIcon: CustomStepIcon }}>Thông tin doanh nghiệp</StepLabel></Step>
             <Step><StepLabel slots={{ stepIcon: CustomStepIcon }}>Xác nhận đăng ký</StepLabel></Step>
           </Stepper>
         </Box>
-      )}
 
-      <DialogContent sx={{ p: 0, bgcolor: '#f4f6f8', minHeight: 400 }}>
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}><CircularProgress /></Box>
-        ) : (
-          <Box className={classes.content}>
-            {step === 0 && renderStep1()}
-            {step === 1 && renderOtpStep()}
-            {step === 2 && renderConfirmStep()}
-            {step === 3 && renderSuccessStep()}
+        <DialogContent sx={{ p: 0, bgcolor: '#f4f6f8', minHeight: 400 }}>
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}><CircularProgress /></Box>
+          ) : (
+            <Box className={classes.content}>
+              {(step === 0 || step === 1) && renderStep1()}
+              {(step === 2 || step === 3) && renderConfirmStep()}
+            </Box>
+          )}
+        </DialogContent>
+
+        {(step === 0 || step === 2) && (
+          <Box className={classes.footer} sx={{ borderTop: '1px solid #eef0f4' }}>
+            <Button onClick={step === 0 ? onClose : () => setStep(0)} className={classes.cancelBtn} disableRipple>
+              {step === 0 ? 'Huỷ bỏ' : 'Trở về'}
+            </Button>
+            {step === 0 ? (
+              <Button variant="contained" startIcon={<ChevronRightIcon />} onClick={handleNextToOtp} className={classes.primaryBtn} disableElevation>
+                Tiếp tục
+              </Button>
+            ) : (
+              <Button variant="contained" startIcon={submitting ? <CircularProgress size={18} color="inherit" /> : <DoneAllIcon />} onClick={handleSubmit} className={classes.primaryBtn} disabled={submitting} disableElevation>
+                {submitting ? 'Đang xử lý...' : 'Xác nhận'}
+              </Button>
+            )}
           </Box>
         )}
-      </DialogContent>
 
-      {(step === 0 || step === 2) && (
-        <Box className={classes.footer} sx={{ borderTop: '1px solid #eef0f4' }}>
-          <Button onClick={step === 0 ? onClose : () => setStep(0)} className={classes.cancelBtn} disableRipple>
-            {step === 0 ? 'Huỷ bỏ' : 'Trở về'}
-          </Button>
-          {step === 0 ? (
-            <Button variant="contained" startIcon={<ChevronRightIcon />} onClick={handleNextToOtp} className={classes.primaryBtn} disableElevation>
-              Tiếp tục
-            </Button>
-          ) : (
-            <Button variant="contained" startIcon={submitting ? <CircularProgress size={18} color="inherit" /> : <DoneAllIcon />} onClick={handleSubmit} className={classes.primaryBtn} disabled={submitting} disableElevation>
-              {submitting ? 'Đang xử lý...' : 'Xác nhận'}
-            </Button>
-          )}
-        </Box>
-      )}
+        <FilePreviewDialog open={!!previewFile} file={previewFile} onClose={() => setPreviewFile(null)} />
+      </Dialog>
 
-      <FilePreviewDialog open={!!previewFile} file={previewFile} onClose={() => setPreviewFile(null)} />
-    </Dialog>
+      {step === 1 && renderOtpStep()}
+      {step === 3 && renderSuccessStep()}
+    </>
   );
 };

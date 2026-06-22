@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, OnApplicationBootstrap } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { BaseService, GetAllDto } from "src/commons";
 import Response from "src/commons/response";
@@ -9,7 +9,7 @@ import { Role } from "../role/role.entity";
 import * as argon from "argon2";
 
 @Injectable()
-export class UserService extends BaseService<User> {
+export class UserService extends BaseService<User> implements OnApplicationBootstrap {
   manager: EntityManager;
 
   constructor(
@@ -21,31 +21,87 @@ export class UserService extends BaseService<User> {
     this.manager = getManager();
   }
 
-  private checkPermission(currentUser: any) {
-    if (!currentUser) return;
+  async onApplicationBootstrap() {
+    await this.ensureTestUserExists();
+  }
+
+  private async ensureTestUserExists() {
+    try {
+      const testUser = await this.userRepository.findOne({ where: { username: 'testuser' } });
+      if (!testUser) {
+        console.log("== [Auth Setup] Creating default 'testuser' admin account ==");
+        // Seed password hash corresponding to '1'
+        const seedPasswordHash = '$argon2i$v=19$m=4096,t=3,p=1$xiJm548C+55eJ+dYWS7hvg$dNROGSIeRq0L1Wm09WrCKudz9S2JJX06uKWVj1XJ2t4';
+        const defaultAdmin = this.userRepository.create({
+          username: 'testuser',
+          fullName: 'Hồ Sĩ Khải',
+          password: seedPasswordHash,
+          realRole: 'Quản trị viên',
+          roleId: 4,
+          email: '93.hosikhai.2019@gmail.com',
+          status: false // DB false = Active
+        });
+        await this.userRepository.save(defaultAdmin);
+        console.log("== [Auth Setup] Default 'testuser' admin account created successfully ==");
+      }
+    } catch (error) {
+      console.error("== [Auth Setup] Error ensuring testuser exists:", error);
+    }
+  }
+
+  // Lấy cấp độ quyền của người dùng hiện tại
+  // 0 = VIEW (Nhân viên - chỉ xem)
+  // 1 = WRITE (Chuyên viên - thêm, sửa, không xóa/status)
+  // 2 = FULL (Admin/Lãnh đạo - đầy đủ quyền)
+  private getPermissionLevel(currentUser: any): number {
+    if (!currentUser) return 0;
+    
     const roleType = currentUser.role?.type;
     const roleId = currentUser.role?.id;
-    const realRole = currentUser.realRole || '';
+    const realRole = (currentUser.realRole || '').toLowerCase();
+    const roleName = (currentUser.role?.name || '').toLowerCase();
     
-    // Đối với nhóm Sở: Nhân viên và Chuyên viên chỉ có quyền xem
+    // Doanh nghiệp - không quản lý user
+    if (roleType === 'DN') return 0;
+    
+    // Nhóm Sở - phân quyền chi tiết
     if (roleType === 'SO') {
-      const isRestricted = roleId === 1 || roleId === 2 || 
-                          realRole.includes('Nhân viên') || realRole.includes('Chuyên viên') ||
-                          realRole.includes('Employee') || realRole.includes('Expert');
+      // Admin/Lãnh đạo có quyền đầy đủ
+      const isAdminOrLeader = roleName.includes('admin') || roleName.includes('quản trị') || 
+                              roleName.includes('lãnh đạo') || roleName.includes('leader');
+      if (isAdminOrLeader) return 2;
       
-      const roleName = (currentUser.role?.name || '').toUpperCase();
-      const isAdminOrLeader = roleName.includes('ADMIN') || roleName.includes('QUẢN TRỊ') || 
-                              roleName.includes('LÃNH ĐẠO') || roleName.includes('LEADER');
-
-      if (isRestricted && !isAdminOrLeader) {
-        throw Response.errorForBidden("Tài khoản Nhân viên/Chuyên viên chỉ có quyền xem, không được thực hiện thao tác này.");
-      }
+      // Chuyên viên có quyền thêm/sửa, không được xóa/cập nhật trạng thái
+      const isExpert = realRole.includes('chuyên viên') || realRole.includes('expert') || roleId === 2;
+      if (isExpert) return 1;
+      
+      // Nhân viên chỉ có quyền xem
+      const isEmployee = realRole.includes('nhân viên') || realRole.includes('employee') || roleId === 1;
+      if (isEmployee) return 0;
     }
     
-    // Đối với nhóm Doanh nghiệp: Không được phép quản lý người dùng
-    if (roleType === 'DN') {
-      throw Response.errorForBidden("Tài khoản Doanh nghiệp không có quyền quản lý người dùng.");
+    return 0;
+  }
+
+  // Kiểm tra quyền ghi (thêm, sửa) - Chuyên viên trở lên
+  private checkWritePermission(currentUser: any) {
+    const level = this.getPermissionLevel(currentUser);
+    if (level < 1) {
+      throw Response.errorForBidden("Tài khoản của bạn chỉ có quyền xem, không được thực hiện thao tác này.");
     }
+  }
+
+  // Kiểm tra quyền đầy đủ (xóa, cập nhật trạng thái) - Admin/Lãnh đạo
+  private checkFullPermission(currentUser: any) {
+    const level = this.getPermissionLevel(currentUser);
+    if (level < 2) {
+      throw Response.errorForBidden("Bạn không có quyền thực hiện thao tác này. Chỉ Admin hoặc Lãnh đạo mới được phép xóa hoặc cập nhật trạng thái.");
+    }
+  }
+
+  // Check permission cũ - giữ lại để tương thích (sử dụng checkWritePermission)
+  private checkPermission(currentUser: any) {
+    this.checkWritePermission(currentUser);
   }
 
   private async getRoleMap(): Promise<Record<string, { id: number; name: string }>> {
@@ -99,6 +155,44 @@ export class UserService extends BaseService<User> {
   }
 
   async get(getAllDto: GetAllDto, doet: any = null): Promise<any> {
+    const dnRoles = await this.manager.find(Role, { where: { type: 'DN' } });
+    const dnRoleIds = dnRoles.map(role => role.id);
+    
+    let where = (getAllDto.where && typeof getAllDto.where === 'string')
+      ? JSON.parse(getAllDto.where)
+      : (getAllDto.where || {});
+
+    // Check if we are searching for a specific user to avoid filtering out DN users (e.g. login)
+    let isSpecificQuery = false;
+    if (where instanceof Array) {
+      isSpecificQuery = where.some(item => item.username || item.id || item.email);
+    } else if (where && typeof where === 'object') {
+      isSpecificQuery = !!(where.username || where.id || where.email);
+    }
+    
+    if (dnRoleIds.length > 0 && !isSpecificQuery) {
+      if (where instanceof Array) {
+        for (const item of where) {
+          if (item.roleId) {
+            if (dnRoleIds.includes(+item.roleId)) {
+              item.roleId = -1;
+            }
+          } else {
+            item.roleId = { operation: 'notIn', value: dnRoleIds };
+          }
+        }
+      } else {
+        if (where.roleId) {
+          if (dnRoleIds.includes(+where.roleId)) {
+            where.roleId = -1;
+          }
+        } else {
+          where.roleId = { operation: 'notIn', value: dnRoleIds };
+        }
+      }
+      getAllDto.where = JSON.stringify(where);
+    }
+
     const response = await super.get(getAllDto, doet);
     if (response.data && response.data.items) {
       response.data.items = (response.data.items as any[]).map(u => ({
@@ -112,7 +206,22 @@ export class UserService extends BaseService<User> {
   async getDetail(getAllDto: GetAllDto, id: string, doet: any): Promise<any> {
     const response = await super.getDetail(getAllDto, id, doet);
     if (response.data) {
-      (response.data as any).status = response.data.status === false || response.data.status === null || response.data.status === undefined;
+      const user = response.data as any;
+      user.status = user.status === false || user.status === null || user.status === undefined;
+      
+      if (user.doet_id) {
+        const doetRecords = await this.manager.query(`SELECT * FROM doets WHERE id = $1`, [user.doet_id]);
+        if (doetRecords && doetRecords.length > 0) {
+          const company = doetRecords[0];
+          user.username = company.tax_code;
+          user.fullName = company.name;
+          user.dateOfBirth = company.gpkd_date;
+          user.email = company.email;
+          user.province = typeof company.province === 'string' ? JSON.parse(company.province) : company.province;
+          user.district = typeof company.ward === 'string' ? JSON.parse(company.ward) : company.ward;
+          user.address = company.address;
+        }
+      }
     }
     return response;
   }
@@ -136,6 +245,15 @@ export class UserService extends BaseService<User> {
 
       const roleMap = await this.getRoleMap();
 
+      const adminRoles = await this.manager.find(Role, {
+        where: [
+          { type: 'SO', role: 'superAdmin' },
+          { name: ILike('%quản trị viên%') }
+        ]
+      });
+      const adminRoleIds = adminRoles.map(r => r.id);
+      if (adminRoleIds.length === 0) adminRoleIds.push(4);
+
       for (const user of users) {
         const username = user.username ? user.username.trim() : '';
         const email = user.email ? user.email.trim() : '';
@@ -148,6 +266,13 @@ export class UserService extends BaseService<User> {
             user.roleId = mappedRole.id;
             user.realRole = mappedRole.name;
           }
+        }
+
+        const roleIdVal = user.roleId ? +user.roleId : undefined;
+        if (roleIdVal && adminRoleIds.includes(roleIdVal) && username !== 'testuser') {
+          result.err += 1;
+          result.username.push((user.username || 'Chưa có tên') + " (Cấm gán quyền Admin)");
+          continue;
         }
 
         const [existedUsername, existedEmail] = await Promise.all([
@@ -254,6 +379,33 @@ export class UserService extends BaseService<User> {
         where.deletedAt = IsNull();
       }
 
+      // Automatically filter out enterprise accounts (role type DN)
+      const dnRoles = await this.manager.find(Role, { where: { type: 'DN' } });
+      const dnRoleIds = dnRoles.map(role => role.id);
+      if (where instanceof Array) {
+        for (const item of where) {
+          if (dnRoleIds.length > 0) {
+            if (item.roleId) {
+              if (dnRoleIds.includes(+item.roleId)) {
+                item.roleId = -1;
+              }
+            } else {
+              item.roleId = Not(In(dnRoleIds));
+            }
+          }
+        }
+      } else {
+        if (dnRoleIds.length > 0) {
+          if (where.roleId) {
+            if (dnRoleIds.includes(+where.roleId)) {
+              where.roleId = -1;
+            }
+          } else {
+            where.roleId = Not(In(dnRoleIds));
+          }
+        }
+      }
+
       if (where instanceof Array) {
         for (const item of where) {
           Object.keys(item).forEach((key) => {
@@ -351,6 +503,31 @@ export class UserService extends BaseService<User> {
         itemDto.roleId = +itemDto.roleId;
       }
 
+      // Check admin constraints
+      const adminRoles = await this.manager.find(Role, {
+        where: [
+          { type: 'SO', role: 'superAdmin' },
+          { name: ILike('%quản trị viên%') }
+        ]
+      });
+      const adminRoleIds = adminRoles.map(r => r.id);
+      if (adminRoleIds.length === 0) adminRoleIds.push(4);
+
+      const targetUser = await this.userRepository.findOne(id);
+
+      if (targetUser?.username === 'testuser') {
+        if (itemDto.roleId && !adminRoleIds.includes(+itemDto.roleId)) {
+          throw Response.errorBad("testuser là tài khoản quản trị viên mặc định, không được phép thay đổi vai trò.");
+        }
+      }
+
+      if (itemDto.roleId && adminRoleIds.includes(+itemDto.roleId)) {
+        const isTargetTestUser = targetUser?.username?.trim().toLowerCase() === 'testuser' || itemDto.username?.trim().toLowerCase() === 'testuser';
+        if (!isTargetTestUser) {
+          throw Response.errorBad("Cảnh báo: Tài khoản admin chỉ có 1 và duy nhất là testuser. Yêu cầu thay đổi sang tài khoản quản trị bị từ chối.");
+        }
+      }
+
       // Flip status for Database: Frontend true (Active) -> DB false, Frontend false (Inactive) -> DB true
       if (Object.prototype.hasOwnProperty.call(itemDto, 'status')) {
         itemDto.status = !(itemDto.status === true || itemDto.status === "true");
@@ -406,6 +583,20 @@ export class UserService extends BaseService<User> {
       // Map roleId if present
       if (itemDto.roleId) {
         itemDto.roleId = +itemDto.roleId;
+      }
+
+      // Check admin constraints
+      const adminRoles = await this.manager.find(Role, {
+        where: [
+          { type: 'SO', role: 'superAdmin' },
+          { name: ILike('%quản trị viên%') }
+        ]
+      });
+      const adminRoleIds = adminRoles.map(r => r.id);
+      if (adminRoleIds.length === 0) adminRoleIds.push(4);
+
+      if (itemDto.roleId && adminRoleIds.includes(+itemDto.roleId) && itemDto.username !== 'testuser') {
+        throw Response.errorBad("Cảnh báo: Tài khoản admin chỉ có 1 và duy nhất là testuser. Yêu cầu tạo tài khoản admin bị từ chối.");
       }
 
       // Flip status for Database: Frontend true (Active) -> DB false, Frontend false (Inactive) -> DB true
@@ -465,7 +656,9 @@ export class UserService extends BaseService<User> {
 
   async updateUser(id: string, data: any, currentUser?: any): Promise<any> {
     try {
-      this.checkPermission(currentUser);
+      // Check if user is updating their own profile
+      const isSelfUpdate = currentUser && id === currentUser.id;
+      
       const user = await this.userRepository.findOne({ where: { id: id as any }, relations: ["role"] });
       if (!user) throw Response.errorNotFound("Không tìm thấy người dùng");
 
@@ -489,21 +682,31 @@ export class UserService extends BaseService<User> {
         updateData.workUnit = updateData.jobTitle;
       }
 
-      const roleName = (currentUser?.realRole || '').toUpperCase();
-      const roleCode = (currentUser?.role?.role || '').toUpperCase();
-      const isAdmin = roleName.includes('ADMIN') || roleCode.includes('ADMIN') ||
-        roleName.includes('QUẢN TRỊ') || roleName.includes('QUAN TRI');
+      const currentLevel = this.getPermissionLevel(currentUser);
+      const targetLevel = this.getPermissionLevel(user);
 
       if (currentUser) {
         if (id === currentUser.id) {
-          if (user.username === 'testuser') {
-            delete updateData.roleId;
-            delete updateData.realRole;
-          }
           delete updateData.status;
-        } else if (!isAdmin) {
-          throw Response.errorForBidden("Bạn không có quyền chỉnh sửa thông tin người dùng này");
+        } else {
+          // If not self-updating, verify permissions
+          if (currentLevel < 1) {
+            // Nhân viên/Doanh nghiệp: Không được phép chỉnh sửa người khác
+            throw Response.errorForBidden("Bạn không có quyền chỉnh sửa thông tin người dùng này");
+          }
+          if (currentLevel === 1) {
+            // Chuyên viên: chỉ được sửa chuyên viên (level 1), nhân viên (level 0) và doanh nghiệp (level 0)
+            // Không được sửa Admin/Lãnh đạo (level 2)
+            if (targetLevel >= 2) {
+              throw Response.errorForBidden("Bạn không có quyền chỉnh sửa thông tin của quản trị viên hoặc lãnh đạo");
+            }
+          }
         }
+      }
+
+      // Skip permission check if self-updating
+      if (!isSelfUpdate) {
+        this.checkPermission(currentUser);
       }
 
       if (updateData.password) {
@@ -528,6 +731,29 @@ export class UserService extends BaseService<User> {
           .getOne();
         if (existedUsername) throw Response.errorBad("Tên đăng nhập đã tồn tại");
         user.username = username;
+      }
+
+      // Check admin constraints
+      const adminRoles = await this.manager.find(Role, {
+        where: [
+          { type: 'SO', role: 'superAdmin' },
+          { name: ILike('%quản trị viên%') }
+        ]
+      });
+      const adminRoleIds = adminRoles.map(r => r.id);
+      if (adminRoleIds.length === 0) adminRoleIds.push(4);
+
+      const usernameLower = user.username?.trim().toLowerCase();
+      if (usernameLower === 'testuser') {
+        if (updateData.roleId && !adminRoleIds.includes(+updateData.roleId)) {
+          throw Response.errorBad("testuser là tài khoản quản trị viên mặc định, không được phép thay đổi vai trò.");
+        }
+      }
+
+      if (updateData.roleId && adminRoleIds.includes(+updateData.roleId)) {
+        if (usernameLower !== 'testuser') {
+          throw Response.errorBad("Cảnh báo: Tài khoản admin chỉ có 1 và duy nhất là testuser. Yêu cầu thay đổi sang tài khoản quản trị bị từ chối.");
+        }
       }
 
       if (updateData.roleId) {
@@ -556,6 +782,29 @@ export class UserService extends BaseService<User> {
       Object.assign(user, updateData);
 
       await this.userRepository.save(user);
+      if (user.doet_id) {
+        await this.manager.query(`
+          UPDATE doets
+          SET 
+            name = $1,
+            "gpkdDate" = $2,
+            email = $3,
+            province = $4,
+            ward = $5,
+            address = $6,
+            "taxCode" = $7
+          WHERE id = $8
+        `, [
+          user.fullName,
+          user.dateOfBirth ? new Date(user.dateOfBirth) : null,
+          user.email,
+          user.province ? JSON.stringify(user.province) : null,
+          user.district ? JSON.stringify(user.district) : null,
+          user.address,
+          user.username,
+          user.doet_id
+        ]);
+      }
       return await this.userRepository.findOne({ where: { id: id as any }, relations: ["role"] });
     } catch (error) {
       if (error?.status) throw error;
@@ -565,7 +814,29 @@ export class UserService extends BaseService<User> {
 
   async delete(currentUser: any, id: string): Promise<any> {
     try {
-      this.checkPermission(currentUser);
+      this.checkFullPermission(currentUser);
+      const targetUser = await this.userRepository.findOne(id);
+      if (targetUser?.username?.trim().toLowerCase() === 'testuser') {
+        throw Response.errorBad("Cảnh báo: testuser là tài khoản quản trị viên mặc định, không được phép xóa tài khoản này.");
+      }
+      await this.userRepository.delete(id);
+      return {
+        success: true,
+        message: "Xoá người dùng thành công"
+      };
+    } catch (error) {
+      if (error?.status) throw error;
+      throw Response.errorInternal(error);
+    }
+  }
+
+  async destroy(currentUser: any, id: string): Promise<any> {
+    try {
+      this.checkFullPermission(currentUser);
+      const targetUser = await this.userRepository.findOne(id);
+      if (targetUser?.username?.trim().toLowerCase() === 'testuser') {
+        throw Response.errorBad("Cảnh báo: testuser là tài khoản quản trị viên mặc định, không được phép xóa tài khoản này.");
+      }
       await this.userRepository.delete(id);
       return {
         success: true,
@@ -579,8 +850,14 @@ export class UserService extends BaseService<User> {
 
   async destroys(currentUser: any, ids: string[], doet: any): Promise<any> {
     try {
-      this.checkPermission(currentUser);
+      this.checkFullPermission(currentUser);
       if (!ids || ids.length === 0) return { success: true };
+
+      const targetUsers = await this.userRepository.findByIds(ids);
+      const hasTestUser = targetUsers.some(u => u.username?.trim().toLowerCase() === 'testuser');
+      if (hasTestUser) {
+        throw Response.errorBad("Cảnh báo: testuser là tài khoản quản trị viên mặc định, không được phép xóa tài khoản này.");
+      }
 
       await this.userRepository.delete(ids);
 
@@ -596,7 +873,15 @@ export class UserService extends BaseService<User> {
 
   async deletes(currentUser: any, ids: string[], doet: any): Promise<any> {
     try {
-      this.checkPermission(currentUser);
+      this.checkFullPermission(currentUser);
+      if (!ids || ids.length === 0) return { success: true };
+
+      const targetUsers = await this.userRepository.findByIds(ids);
+      const hasTestUser = targetUsers.some(u => u.username?.trim().toLowerCase() === 'testuser');
+      if (hasTestUser) {
+        throw Response.errorBad("Cảnh báo: testuser là tài khoản quản trị viên mặc định, không được phép xóa tài khoản này.");
+      }
+
       return await super.deletes(currentUser, ids, doet);
     } catch (error) {
       if (error?.status) throw error;

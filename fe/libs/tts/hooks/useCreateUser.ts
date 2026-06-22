@@ -2,10 +2,7 @@
 import { useReducer, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { accountInfoReducer, initialAccountInfoState, AccountInfoState } from "@tts/logic/account-info/reducer";
-import { authService } from "@tts/services/auth.services";
-import { userService } from "@tts/services/user.services";
-import { roleService } from '@tts/services/role.services';
-import DoetService from "@tts/services/doet.service";
+import { authService, userService, roleService, DoetService } from "@tts/services";
 import { validate, VALIDATION_MESSAGES } from "@core/utils/validation";
 import useLocales from "@core/hooks/useLocales";
 import { useNotification } from "@core/hooks/useNotification";
@@ -28,6 +25,12 @@ export const useCreateUser = () => {
                 } else {
                     roleList = response?.data?.items || response?.items || [];
                 }
+                roleList = roleList.filter((r: any) => 
+                    r.role !== 'enterprise' && 
+                    r.type !== 'DN' && 
+                    r.id !== 5 && 
+                    r.name !== 'Doanh nghiệp'
+                );
                 dispatch({ type: 'onChange', name: 'roles', value: roleList });
             } catch (error) { console.error(error); }
         };
@@ -82,18 +85,33 @@ export const useCreateUser = () => {
             return;
         }
 
+        if (!state.role) {
+            dispatch({
+                type: 'showToast',
+                message: 'Vui lòng chọn vai trò',
+                toastType: 'error'
+            });
+            return;
+        }
+
         if (!validate.username(state.username)) {
             notifyError(VALIDATION_MESSAGES.USERNAME_INVALID || 'Tên đăng nhập không hợp lệ');
             return;
         }
 
-        if (!validate.password(state.password)) {
-            notifyError(VALIDATION_MESSAGES.PASSWORD_INVALID);
-            return;
-        }
         if (state.email && !validate.email(state.email)) {
             notifyError(VALIDATION_MESSAGES.EMAIL_INVALID || 'Email không hợp lệ');
             return;
+        }
+
+        if (state.birthday) {
+            const birthDay = new Date(state.birthday);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (birthDay >= today) {
+                notifyError('Ngày sinh phải là ngày trong quá khứ');
+                return;
+            }
         }
 
         dispatch({ type: 'setLoading', value: true });
@@ -112,6 +130,7 @@ export const useCreateUser = () => {
                 dateOfBirth: state.birthday ? new Date(state.birthday) : null,
                 gender: state.gender === 'Nam' ? 1 : (state.gender === 'Nữ' ? 0 : null),
                 realRole: roleNameToSave,
+                roleId: selectedRoleObj ? Number(selectedRoleObj.id) : null,
                 role: state.role ? { id: state.role } : null,
                 province: state.city ? { key: String(state.city), value: selectedProvince?.name || state.city } : null,
                 district: state.district ? { key: String(state.district), value: selectedDistrict?.name || state.district } : null,
@@ -127,7 +146,27 @@ export const useCreateUser = () => {
                 setTimeout(() => router.push('/users'), 1000);
             }
         } catch (error: any) {
-            let errorMsg = error.response?.data?.errors || error.response?.data?.message || error.message || translate("notifications.error");
+            const data = error.response?.data;
+            let errorMsg = translate("notifications.error") || "Có lỗi xảy ra khi lưu dữ liệu";
+            if (data) {
+                if (typeof data.errors === 'string') {
+                    errorMsg = data.errors;
+                } else if (data.errors && typeof data.errors === 'object') {
+                    if (typeof data.errors.message === 'string') {
+                        errorMsg = data.errors.message;
+                    } else if (Array.isArray(data.errors.message)) {
+                        errorMsg = data.errors.message.join(', ');
+                    } else if (typeof data.errors.error === 'string') {
+                        errorMsg = data.errors.error;
+                    } else {
+                        errorMsg = data.message || JSON.stringify(data.errors);
+                    }
+                } else {
+                    errorMsg = data.message || error.message || errorMsg;
+                }
+            } else {
+                errorMsg = error.message || errorMsg;
+            }
             notifyError(String(errorMsg));
         } finally {
             dispatch({ type: 'setLoading', value: false });

@@ -36,7 +36,8 @@ export class User extends BaseAddressEntity {
       "doet_id",
       "deletedAt",
       "otp",
-      "otpExpired"
+      "otpExpired",
+      "workUnit"
     ]
   ) {
     super(users as any);
