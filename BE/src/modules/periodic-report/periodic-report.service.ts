@@ -39,17 +39,244 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
     }
   }
 
-  async findAllReports(doetId: string, year?: string) {
+  async findAllReports(currentUser: any, query: any) {
+    const roleType = currentUser?.role?.type;
+    const isSoUser = roleType === 'SO';
+    const doetId = currentUser?.doet || currentUser?.doet_id;
+
+    const {
+      year,
+      period,
+      status,
+      companyName,
+      taxCode,
+      provinceId,
+      provinceName,
+      wardId,
+      wardName,
+      page = 1,
+      limit = 10
+    } = query || {};
+
     const qb = this.reportRepo.createQueryBuilder("pr");
-    if (doetId) {
-      qb.where("pr.doetId = :doetId", { doetId });
+    // Join with Doet to get real-time address/location and tax code
+    qb.leftJoin(Doet, "d", "pr.doetId = CAST(d.id AS varchar)");
+
+    // Authorization: DN users can only see their own reports. SO users can see all.
+    if (!isSoUser) {
+      if (doetId) {
+        qb.where("pr.doetId = :doetId", { doetId: String(doetId) });
+      } else {
+        qb.where("pr.doetId = :doetId", { doetId: 'non_existent_doet_id' });
+      }
+    } else {
+      qb.where("1 = 1");
     }
+
     if (year) {
       qb.andWhere("pr.year = :year", { year: parseInt(year) });
     }
+
+    if (period) {
+      qb.andWhere("pr.period = :period", { period });
+    }
+
+    if (status) {
+      qb.andWhere("pr.status = :status", { status });
+    }
+
+    if (companyName) {
+      qb.andWhere("(pr.companyName ILIKE :companyName OR d.name ILIKE :companyName)", { companyName: `%${companyName}%` });
+    }
+
+    if (taxCode) {
+      qb.andWhere("d.taxCode ILIKE :taxCode", { taxCode: `%${taxCode}%` });
+    }
+
+    if (provinceId) {
+      qb.andWhere("d.province ->> 'key' = :provinceId", { provinceId });
+    } else if (provinceName) {
+      qb.andWhere("d.province ->> 'value' ILIKE :provinceName", { provinceName: `%${provinceName}%` });
+    }
+
+    if (wardId) {
+      qb.andWhere("d.ward ->> 'key' = :wardId", { wardId });
+    } else if (wardName) {
+      qb.andWhere("d.ward ->> 'value' ILIKE :wardName", { wardName: `%${wardName}%` });
+    }
+
     qb.orderBy("pr.createdAt", "DESC");
-    const data = await qb.getMany();
-    return Response.get({ items: data, totalCount: data.length });
+
+    const skip = (parseInt(page as any) - 1) * parseInt(limit as any);
+    const take = parseInt(limit as any);
+    qb.skip(skip).take(take);
+
+    const [items, totalCount] = await qb.getManyAndCount();
+    return Response.get({ items, totalCount, page: parseInt(page as any), limit: parseInt(limit as any) });
+  }
+
+  async getSummaryReport(currentUser: any, query: any) {
+    const roleType = currentUser?.role?.type;
+    const isSoUser = roleType === 'SO';
+    const doetId = currentUser?.doet || currentUser?.doet_id;
+
+    const {
+      year,
+      period,
+      status,
+      companyName,
+      taxCode,
+      provinceId,
+      provinceName,
+      wardId,
+      wardName
+    } = query || {};
+
+    const qb = this.reportRepo.createQueryBuilder("pr")
+      .leftJoin(Doet, "d", "pr.doetId = CAST(d.id AS varchar)")
+      .leftJoinAndSelect("pr.accidentDetails", "ad");
+
+    if (!isSoUser) {
+      if (doetId) {
+        qb.where("pr.doetId = :doetId", { doetId: String(doetId) });
+      } else {
+        qb.where("pr.doetId = :doetId", { doetId: 'non_existent_doet_id' });
+      }
+    } else {
+      qb.where("1 = 1");
+    }
+
+    if (year) {
+      qb.andWhere("pr.year = :year", { year: parseInt(year) });
+    }
+
+    if (period) {
+      qb.andWhere("pr.period = :period", { period });
+    }
+
+    if (status) {
+      qb.andWhere("pr.status = :status", { status });
+    }
+
+    if (companyName) {
+      qb.andWhere("(pr.companyName ILIKE :companyName OR d.name ILIKE :companyName)", { companyName: `%${companyName}%` });
+    }
+
+    if (taxCode) {
+      qb.andWhere("d.taxCode ILIKE :taxCode", { taxCode: `%${taxCode}%` });
+    }
+
+    if (provinceId) {
+      qb.andWhere("d.province ->> 'key' = :provinceId", { provinceId });
+    } else if (provinceName) {
+      qb.andWhere("d.province ->> 'value' ILIKE :provinceName", { provinceName: `%${provinceName}%` });
+    }
+
+    if (wardId) {
+      qb.andWhere("d.ward ->> 'key' = :wardId", { wardId });
+    } else if (wardName) {
+      qb.andWhere("d.ward ->> 'value' ILIKE :wardName", { wardName: `%${wardName}%` });
+    }
+
+    const reports = await qb.getMany();
+
+    let totalEmployees = 0;
+    let femaleEmployees = 0;
+    let totalSalaryFund = 0;
+
+    const aggregatedTnldSummary: any = {};
+    const aggregatedTnldTroCapSummary: any = {};
+
+    const fields = [
+      'tongSoVu', 'tongSoVuNguoiChet', 'tongSoVu2Nguoi', 'tongSoVu2NguoiTroLen',
+      'tongSoNguoiBiNan', 'tongSoNuBiNan', 'tongLaoDongNuBiNan', 'tongSoNguoiChet',
+      'tongSoThuongNang', 'tongSoNguoiThuongNang', 'khongQlNguoiBiNan', 'khongQlNuBiNan',
+      'khongQlNguoiChet', 'khongQlThuongNang', 'chiPhiYTe', 'chiPhiTraLuong',
+      'chiPhiBoiThuong', 'tongChiPhi', 'tongNgayNghi', 'thietHaiTaiSan'
+    ];
+
+    fields.forEach(f => {
+      aggregatedTnldSummary[f] = 0;
+      aggregatedTnldTroCapSummary[f] = 0;
+    });
+
+    const detailGroups = new Map<string, {
+      reportType: string;
+      nguyenNhanId: number | null;
+      yeuToChanThuongId: number | null;
+      ngheNghiepId: number | null;
+      stats: any;
+    }>();
+
+    for (const r of reports) {
+      totalEmployees += Number(r.totalEmployees || 0);
+      femaleEmployees += Number(r.femaleEmployees || 0);
+      totalSalaryFund += Number(r.totalSalaryFund || 0);
+
+      if (r.tnldSummary) {
+        for (const key of Object.keys(r.tnldSummary)) {
+          const val = Number(r.tnldSummary[key] || 0);
+          if (!isNaN(val)) {
+            aggregatedTnldSummary[key] = (aggregatedTnldSummary[key] || 0) + val;
+          }
+        }
+      }
+
+      if (r.tnldTroCapSummary) {
+        for (const key of Object.keys(r.tnldTroCapSummary)) {
+          const val = Number(r.tnldTroCapSummary[key] || 0);
+          if (!isNaN(val)) {
+            aggregatedTnldTroCapSummary[key] = (aggregatedTnldTroCapSummary[key] || 0) + val;
+          }
+        }
+      }
+
+      if (r.accidentDetails && Array.isArray(r.accidentDetails)) {
+        for (const ad of r.accidentDetails) {
+          const nCause = ad.nguyenNhanId !== undefined && ad.nguyenNhanId !== null ? ad.nguyenNhanId : null;
+          const nInjury = ad.yeuToChanThuongId !== undefined && ad.yeuToChanThuongId !== null ? ad.yeuToChanThuongId : null;
+          const nOcc = ad.ngheNghiepId !== undefined && ad.ngheNghiepId !== null ? ad.ngheNghiepId : null;
+
+          const key = `${ad.reportType}_${nCause || 0}_${nInjury || 0}_${nOcc || 0}`;
+
+          if (!detailGroups.has(key)) {
+            const statsInit: any = {};
+            fields.forEach(f => statsInit[f] = 0);
+            detailGroups.set(key, {
+              reportType: ad.reportType,
+              nguyenNhanId: nCause,
+              yeuToChanThuongId: nInjury,
+              ngheNghiepId: nOcc,
+              stats: statsInit
+            });
+          }
+
+          const group = detailGroups.get(key)!;
+          if (ad.stats) {
+            for (const sKey of Object.keys(ad.stats)) {
+              const val = Number(ad.stats[sKey] || 0);
+              if (!isNaN(val)) {
+                group.stats[sKey] = (group.stats[sKey] || 0) + val;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    const accidentDetailsList = Array.from(detailGroups.values());
+
+    return Response.get({
+      year: year ? parseInt(year) : null,
+      period: period || null,
+      totalEmployees,
+      femaleEmployees,
+      totalSalaryFund,
+      tnldSummary: aggregatedTnldSummary,
+      tnldTroCapSummary: aggregatedTnldTroCapSummary,
+      accidentDetails: accidentDetailsList,
+      reportCount: reports.length
+    });
   }
 
   async findDetail(id: number) {

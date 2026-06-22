@@ -13,10 +13,14 @@ export class PeriodicReportController {
 
   @Get()
   @ApiOperation({ summary: "Lấy danh sách báo cáo" })
-  async getList(@Query('year') year: string, @Request() req: any) {
-    const user = req.user;
-    const doetId = user && user.doet ? user.doet : 'testuser';
-    return await this.reportService.findAllReports(doetId, year);
+  async getList(@Query() query: any, @Request() req: any) {
+    return await this.reportService.findAllReports(req.user, query);
+  }
+
+  @Get("summary")
+  @ApiOperation({ summary: "Lấy báo cáo tổng hợp tình hình TNLĐ" })
+  async getSummary(@Query() query: any, @Request() req: any) {
+    return await this.reportService.getSummaryReport(req.user, query);
   }
 
   @Get(":id")
