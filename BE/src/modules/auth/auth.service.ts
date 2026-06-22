@@ -33,7 +33,7 @@ export class AuthService {
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expires = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-    
+
     this.registrationOtps.set(email, { otp, expires });
 
     const templatePath = path.resolve(process.cwd(), 'src/commons/templates/forgot-password.html');
@@ -41,7 +41,7 @@ export class AuthService {
     template = template.replace(/\$2/g, email).replace(/\$3/g, otp);
     template = template.replace('Lấy lại mật khẩu - Mã OTP', 'Xác thực đăng ký doanh nghiệp - Mã OTP');
     template = template.replace('Bạn vừa yêu cầu khôi phục mật khẩu', 'Bạn vừa đăng ký tài khoản doanh nghiệp');
-    
+
     await Email.sendMail(email, "Xác thực đăng ký doanh nghiệp - Mã OTP", template);
     // write to txt for testing
     fs.writeFileSync(path.resolve(process.cwd(), 'reset_link.txt'), `OTP Đăng ký: ${otp}`);
@@ -72,22 +72,22 @@ export class AuthService {
   async registerEnterprise(payload: any, otp: string) {
     const email = payload.email;
     const otpData = this.registrationOtps.get(email);
-    
+
     if (!otpData) {
-        throw Response.errorBad("Vui lòng yêu cầu mã OTP trước khi đăng ký");
+      throw Response.errorBad("Vui lòng yêu cầu mã OTP trước khi đăng ký");
     }
     if (otpData.otp !== otp) {
-        throw Response.errorBad("Mã OTP không chính xác");
+      throw Response.errorBad("Mã OTP không chính xác");
     }
     if (new Date() > otpData.expires) {
-        this.registrationOtps.delete(email);
-        throw Response.errorBad("Mã OTP đã hết hạn");
+      this.registrationOtps.delete(email);
+      throw Response.errorBad("Mã OTP đã hết hạn");
     }
 
     // Pass undefined as currentUser to bypass permission check in DoetService.post
     // Since it's a public endpoint
     const result = await this.doetService.post(undefined, payload, null);
-    
+
     // Clear OTP after successful registration
     this.registrationOtps.delete(email);
 
@@ -98,7 +98,7 @@ export class AuthService {
     try {
       const _doet = (doet && doet.id) ? doet.id : (data.doet_id || null);
       const user = new CurrentUser(_doet, data);
-      const tokenPayload = { 
+      const tokenPayload = {
         ...user,
         passwordHash: data.password
       };
@@ -173,7 +173,7 @@ export class AuthService {
     try {
       const manage = getManager();
       const emailTrimmed = email.trim();
-      
+
       const qbUser = manage.createQueryBuilder(User, 'user')
         .where('LOWER(user.email) = LOWER(:email)', { email: emailTrimmed })
         .andWhere('user.deletedAt IS NULL');

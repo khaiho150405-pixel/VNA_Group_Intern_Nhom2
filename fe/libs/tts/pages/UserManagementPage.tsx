@@ -83,36 +83,29 @@ export const UserManagementPage = () => {
     // Chuyên viên được phép thêm/sửa mọi user trừ admin/testuser
     const getPermissionLevel = () => {
         if (!user) return 0;
-        
+
         const roleId = (user as any)?.roleId || (user as any)?.role?.id;
         const realRole = ((user as any)?.realRole || '').toLowerCase();
         const roleName = ((user as any)?.role?.name || '').toLowerCase();
-        
+
         // Ưu tiên nhận diện theo roleId và realRole
         // roleId = 4 hoặc có chữ "quản trị"/"admin"/"lãnh đạo"/"leader" -> FULL (2)
-        const isAdminOrLeader = 
+        const isAdminOrLeader =
             roleId === 4 ||
             realRole.includes('quản trị') ||
             realRole.includes('admin') ||
             realRole.includes('lãnh đạo') ||
-            realRole.includes('leader') ||
-            roleName.includes('quản trị') ||
-            roleName.includes('admin') ||
-            roleName.includes('lãnh đạo') ||
-            roleName.includes('leader');
-        
+            realRole.includes('leader');
         if (isAdminOrLeader) return 2;
-        
+
         // roleId = 2 hoặc có chữ "chuyên viên"/"expert" -> WRITE (1)
-        const isExpert = 
+        const isExpert =
             roleId === 2 ||
-            realRole.includes('chuyên viên') ||
-            realRole.includes('expert') ||
             roleName.includes('chuyên viên') ||
             roleName.includes('expert');
-        
+
         if (isExpert) return 1;
-        
+
         // roleId = 1 hoặc có chữ "nhân viên"/"employee" -> VIEW (0)
         // Không xác định được role cũng mặc định là VIEW
         return 0;
@@ -122,7 +115,7 @@ export const UserManagementPage = () => {
     const isReadOnly = useMemo(() => {
         return getPermissionLevel() === 0;
     }, [user]);
-    
+
     // canDeleteOrChangeStatus: true nếu có quyền đầy đủ (level 2)
     const canDeleteOrChangeStatus = useMemo(() => {
         return getPermissionLevel() === 2;
@@ -144,10 +137,10 @@ export const UserManagementPage = () => {
             } else {
                 roleList = roleRes?.data?.items || roleRes?.items || [];
             }
-            roleList = roleList.filter((r: any) => 
-                r.role !== 'enterprise' && 
-                r.type !== 'DN' && 
-                r.id !== 5 && 
+            roleList = roleList.filter((r: any) =>
+                r.role !== 'enterprise' &&
+                r.type !== 'DN' &&
+                r.id !== 5 &&
                 r.name !== 'Doanh nghiệp'
             );
             setRoles(roleList);
@@ -192,7 +185,7 @@ export const UserManagementPage = () => {
             }
             const isCurrentlyActive = currentStatus === true;
             const nextStatus = !isCurrentlyActive;
-            
+
             // Optimistic update
             setData((prev) =>
                 prev.map((item) =>
@@ -230,7 +223,7 @@ export const UserManagementPage = () => {
             }
             setLoading(true);
             await userService.deleteMany(selectedIds);
-            
+
             // Log out if the current user is among the deleted users
             if (user && selectedIds.includes(String(user.id))) {
                 enqueueSnackbar("Tài khoản của bạn đã bị xóa. Đang đăng xuất...", { variant: "info" });
@@ -336,8 +329,8 @@ export const UserManagementPage = () => {
                     let roleId: number | undefined = undefined;
 
                     const roleClean = rawRole.toLowerCase();
-                    const matchedRole = roles.find(r => 
-                        r.name.toLowerCase().includes(roleClean) || 
+                    const matchedRole = roles.find(r =>
+                        r.name.toLowerCase().includes(roleClean) ||
                         roleClean.includes(r.name.toLowerCase()) ||
                         (r.role && r.role.toLowerCase() === roleClean)
                     );
@@ -1035,8 +1028,8 @@ export const UserManagementPage = () => {
                     <DialogContent sx={{ pt: '20px !important', pb: 2 }}>
                         <Box sx={{ mb: 2, p: 1.5, bgcolor: '#f8fafc', borderRadius: '6px', borderLeft: '4px solid #3b82f6' }}>
                             <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
-                                Vui lòng kiểm tra kỹ danh sách tài khoản trước khi nhập vào cơ sở dữ liệu. 
-                                Click nút <strong>Sửa</strong> (hoặc nhấn biểu tượng cây bút) để cập nhật thông tin inline, click <strong>Xóa</strong> để loại bỏ dòng. 
+                                Vui lòng kiểm tra kỹ danh sách tài khoản trước khi nhập vào cơ sở dữ liệu.
+                                Click nút <strong>Sửa</strong> (hoặc nhấn biểu tượng cây bút) để cập nhật thông tin inline, click <strong>Xóa</strong> để loại bỏ dòng.
                                 Các trường lỗi sẽ được đánh dấu cảnh báo màu đỏ.
                             </Typography>
                         </Box>

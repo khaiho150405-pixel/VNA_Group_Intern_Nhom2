@@ -390,7 +390,7 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
 
     if (tongVuChet > tongVu) throw new BadRequestException(`${prefixMsg}Tổng số vụ có người chết không được lớn hơn Tổng số vụ`);
     if (tongVu2Nguoi > tongVu) throw new BadRequestException(`${prefixMsg}Tổng số vụ có 2 người bị nạn trở lên không được lớn hơn Tổng số vụ`);
-    
+
     if (tongNuNan > tongNguoiNan) throw new BadRequestException(`${prefixMsg}Tổng số lao động nữ bị nạn không được lớn hơn Tổng số người bị nạn`);
     if (tongNguoiChet + tongThuongNang > tongNguoiNan) throw new BadRequestException(`${prefixMsg}Tổng số người chết và bị thương nặng không được vượt quá Tổng số người bị nạn`);
 
