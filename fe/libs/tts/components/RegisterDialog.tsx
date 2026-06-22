@@ -410,7 +410,7 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
     if (!formData.businessLineId) errs.businessLineId = 'Vui lòng chọn ngành nghề';
     if (!formData.province?.key) errs.province = 'Vui lòng chọn tỉnh/thành';
     if (!formData.ward?.key) errs.ward = 'Vui lòng chọn phường/xã';
-    
+
     if (!formData.email?.trim()) {
       errs.email = 'Email không được để trống';
     } else if (!isValidEmail(formData.email)) {
@@ -562,8 +562,8 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
       } else {
         enqueueSnackbar(msg, { variant: 'error' });
         if (msg.includes('OTP')) {
-            setStep(1); // go back to OTP if invalid
-            setOtpError(msg);
+          setStep(1); // go back to OTP if invalid
+          setOtpError(msg);
         }
       }
     } finally {
@@ -589,7 +589,7 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
         }
         return { ...prev, attachments: next };
       });
-    } catch (error) {}
+    } catch (error) { }
   };
 
   const handleAttachmentRemove = (index: number) => {
@@ -691,12 +691,12 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
                               e.stopPropagation();
                               let url = gpkdFile.fileUrl;
                               if (!url && gpkdFile.fileName) {
-                                const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3333/api/v1').replace('/api/v1', '');
+                                const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3800/api/v1').replace('/api/v1', '');
                                 url = `${baseUrl}/uploads/${gpkdFile.fileName}`;
                               }
                               if (url) {
                                 if (!url.startsWith('blob:') && !url.startsWith('http') && !url.startsWith('data:')) {
-                                  const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3333/api/v1').replace('/api/v1', '');
+                                  const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3800/api/v1').replace('/api/v1', '');
                                   url = `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
                                 }
                                 window.open(url, '_blank');
@@ -821,19 +821,19 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
       <DialogContent sx={{ p: 3 }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
           <Typography sx={{ color: '#4b5563', fontSize: '0.9rem', mb: 1.5, textAlign: 'center' }}>
-            Chúng tôi đã gửi mã xác minh qua email<br/>
-            <strong>{formData.email}</strong><br/>
+            Chúng tôi đã gửi mã xác minh qua email<br />
+            <strong>{formData.email}</strong><br />
             Bạn vui lòng kiểm tra và điền mã xác thực
           </Typography>
 
           <Collapse in={!!otpError} sx={{ width: '100%', maxWidth: 300, mb: 2 }}>
-            <Box sx={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: 1, 
-              bgcolor: 'rgba(255, 69, 58, 0.05)', 
-              border: `1px solid ${VNA_COLORS.error}`, 
-              borderRadius: 1, 
+            <Box sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              bgcolor: 'rgba(255, 69, 58, 0.05)',
+              border: `1px solid ${VNA_COLORS.error}`,
+              borderRadius: 1,
               p: 1.5,
               textAlign: 'left'
             }}>
@@ -844,13 +844,13 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
             </Box>
           </Collapse>
           <Collapse in={!!otpSuccess} sx={{ width: '100%', maxWidth: 300, mb: 2 }}>
-            <Box sx={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: 1, 
-              bgcolor: 'rgba(52, 199, 89, 0.05)', 
-              border: `1px solid ${VNA_COLORS.success}`, 
-              borderRadius: 1, 
+            <Box sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              bgcolor: 'rgba(52, 199, 89, 0.05)',
+              border: `1px solid ${VNA_COLORS.success}`,
+              borderRadius: 1,
               p: 1.5,
               textAlign: 'left'
             }}>
@@ -878,11 +878,11 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
           <Typography sx={{ color: '#2f65f0', fontWeight: 600, mb: 1 }}>
             00:{countdown.toString().padStart(2, '0')}
           </Typography>
-          
+
           <Typography sx={{ fontSize: '0.85rem', color: '#6b7280', mb: 4 }}>
             Chưa nhận được mã?{' '}
-            <Button 
-              sx={{ textTransform: 'none', p: 0, minWidth: 'auto', fontWeight: 600 }} 
+            <Button
+              sx={{ textTransform: 'none', p: 0, minWidth: 'auto', fontWeight: 600 }}
               disabled={countdown > 0 || loading}
               onClick={handleSendOtp}
             >

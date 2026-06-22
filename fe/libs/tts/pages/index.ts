@@ -7,3 +7,9 @@ export * from './EnterpriseFormPage';
 export * from './UserManagementPage';
 export * from './UserEditPage';
 export * from './RegisterEnterprisePage';
+export * from './UserCreatePage';
+export * from './AccidentReportPage';
+export * from './AccidentReportDetailPage';
+export * from './AccidentReportSummaryPage';
+export * from './EnterpriseAccidentReportPage';
+

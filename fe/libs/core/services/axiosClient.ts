@@ -2,7 +2,7 @@ import axios, { AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } 
 import { getCookie, deleteCookie } from './cookies';
 
 const axiosClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3333/api/v1',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3800/api/v1',
   headers: {
     'Content-Type': 'application/json',
   },

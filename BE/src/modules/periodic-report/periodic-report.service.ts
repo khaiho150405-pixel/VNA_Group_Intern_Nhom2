@@ -58,61 +58,104 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
       limit = 10
     } = query || {};
 
-    const qb = this.reportRepo.createQueryBuilder("pr");
-    // Join with Doet to get real-time address/location and tax code
-    qb.leftJoin(Doet, "d", "pr.doetId = CAST(d.id AS varchar)");
+    if (isSoUser) {
+      const doetQb = this.doetRepo.createQueryBuilder("d")
+        .leftJoinAndSelect("d.businessLine", "bl")
+        .leftJoinAndSelect("d.loaiHinhKinhDoanh", "lh");
 
-    // Authorization: DN users can only see their own reports. SO users can see all.
-    if (!isSoUser) {
+      if (companyName) {
+        doetQb.andWhere("d.name ILIKE :companyName", { companyName: `%${companyName}%` });
+      }
+      if (taxCode) {
+        doetQb.andWhere("d.taxCode ILIKE :taxCode", { taxCode: `%${taxCode}%` });
+      }
+      if (provinceId) {
+        doetQb.andWhere("d.province ->> 'key' = :provinceId", { provinceId });
+      } else if (provinceName) {
+        doetQb.andWhere("d.province ->> 'value' ILIKE :provinceName", { provinceName: `%${provinceName}%` });
+      }
+      if (wardId) {
+        doetQb.andWhere("d.ward ->> 'key' = :wardId", { wardId });
+      } else if (wardName) {
+        doetQb.andWhere("d.ward ->> 'value' ILIKE :wardName", { wardName: `%${wardName}%` });
+      }
+
+      const doets = await doetQb.getMany();
+      let allPossibleReports: any[] = [];
+      const filterYear = parseInt(year || new Date().getFullYear());
+
+      for (const d of doets) {
+        const periods = period ? [period] : ['6_THANG', 'CA_NAM'];
+        for (const p of periods) {
+          allPossibleReports.push({
+            doetId: d.id,
+            companyName: d.name,
+            taxCode: d.taxCode,
+            period: p,
+            year: filterYear,
+            doet: d
+          });
+        }
+      }
+
+      const existingReports = await this.reportRepo.find({
+        where: { year: filterYear },
+        relations: ["accidentDetails"]
+      });
+
+      let finalItems = allPossibleReports.map(rep => {
+        const match = existingReports.find(r => String(r.doetId) === String(rep.doetId) && r.period === rep.period);
+        return {
+          id: match?.id || `virtual_${rep.doetId}_${rep.period}`,
+          doetId: rep.doetId,
+          year: rep.year,
+          period: rep.period,
+          status: match?.status || 'CHO_BAO_CAO',
+          companyName: rep.companyName,
+          taxCode: rep.taxCode,
+          doet: rep.doet,
+          reportData: match || null
+        };
+      });
+
+      if (status) {
+        finalItems = finalItems.filter(item => item.status === status);
+      }
+
+      const totalCount = finalItems.length;
+      const skip = (parseInt(page as any) - 1) * parseInt(limit as any);
+      const take = parseInt(limit as any);
+      const items = finalItems.slice(skip, skip + take);
+
+      return Response.get({ items, totalCount, page: parseInt(page as any), limit: parseInt(limit as any) });
+    } else {
+      const qb = this.reportRepo.createQueryBuilder("pr")
+        .leftJoin(Doet, "d", "pr.doetId = CAST(d.id AS varchar)");
+
       if (doetId) {
         qb.where("pr.doetId = :doetId", { doetId: String(doetId) });
       } else {
         qb.where("pr.doetId = :doetId", { doetId: 'non_existent_doet_id' });
       }
-    } else {
-      qb.where("1 = 1");
+
+      if (year) {
+        qb.andWhere("pr.year = :year", { year: parseInt(year) });
+      }
+      if (period) {
+        qb.andWhere("pr.period = :period", { period });
+      }
+      if (status) {
+        qb.andWhere("pr.status = :status", { status });
+      }
+
+      qb.orderBy("pr.createdAt", "DESC");
+      const skip = (parseInt(page as any) - 1) * parseInt(limit as any);
+      const take = parseInt(limit as any);
+      qb.skip(skip).take(take);
+
+      const [items, totalCount] = await qb.getManyAndCount();
+      return Response.get({ items, totalCount, page: parseInt(page as any), limit: parseInt(limit as any) });
     }
-
-    if (year) {
-      qb.andWhere("pr.year = :year", { year: parseInt(year) });
-    }
-
-    if (period) {
-      qb.andWhere("pr.period = :period", { period });
-    }
-
-    if (status) {
-      qb.andWhere("pr.status = :status", { status });
-    }
-
-    if (companyName) {
-      qb.andWhere("(pr.companyName ILIKE :companyName OR d.name ILIKE :companyName)", { companyName: `%${companyName}%` });
-    }
-
-    if (taxCode) {
-      qb.andWhere("d.taxCode ILIKE :taxCode", { taxCode: `%${taxCode}%` });
-    }
-
-    if (provinceId) {
-      qb.andWhere("d.province ->> 'key' = :provinceId", { provinceId });
-    } else if (provinceName) {
-      qb.andWhere("d.province ->> 'value' ILIKE :provinceName", { provinceName: `%${provinceName}%` });
-    }
-
-    if (wardId) {
-      qb.andWhere("d.ward ->> 'key' = :wardId", { wardId });
-    } else if (wardName) {
-      qb.andWhere("d.ward ->> 'value' ILIKE :wardName", { wardName: `%${wardName}%` });
-    }
-
-    qb.orderBy("pr.createdAt", "DESC");
-
-    const skip = (parseInt(page as any) - 1) * parseInt(limit as any);
-    const take = parseInt(limit as any);
-    qb.skip(skip).take(take);
-
-    const [items, totalCount] = await qb.getManyAndCount();
-    return Response.get({ items, totalCount, page: parseInt(page as any), limit: parseInt(limit as any) });
   }
 
   async getSummaryReport(currentUser: any, query: any) {
@@ -289,7 +332,10 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
   }
 
   async createReport(payload: any) {
-    if (!payload.reportFileUrl) throw new BadRequestException("Vui lòng đính kèm báo cáo TNLĐ có dấu mộc công ty");
+    const status = payload.status || 'DA_TIEP_NHAN';
+    if (status === 'DA_TIEP_NHAN') {
+      if (!payload.reportFileUrl) throw new BadRequestException("Vui lòng đính kèm báo cáo TNLĐ có dấu mộc công ty");
+    }
     if (payload.totalEmployees === undefined || payload.totalEmployees === null || payload.totalEmployees === '') throw new BadRequestException("Tổng số lao động là bắt buộc");
     if (payload.femaleEmployees === undefined || payload.femaleEmployees === null || payload.femaleEmployees === '') throw new BadRequestException("Tổng số lao động nữ là bắt buộc");
     if (payload.totalSalaryFund === undefined || payload.totalSalaryFund === null || payload.totalSalaryFund === '') throw new BadRequestException("Tổng quỹ lương là bắt buộc");
@@ -321,14 +367,17 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
       }
     }
 
-    payload.status = 'DA_TIEP_NHAN';
+    payload.status = status;
     const report = this.reportRepo.create(payload);
     const saved = await this.reportRepo.save(report);
     return Response.get(saved);
   }
 
   async put(currentUser: any, id: any, payload: any): Promise<any> {
-    if (!payload.reportFileUrl) throw new BadRequestException("Vui lòng đính kèm báo cáo TNLĐ có dấu mộc công ty");
+    const status = payload.status || 'DA_TIEP_NHAN';
+    if (status === 'DA_TIEP_NHAN') {
+      if (!payload.reportFileUrl) throw new BadRequestException("Vui lòng đính kèm báo cáo TNLĐ có dấu mộc công ty");
+    }
     const currentReport = await this.reportRepo.findOne({ where: { id } });
     if (!currentReport) throw new BadRequestException("Không tìm thấy báo cáo");
     if (currentReport.status === 'DA_TIEP_NHAN') throw new BadRequestException("Báo cáo đã được tiếp nhận, không thể chỉnh sửa");
@@ -360,7 +409,7 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
       }
     }
 
-    payload.status = 'DA_TIEP_NHAN';
+    payload.status = status;
     return super.put(currentUser, id, payload);
   }
 
@@ -390,7 +439,7 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
 
     if (tongVuChet > tongVu) throw new BadRequestException(`${prefixMsg}Tổng số vụ có người chết không được lớn hơn Tổng số vụ`);
     if (tongVu2Nguoi > tongVu) throw new BadRequestException(`${prefixMsg}Tổng số vụ có 2 người bị nạn trở lên không được lớn hơn Tổng số vụ`);
-    
+
     if (tongNuNan > tongNguoiNan) throw new BadRequestException(`${prefixMsg}Tổng số lao động nữ bị nạn không được lớn hơn Tổng số người bị nạn`);
     if (tongNguoiChet + tongThuongNang > tongNguoiNan) throw new BadRequestException(`${prefixMsg}Tổng số người chết và bị thương nặng không được vượt quá Tổng số người bị nạn`);
 

@@ -40,7 +40,8 @@ export const NAVIGATION_ITEMS: NavItem[] = [
     roles: ['ROLE_SO', 'ROLE_DN'],
     children: [
       { id: 'common-list', label: 'Danh mục chung', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO'] },
-      { id: 'tnld-hdlh', label: 'TNLĐ theo HĐLĐ', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO', 'ROLE_DN'] },
+      { id: 'tnld-hdlh', label: 'TNLĐ theo HĐLĐ', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO', 'ROLE_DN'], path: '/accident-reports' },
     ]
+
   },
 ];

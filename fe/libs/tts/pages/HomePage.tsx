@@ -14,7 +14,7 @@ export const HomePage = () => {
         <Typography variant="h5" style={{ fontWeight: 700, marginBottom: 24 }}>
           Trang chủ
         </Typography>
-        
+
         <Paper style={{ padding: 24, borderRadius: 8 }}>
           <Typography variant="h6" color="primary" gutterBottom>
             Chào mừng quay trở lại, {user?.fullName || user?.displayName}!

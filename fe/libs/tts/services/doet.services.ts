@@ -89,6 +89,10 @@ const DoetService = {
     return axiosClient.get(url);
   },
 
+  getInjuryFactors: () => {
+    return axiosClient.get('/injury-factors/dropdown/active');
+  },
+
   // Address API from esgoo delegated to locationService
   getProvinces: locationService.getProvinces,
 

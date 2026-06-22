@@ -126,9 +126,16 @@ export const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
   const filteredItems = filterNavItems(NAVIGATION_ITEMS);
 
   const handleToggle = (id: string) => {
-    setOpenItems(prev => 
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-    );
+    if (isCollapsed) {
+      onToggle();
+      if (!openItems.includes(id)) {
+        setOpenItems(prev => [...prev, id]);
+      }
+    } else {
+      setOpenItems(prev => 
+        prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+      );
+    }
   };
 
   const handleNavigate = (path?: string) => {
@@ -137,7 +144,7 @@ export const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
 
   const renderItem = (item: NavItem, isNested = false) => {
     const hasChildren = item.children && item.children.length > 0;
-    const isOpen = openItems.includes(item.id);
+    const isOpen = !isCollapsed && openItems.includes(item.id);
     const isActive = pathname === item.path;
 
     return (
