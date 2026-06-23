@@ -45,9 +45,9 @@ const OCCUPATIONS = [
 
 // Helper formatting functions
 const formatNumberWithDots = (val: string | number) => {
-  if (val === undefined || val === null || val === '') return '';
+  if (val === undefined || val === null || val === '') return '0';
   const raw = String(val).replace(/\./g, '');
-  if (isNaN(Number(raw))) return '';
+  if (isNaN(Number(raw))) return '0';
   return Number(raw).toLocaleString('vi-VN');
 };
 
@@ -57,25 +57,89 @@ const parseFormattedNumber = (val: string) => {
 
 // Initial summary stats structure
 const createDefaultStats = () => ({
-  tongSoVu: 0,
-  tongSoVuNguoiChet: 0,
-  tongSoVu2Nguoi: 0,
-  tongSoNguoiBiNan: 0,
-  tongLaoDongNuBiNan: 0, // frontend matching backend variable mapping
-  tongSoNuBiNan: 0, // backup mapping
-  tongSoNguoiChet: 0,
-  tongSoThuongNang: 0,
-  khongQlNguoiBiNan: 0,
-  khongQlNuBiNan: 0,
-  khongQlNguoiChet: 0,
-  khongQlThuongNang: 0,
-  chiPhiYTe: 0,
-  chiPhiTraLuong: 0,
-  chiPhiBoiThuong: 0,
-  tongChiPhi: 0,
-  tongNgayNghi: 0,
-  thietHaiTaiSan: 0
+  tongSoVu: '0',
+  tongSoVuNguoiChet: '0',
+  tongSoVu2Nguoi: '0',
+  tongSoNguoiBiNan: '0',
+  tongLaoDongNuBiNan: '0',
+  tongSoNuBiNan: '0',
+  tongSoNguoiChet: '0',
+  tongSoThuongNang: '0',
+  khongQlNguoiBiNan: '0',
+  khongQlNuBiNan: '0',
+  khongQlNguoiChet: '0',
+  khongQlThuongNang: '0',
+  chiPhiYTe: '0',
+  chiPhiTraLuong: '0',
+  chiPhiBoiThuong: '0',
+  tongChiPhi: '0',
+  tongNgayNghi: '0',
+  thietHaiTaiSan: '0'
 });
+
+const convertStatsToStrings = (stats: any) => {
+  const defaultStats = createDefaultStats();
+  if (!stats) return defaultStats;
+  const result: any = {};
+  Object.keys(defaultStats).forEach(key => {
+    const val = stats[key];
+    result[key] = val !== undefined && val !== null && val !== '' ? String(val) : '0';
+  });
+  return result;
+};
+
+const getAbsoluteFileUrl = (url?: string) => {
+  if (!url) return '';
+  if (url.startsWith('blob:') || url.startsWith('http') || url.startsWith('data:')) {
+    return url;
+  }
+  const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3800/api/v1').replace('/api/v1', '');
+  return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+};
+
+const aggregateStats = (list: any[]) => {
+  const sum = {
+    tongSoVu: 0,
+    tongSoVuNguoiChet: 0,
+    tongSoVu2Nguoi: 0,
+    tongSoNguoiBiNan: 0,
+    tongLaoDongNuBiNan: 0,
+    tongSoNuBiNan: 0,
+    tongSoNguoiChet: 0,
+    tongSoThuongNang: 0,
+    khongQlNguoiBiNan: 0,
+    khongQlNuBiNan: 0,
+    khongQlNguoiChet: 0,
+    khongQlThuongNang: 0,
+    chiPhiYTe: 0,
+    chiPhiTraLuong: 0,
+    chiPhiBoiThuong: 0,
+    tongChiPhi: 0,
+    tongNgayNghi: 0,
+    thietHaiTaiSan: 0
+  };
+  list.forEach(item => {
+    const s = item.stats || {};
+    sum.tongSoVu += Number(s.tongSoVu || 0);
+    sum.tongSoVuNguoiChet += Number(s.tongSoVuNguoiChet || 0);
+    sum.tongSoVu2Nguoi += Number(s.tongSoVu2Nguoi || s.tongSoVu2NguoiTroLen || 0);
+    sum.tongSoNguoiBiNan += Number(s.tongSoNguoiBiNan || 0);
+    sum.tongLaoDongNuBiNan += Number(s.tongLaoDongNuBiNan ?? s.tongSoNuBiNan ?? 0);
+    sum.tongSoNuBiNan += Number(s.tongLaoDongNuBiNan ?? s.tongSoNuBiNan ?? 0);
+    sum.khongQlNguoiBiNan += Number(s.khongQlNguoiBiNan || 0);
+    sum.khongQlNuBiNan += Number(s.khongQlNuBiNan || 0);
+    sum.tongSoNguoiChet += Number(s.tongSoNguoiChet || 0);
+    sum.khongQlNguoiChet += Number(s.khongQlNguoiChet || 0);
+    sum.tongSoThuongNang += Number(s.tongSoThuongNang || s.tongSoNguoiThuongNang || 0);
+    sum.khongQlThuongNang += Number(s.khongQlThuongNang || 0);
+  });
+  
+  const result: any = {};
+  Object.keys(sum).forEach(key => {
+    result[key] = String(sum[key as keyof typeof sum]);
+  });
+  return result;
+};
 
 export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
   const classes = useAccidentReportStyles();
@@ -107,6 +171,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
   const [tnldTroCapSummary, setTnldTroCapSummary] = useState<any>(createDefaultStats());
   const [accidentDetails, setAccidentDetails] = useState<any[]>([]);
   const [reportFileUrl, setReportFileUrl] = useState<string>('');
+  const [reportFileName, setReportFileName] = useState<string>('');
 
   // Dropdown options loaded from DB
   const [injuryFactors, setInjuryFactors] = useState<any[]>([]);
@@ -398,26 +463,24 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
         setFemaleEmployees(String(report.femaleEmployees || ''));
         setTotalSalaryFund(formatNumberWithDots(report.totalSalaryFund));
         setReportFileUrl(report.reportFileUrl || '');
+        setReportFileName(report.reportFileName || '');
 
-        setTnldSummary({
-          ...createDefaultStats(),
+        setTnldSummary(convertStatsToStrings({
           ...(report.tnldSummary || {}),
           tongLaoDongNuBiNan: report.tnldSummary?.tongLaoDongNuBiNan ?? report.tnldSummary?.tongSoNuBiNan ?? 0,
-        });
+        }));
 
-        setTnldTroCapSummary({
-          ...createDefaultStats(),
+        setTnldTroCapSummary(convertStatsToStrings({
           ...(report.tnldTroCapSummary || {}),
           tongLaoDongNuBiNan: report.tnldTroCapSummary?.tongLaoDongNuBiNan ?? report.tnldTroCapSummary?.tongSoNuBiNan ?? 0,
-        });
+        }));
 
         const details = (report.accidentDetails || []).map((d: any) => ({
           ...d,
-          stats: {
-            ...createDefaultStats(),
+          stats: convertStatsToStrings({
             ...(d.stats || {}),
             tongLaoDongNuBiNan: d.stats?.tongLaoDongNuBiNan ?? d.stats?.tongSoNuBiNan ?? 0
-          }
+          })
         }));
         setAccidentDetails(details);
         setMode('edit');
@@ -437,6 +500,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
       setTnldTroCapSummary(createDefaultStats());
       setAccidentDetails([]);
       setReportFileUrl('');
+      setReportFileName('');
       setMode('edit');
     }
   };
@@ -456,26 +520,24 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
       setFemaleEmployees(String(report.femaleEmployees || ''));
       setTotalSalaryFund(formatNumberWithDots(report.totalSalaryFund));
       setReportFileUrl(report.reportFileUrl || '');
+      setReportFileName(report.reportFileName || '');
       
-      setTnldSummary({
-        ...createDefaultStats(),
+      setTnldSummary(convertStatsToStrings({
         ...(report.tnldSummary || {}),
         tongLaoDongNuBiNan: report.tnldSummary?.tongLaoDongNuBiNan ?? report.tnldSummary?.tongSoNuBiNan ?? 0,
-      });
+      }));
 
-      setTnldTroCapSummary({
-        ...createDefaultStats(),
+      setTnldTroCapSummary(convertStatsToStrings({
         ...(report.tnldTroCapSummary || {}),
         tongLaoDongNuBiNan: report.tnldTroCapSummary?.tongLaoDongNuBiNan ?? report.tnldTroCapSummary?.tongSoNuBiNan ?? 0,
-      });
+      }));
 
       const details = (report.accidentDetails || []).map((d: any) => ({
         ...d,
-        stats: {
-          ...createDefaultStats(),
+        stats: convertStatsToStrings({
           ...(d.stats || {}),
           tongLaoDongNuBiNan: d.stats?.tongLaoDongNuBiNan ?? d.stats?.tongSoNuBiNan ?? 0
-        }
+        })
       }));
       setAccidentDetails(details);
       setMode('view');
@@ -559,6 +621,68 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
       if (!isValid) {
         return error(firstMsg || "Vui lòng kiểm tra lại các lỗi nhập liệu");
       }
+
+      // Parity check between tnldSummary and accidentDetails
+      const tongVu = parseInt(tnldSummary.tongSoVu || 0);
+      if (tongVu > 0) {
+        let sumVu = 0, sumVuChet = 0, sumVu2Nguoi = 0;
+        let sumNguoiNan = 0, sumNuNan = 0, sumNguoiChet = 0, sumThuongNang = 0;
+        let sumKqNan = 0, sumKqNuNan = 0, sumKqChet = 0, sumKqThuongNang = 0;
+        let sumYTe = 0, sumTraLuong = 0, sumBoiThuong = 0, sumNgayNghi = 0, sumTaiSan = 0;
+
+        for (const detail of accidentDetails) {
+          const stats = detail.stats || {};
+          sumVu += parseInt(stats.tongSoVu || 0);
+          sumVuChet += parseInt(stats.tongSoVuNguoiChet || 0);
+          sumVu2Nguoi += parseInt(stats.tongSoVu2Nguoi || 0);
+          sumNguoiNan += parseInt(stats.tongSoNguoiBiNan || 0);
+          sumNuNan += parseInt(stats.tongLaoDongNuBiNan ?? stats.tongSoNuBiNan ?? 0);
+          sumNguoiChet += parseInt(stats.tongSoNguoiChet || 0);
+          sumThuongNang += parseInt(stats.tongSoThuongNang || 0);
+          sumKqNan += parseInt(stats.khongQlNguoiBiNan || 0);
+          sumKqNuNan += parseInt(stats.khongQlNuBiNan || 0);
+          sumKqChet += parseInt(stats.khongQlNguoiChet || 0);
+          sumKqThuongNang += parseInt(stats.khongQlThuongNang || 0);
+          sumYTe += parseFloat(stats.chiPhiYTe || 0);
+          sumTraLuong += parseFloat(stats.chiPhiTraLuong || 0);
+          sumBoiThuong += parseFloat(stats.chiPhiBoiThuong || 0);
+          sumNgayNghi += parseInt(stats.tongNgayNghi || 0);
+          sumTaiSan += parseFloat(stats.thietHaiTaiSan || 0);
+        }
+
+        const tongVuChet = parseInt(tnldSummary.tongSoVuNguoiChet || 0);
+        const tongVu2Nguoi = parseInt(tnldSummary.tongSoVu2Nguoi || 0);
+        const tongNguoiNan = parseInt(tnldSummary.tongSoNguoiBiNan || 0);
+        const tongNuNan = parseInt(tnldSummary.tongLaoDongNuBiNan ?? tnldSummary.tongSoNuBiNan ?? 0);
+        const tongNguoiChet = parseInt(tnldSummary.tongSoNguoiChet || 0);
+        const tongThuongNang = parseInt(tnldSummary.tongSoThuongNang || 0);
+        const khongQlNan = parseInt(tnldSummary.khongQlNguoiBiNan || 0);
+        const khongQlNuNan = parseInt(tnldSummary.khongQlNuBiNan || 0);
+        const khongQlChet = parseInt(tnldSummary.khongQlNguoiChet || 0);
+        const khongQlThuongNang = parseInt(tnldSummary.khongQlThuongNang || 0);
+        const chiPhiYTe = parseFloat(tnldSummary.chiPhiYTe || 0);
+        const chiPhiTraLuong = parseFloat(tnldSummary.chiPhiTraLuong || 0);
+        const chiPhiBoiThuong = parseFloat(tnldSummary.chiPhiBoiThuong || 0);
+        const tongNgayNghi = parseInt(tnldSummary.tongNgayNghi || 0);
+        const thietHaiTaiSan = parseFloat(tnldSummary.thietHaiTaiSan || 0);
+
+        if (sumVu !== tongVu) return error(`Tổng số vụ chi tiết (${sumVu}) không khớp với tổng kết đã khai báo (${tongVu})`);
+        if (sumVuChet !== tongVuChet) return error(`Tổng số vụ có người chết trong chi tiết (${sumVuChet}) không khớp với tổng kết đã khai báo (${tongVuChet})`);
+        if (sumVu2Nguoi !== tongVu2Nguoi) return error(`Tổng số vụ có 2 người bị nạn trở lên trong chi tiết (${sumVu2Nguoi}) không khớp với tổng kết đã khai báo (${tongVu2Nguoi})`);
+        if (sumNguoiNan !== tongNguoiNan) return error(`Tổng số người bị nạn trong chi tiết (${sumNguoiNan}) không khớp với tổng kết đã khai báo (${tongNguoiNan})`);
+        if (sumNuNan !== tongNuNan) return error(`Tổng số lao động nữ bị nạn trong chi tiết (${sumNuNan}) không khớp với tổng kết đã khai báo (${tongNuNan})`);
+        if (sumNguoiChet !== tongNguoiChet) return error(`Tổng số người chết trong chi tiết (${sumNguoiChet}) không khớp với tổng kết đã khai báo (${tongNguoiChet})`);
+        if (sumThuongNang !== tongThuongNang) return error(`Tổng số người bị thương nặng trong chi tiết (${sumThuongNang}) không khớp với tổng kết đã khai báo (${tongThuongNang})`);
+        if (sumKqNan !== khongQlNan) return error(`Số nạn nhân không quản lý trong chi tiết (${sumKqNan}) không khớp với tổng kết đã khai báo (${khongQlNan})`);
+        if (sumKqNuNan !== khongQlNuNan) return error(`Số lao động nữ bị nạn không quản lý trong chi tiết (${sumKqNuNan}) không khớp với tổng kết đã khai báo (${khongQlNuNan})`);
+        if (sumKqChet !== khongQlChet) return error(`Số người chết không quản lý trong chi tiết (${sumKqChet}) không khớp với tổng kết đã khai báo (${khongQlChet})`);
+        if (sumKqThuongNang !== khongQlThuongNang) return error(`Số người bị thương nặng không quản lý trong chi tiết (${sumKqThuongNang}) không khớp với tổng kết đã khai báo (${khongQlThuongNang})`);
+        if (sumYTe !== chiPhiYTe) return error(`Tổng chi phí y tế trong chi tiết (${sumYTe.toLocaleString('vi-VN')}) không khớp với tổng kết đã khai báo (${chiPhiYTe.toLocaleString('vi-VN')})`);
+        if (sumTraLuong !== chiPhiTraLuong) return error(`Tổng chi phí trả lương trong chi tiết (${sumTraLuong.toLocaleString('vi-VN')}) không khớp với tổng kết đã khai báo (${chiPhiTraLuong.toLocaleString('vi-VN')})`);
+        if (sumBoiThuong !== chiPhiBoiThuong) return error(`Tổng chi phí bồi thường trong chi tiết (${sumBoiThuong.toLocaleString('vi-VN')}) không khớp với tổng kết đã khai báo (${sumBoiThuong.toLocaleString('vi-VN')})`);
+        if (sumNgayNghi !== tongNgayNghi) return error(`Tổng số ngày nghỉ trong chi tiết (${sumNgayNghi}) không khớp với tổng kết đã khai báo (${tongNgayNghi})`);
+        if (sumTaiSan !== thietHaiTaiSan) return error(`Tổng thiệt hại tài sản trong chi tiết (${sumTaiSan.toLocaleString('vi-VN')}) không khớp với tổng kết đã khai báo (${thietHaiTaiSan.toLocaleString('vi-VN')})`);
+      }
     }
 
     if (stepIndex === 2) {
@@ -617,6 +741,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
     try {
       const res: any = await DoetService.uploadFile(file);
       setReportFileUrl(res?.fileUrl || res?.data?.fileUrl || '');
+      setReportFileName(res?.fileName || res?.data?.fileName || file.name || '');
       enqueueSnackbar("Tải lên báo cáo thành công", { variant: 'success' });
     } catch (err) {
       console.error("Error uploading file", err);
@@ -672,6 +797,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
       tnldTroCapSummary: cleanStats(tnldTroCapSummary),
       accidentDetails: details,
       reportFileUrl,
+      reportFileName,
       doetId: String(myCompany?.id || '')
     };
   };
@@ -737,13 +863,18 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
 
   // Auto-updating Tab 1 Cost Calculations
   const updateSummaryCost = (field: string, val: string, isTroCap: boolean = false) => {
-    const rawVal = val.replace(/\./g, '');
-    if (rawVal !== '' && isNaN(Number(rawVal))) return;
+    let cleaned = val.replace(/\./g, '').replace(/[^0-9]/g, '');
+    if (cleaned.length > 1 && cleaned.startsWith('0')) {
+      cleaned = cleaned.replace(/^0+/, '');
+    }
+    if (cleaned === '') {
+      cleaned = '0';
+    }
 
     const setStats = isTroCap ? setTnldTroCapSummary : setTnldSummary;
 
     setStats((prev: any) => {
-      const newStats = { ...prev, [field]: rawVal };
+      const newStats = { ...prev, [field]: cleaned };
       const yTe = parseFormattedNumber(newStats.chiPhiYTe || 0);
       const luong = parseFormattedNumber(newStats.chiPhiTraLuong || 0);
       const boiThuong = parseFormattedNumber(newStats.chiPhiBoiThuong || 0);
@@ -754,13 +885,18 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
 
   // Auto-updating Accident Detail Cost Calculations
   const updateDetailCost = (index: number, field: string, val: string) => {
-    const rawVal = val.replace(/\./g, '');
-    if (rawVal !== '' && isNaN(Number(rawVal))) return;
+    let cleaned = val.replace(/[^0-9]/g, '');
+    if (cleaned.length > 1 && cleaned.startsWith('0')) {
+      cleaned = cleaned.replace(/^0+/, '');
+    }
+    if (cleaned === '') {
+      cleaned = '0';
+    }
 
     setAccidentDetails((prev) => {
       const list = [...prev];
       const detail = { ...list[index] };
-      const newStats = { ...detail.stats, [field]: rawVal };
+      const newStats = { ...detail.stats, [field]: cleaned };
       const yTe = parseFormattedNumber(newStats.chiPhiYTe || 0);
       const luong = parseFormattedNumber(newStats.chiPhiTraLuong || 0);
       const boiThuong = parseFormattedNumber(newStats.chiPhiBoiThuong || 0);
@@ -773,13 +909,27 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
 
   // General field changes inside Tab 1 Summary
   const handleSummaryFieldChange = (field: string, val: string, isTroCap: boolean = false) => {
+    let cleaned = val.replace(/[^0-9]/g, '');
+    if (cleaned.length > 1 && cleaned.startsWith('0')) {
+      cleaned = cleaned.replace(/^0+/, '');
+    }
+    if (cleaned === '') {
+      cleaned = '0';
+    }
     const setStats = isTroCap ? setTnldTroCapSummary : setTnldSummary;
-    setStats((prev: any) => ({ ...prev, [field]: val }));
+    setStats((prev: any) => ({ ...prev, [field]: cleaned }));
   };
 
   // Sync accordion rows if "Tổng số vụ" in Tab 1 changes
   const handleTongSoVuChange = (val: string) => {
-    const num = parseInt(val) || 0;
+    let cleaned = val.replace(/[^0-9]/g, '');
+    if (cleaned.length > 1 && cleaned.startsWith('0')) {
+      cleaned = cleaned.replace(/^0+/, '');
+    }
+    if (cleaned === '') {
+      cleaned = '0';
+    }
+    const num = parseInt(cleaned) || 0;
     
     // Validate count limit
     if (num > 100) {
@@ -787,7 +937,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
       return;
     }
 
-    setTnldSummary((prev: any) => ({ ...prev, tongSoVu: val }));
+    setTnldSummary((prev: any) => ({ ...prev, tongSoVu: cleaned }));
 
     setAccidentDetails((prev) => {
       if (num === prev.length) return prev;
@@ -795,7 +945,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
       
       const added = [];
       const statsInit = createDefaultStats();
-      statsInit.tongSoVu = 1; // individual case is always 1 case
+      statsInit.tongSoVu = '1'; // individual case is always 1 case
 
       for (let i = prev.length; i < num; i++) {
         added.push({
@@ -812,13 +962,24 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
 
   // Change fields in Tab 2 detail items
   const handleDetailFieldChange = (index: number, field: string, val: any, isStats = false) => {
+    let processedVal = val;
+    if (isStats && typeof val === 'string') {
+      let cleaned = val.replace(/[^0-9]/g, '');
+      if (cleaned.length > 1 && cleaned.startsWith('0')) {
+        cleaned = cleaned.replace(/^0+/, '');
+      }
+      if (cleaned === '') {
+        cleaned = '0';
+      }
+      processedVal = cleaned;
+    }
     setAccidentDetails((prev) => {
       const list = [...prev];
       const d = { ...list[index] };
       if (isStats) {
-        d.stats = { ...d.stats, [field]: val };
+        d.stats = { ...d.stats, [field]: processedVal };
       } else {
-        d[field] = val;
+        d[field] = processedVal;
       }
       list[index] = d;
       return list;
@@ -2043,12 +2204,12 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                       <CircularProgress size={20} />
                     ) : reportFileUrl ? (
                       <MuiLink
-                        href={reportFileUrl.startsWith('http') ? reportFileUrl : `/${reportFileUrl}`}
+                        href={getAbsoluteFileUrl(reportFileUrl)}
                         target="_blank"
                         underline="always"
                         sx={{ ml: 1, fontWeight: 500, color: 'primary.main' }}
                       >
-                        {reportFileUrl.split('/').pop()}
+                        {reportFileName || reportFileUrl.split('/').pop() || 'Tệp đính kèm'}
                       </MuiLink>
                     ) : (
                       <Typography sx={{ ml: 1, fontStyle: 'italic', color: 'text.secondary', fontSize: '0.85rem' }}>
@@ -2122,13 +2283,16 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                           <TableRow sx={{ bgcolor: '#f8fafc' }}>
                             <TableCell colSpan={13} sx={{ fontStyle: 'italic', pl: 4, ...cellStyle }}>a. Do người sử dụng lao động</TableCell>
                           </TableRow>
-                          {CAUSES.slice(0, 6).map((c, i) => {
-                            const match = accidentDetails.find(d => d.nguyenNhanId === c.id);
-                            const stats = match?.stats || createDefaultStats();
-                            return (
+                          {(() => {
+                            const matched = CAUSES.slice(0, 6).map((c, i) => {
+                              const matches = accidentDetails.filter(d => Number(d.nguyenNhanId) === c.id);
+                              if (matches.length === 0) return null;
+                              return { c, code: i + 1, stats: aggregateStats(matches) };
+                            }).filter(Boolean) as any[];
+                            return matched.map(({ c, code, stats }) => (
                               <TableRow key={c.id}>
                                 <TableCell sx={{ pl: 5, ...cellStyle }}>{c.name}</TableCell>
-                                <TableCell align="center" sx={cellStyle}>{i + 1}</TableCell>
+                                <TableCell align="center" sx={cellStyle}>{code}</TableCell>
                                 <TableCell align="center" sx={cellStyle}>{stats.tongSoVu}</TableCell>
                                 <TableCell align="center" sx={cellStyle}>{stats.tongSoVuNguoiChet}</TableCell>
                                 <TableCell align="center" sx={cellStyle}>{stats.tongSoVu2Nguoi}</TableCell>
@@ -2141,19 +2305,22 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                                 <TableCell align="center" sx={cellStyle}>{stats.tongSoThuongNang}</TableCell>
                                 <TableCell align="center" sx={cellStyle}>{stats.khongQlThuongNang}</TableCell>
                               </TableRow>
-                            );
-                          })}
+                            ));
+                          })()}
 
                           <TableRow sx={{ bgcolor: '#f8fafc' }}>
                             <TableCell colSpan={13} sx={{ fontStyle: 'italic', pl: 4, ...cellStyle }}>b. Do người lao động</TableCell>
                           </TableRow>
-                          {CAUSES.slice(6, 8).map((c, i) => {
-                            const match = accidentDetails.find(d => d.nguyenNhanId === c.id);
-                            const stats = match?.stats || createDefaultStats();
-                            return (
+                          {(() => {
+                            const matched = CAUSES.slice(6, 8).map((c, i) => {
+                              const matches = accidentDetails.filter(d => Number(d.nguyenNhanId) === c.id);
+                              if (matches.length === 0) return null;
+                              return { c, code: i + 7, stats: aggregateStats(matches) };
+                            }).filter(Boolean) as any[];
+                            return matched.map(({ c, code, stats }) => (
                               <TableRow key={c.id}>
                                 <TableCell sx={{ pl: 5, ...cellStyle }}>{c.name}</TableCell>
-                                <TableCell align="center" sx={cellStyle}>{i + 7}</TableCell>
+                                <TableCell align="center" sx={cellStyle}>{code}</TableCell>
                                 <TableCell align="center" sx={cellStyle}>{stats.tongSoVu}</TableCell>
                                 <TableCell align="center" sx={cellStyle}>{stats.tongSoVuNguoiChet}</TableCell>
                                 <TableCell align="center" sx={cellStyle}>{stats.tongSoVu2Nguoi}</TableCell>
@@ -2166,12 +2333,14 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                                 <TableCell align="center" sx={cellStyle}>{stats.tongSoThuongNang}</TableCell>
                                 <TableCell align="center" sx={cellStyle}>{stats.khongQlThuongNang}</TableCell>
                               </TableRow>
-                            );
-                          })}
+                            ));
+                          })()}
 
-                          {CAUSES.slice(8, 9).map((c) => {
-                            const match = accidentDetails.find(d => d.nguyenNhanId === c.id);
-                            const stats = match?.stats || createDefaultStats();
+                          {(() => {
+                            const matches = accidentDetails.filter(d => Number(d.nguyenNhanId) === 9);
+                            if (matches.length === 0) return null;
+                            const stats = aggregateStats(matches);
+                            const c = CAUSES[8];
                             return (
                               <TableRow key={c.id}>
                                 <TableCell sx={{ pl: 5, ...cellStyle }}>{c.name}</TableCell>
@@ -2189,59 +2358,69 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                                 <TableCell align="center" sx={cellStyle}>{stats.khongQlThuongNang}</TableCell>
                               </TableRow>
                             );
-                          })}
+                          })()}
 
                           {/* Injury factor classification */}
                           <TableRow sx={{ bgcolor: '#f8fafc' }}>
                             <TableCell colSpan={13} sx={{ fontWeight: 'bold', pl: 3, ...cellStyle }}>1.2 Phân theo yếu tố gây chấn thương</TableCell>
                           </TableRow>
                           {(() => {
-                            const match = accidentDetails.find(d => d.yeuToChanThuongId === 101);
-                            const stats = match?.stats || createDefaultStats();
-                            return (
-                              <TableRow>
-                                <TableCell sx={{ pl: 4, ...cellStyle }}>Thiết bị nâng</TableCell>
-                                <TableCell align="center" sx={cellStyle}>101</TableCell>
-                                <TableCell align="center" sx={cellStyle}>{stats.tongSoVu}</TableCell>
-                                <TableCell align="center" sx={cellStyle}>{stats.tongSoVuNguoiChet}</TableCell>
-                                <TableCell align="center" sx={cellStyle}>{stats.tongSoVu2Nguoi}</TableCell>
-                                <TableCell align="center" sx={cellStyle}>{stats.tongSoNguoiBiNan}</TableCell>
-                                <TableCell align="center" sx={cellStyle}>{stats.khongQlNguoiBiNan}</TableCell>
-                                <TableCell align="center" sx={cellStyle}>{stats.tongLaoDongNuBiNan}</TableCell>
-                                <TableCell align="center" sx={cellStyle}>{stats.khongQlNuBiNan}</TableCell>
-                                <TableCell align="center" sx={cellStyle}>{stats.tongSoNguoiChet}</TableCell>
-                                <TableCell align="center" sx={cellStyle}>{stats.khongQlNguoiChet}</TableCell>
-                                <TableCell align="center" sx={cellStyle}>{stats.tongSoThuongNang}</TableCell>
-                                <TableCell align="center" sx={cellStyle}>{stats.khongQlThuongNang}</TableCell>
-                              </TableRow>
-                            );
+                            const uniqueYeuToIds = Array.from(new Set(accidentDetails.map(d => Number(d.yeuToChanThuongId)).filter(Boolean)));
+                            return uniqueYeuToIds.map((factorId) => {
+                              const matches = accidentDetails.filter(d => Number(d.yeuToChanThuongId) === factorId);
+                              const stats = aggregateStats(matches);
+                              const factorInfo = injuryFactors.find((f: any) => f.id === factorId);
+                              const name = factorInfo?.name || `Yếu tố ${factorId}`;
+                              return (
+                                <TableRow key={factorId}>
+                                  <TableCell sx={{ pl: 4, ...cellStyle }}>{name}</TableCell>
+                                  <TableCell align="center" sx={cellStyle}>{factorId}</TableCell>
+                                  <TableCell align="center" sx={cellStyle}>{stats.tongSoVu}</TableCell>
+                                  <TableCell align="center" sx={cellStyle}>{stats.tongSoVuNguoiChet}</TableCell>
+                                  <TableCell align="center" sx={cellStyle}>{stats.tongSoVu2Nguoi}</TableCell>
+                                  <TableCell align="center" sx={cellStyle}>{stats.tongSoNguoiBiNan}</TableCell>
+                                  <TableCell align="center" sx={cellStyle}>{stats.khongQlNguoiBiNan}</TableCell>
+                                  <TableCell align="center" sx={cellStyle}>{stats.tongLaoDongNuBiNan}</TableCell>
+                                  <TableCell align="center" sx={cellStyle}>{stats.khongQlNuBiNan}</TableCell>
+                                  <TableCell align="center" sx={cellStyle}>{stats.tongSoNguoiChet}</TableCell>
+                                  <TableCell align="center" sx={cellStyle}>{stats.khongQlNguoiChet}</TableCell>
+                                  <TableCell align="center" sx={cellStyle}>{stats.tongSoThuongNang}</TableCell>
+                                  <TableCell align="center" sx={cellStyle}>{stats.khongQlThuongNang}</TableCell>
+                                </TableRow>
+                              );
+                            });
                           })()}
 
                           {/* Occupation classification */}
                           <TableRow sx={{ bgcolor: '#f8fafc' }}>
                             <TableCell colSpan={13} sx={{ fontWeight: 'bold', pl: 3, ...cellStyle }}>1.3 Phân theo nghề nghiệp</TableCell>
                           </TableRow>
-                          {OCCUPATIONS.map((o) => {
-                            const match = accidentDetails.find(d => d.ngheNghiepId === o.id);
-                            const stats = match?.stats || createDefaultStats();
-                            return (
-                              <TableRow key={o.id}>
-                                <TableCell sx={{ pl: 4, ...cellStyle }}>{o.name}</TableCell>
-                                <TableCell align="center" sx={cellStyle}>{o.id}</TableCell>
-                                <TableCell align="center" sx={cellStyle}>{stats.tongSoVu}</TableCell>
-                                <TableCell align="center" sx={cellStyle}>{stats.tongSoVuNguoiChet}</TableCell>
-                                <TableCell align="center" sx={cellStyle}>{stats.tongSoVu2Nguoi}</TableCell>
-                                <TableCell align="center" sx={cellStyle}>{stats.tongSoNguoiBiNan}</TableCell>
-                                <TableCell align="center" sx={cellStyle}>{stats.khongQlNguoiBiNan}</TableCell>
-                                <TableCell align="center" sx={cellStyle}>{stats.tongLaoDongNuBiNan}</TableCell>
-                                <TableCell align="center" sx={cellStyle}>{stats.khongQlNuBiNan}</TableCell>
-                                <TableCell align="center" sx={cellStyle}>{stats.tongSoNguoiChet}</TableCell>
-                                <TableCell align="center" sx={cellStyle}>{stats.khongQlNguoiChet}</TableCell>
-                                <TableCell align="center" sx={cellStyle}>{stats.tongSoThuongNang}</TableCell>
-                                <TableCell align="center" sx={cellStyle}>{stats.khongQlThuongNang}</TableCell>
-                              </TableRow>
-                            );
-                          })}
+                          {(() => {
+                            const uniqueNgheNghiepIds = Array.from(new Set(accidentDetails.map(d => Number(d.ngheNghiepId)).filter(Boolean)));
+                            return uniqueNgheNghiepIds.map((occId) => {
+                              const matches = accidentDetails.filter(d => Number(d.ngheNghiepId) === occId);
+                              const stats = aggregateStats(matches);
+                              const occInfo = OCCUPATIONS.find(o => o.id === occId);
+                              const name = occInfo?.name || `Nghề nghiệp ${occId}`;
+                              return (
+                                <TableRow key={occId}>
+                                  <TableCell sx={{ pl: 4, ...cellStyle }}>{name}</TableCell>
+                                  <TableCell align="center" sx={cellStyle}>{occId}</TableCell>
+                                  <TableCell align="center" sx={cellStyle}>{stats.tongSoVu}</TableCell>
+                                  <TableCell align="center" sx={cellStyle}>{stats.tongSoVuNguoiChet}</TableCell>
+                                  <TableCell align="center" sx={cellStyle}>{stats.tongSoVu2Nguoi}</TableCell>
+                                  <TableCell align="center" sx={cellStyle}>{stats.tongSoNguoiBiNan}</TableCell>
+                                  <TableCell align="center" sx={cellStyle}>{stats.khongQlNguoiBiNan}</TableCell>
+                                  <TableCell align="center" sx={cellStyle}>{stats.tongLaoDongNuBiNan}</TableCell>
+                                  <TableCell align="center" sx={cellStyle}>{stats.khongQlNuBiNan}</TableCell>
+                                  <TableCell align="center" sx={cellStyle}>{stats.tongSoNguoiChet}</TableCell>
+                                  <TableCell align="center" sx={cellStyle}>{stats.khongQlNguoiChet}</TableCell>
+                                  <TableCell align="center" sx={cellStyle}>{stats.tongSoThuongNang}</TableCell>
+                                  <TableCell align="center" sx={cellStyle}>{stats.khongQlThuongNang}</TableCell>
+                                </TableRow>
+                              );
+                            });
+                          })()}
 
                           {/* Section 2: Subsidies */}
                           <TableRow sx={{ bgcolor: '#f1f5f9' }}>
@@ -2365,12 +2544,12 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                 </Typography>
                 {reportFileUrl ? (
                   <MuiLink
-                    href={reportFileUrl.startsWith('http') ? reportFileUrl : `/${reportFileUrl}`}
+                    href={getAbsoluteFileUrl(reportFileUrl)}
                     target="_blank"
                     underline="always"
                     sx={{ ml: 1, fontWeight: 500, color: 'primary.main' }}
                   >
-                    {reportFileUrl.split('/').pop()}
+                    {reportFileName || reportFileUrl.split('/').pop() || 'Tệp đính kèm'}
                   </MuiLink>
                 ) : (
                   <Typography sx={{ ml: 1, fontStyle: 'italic', color: 'text.secondary', fontSize: '0.85rem' }}>
@@ -2444,13 +2623,16 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                       <TableRow sx={{ bgcolor: '#f8fafc' }}>
                         <TableCell colSpan={13} sx={{ fontStyle: 'italic', pl: 4, ...cellStyle }}>a. Do người sử dụng lao động</TableCell>
                       </TableRow>
-                      {CAUSES.slice(0, 6).map((c, i) => {
-                        const match = accidentDetails.find(d => d.nguyenNhanId === c.id);
-                        const stats = match?.stats || createDefaultStats();
-                        return (
+                      {(() => {
+                        const matched = CAUSES.slice(0, 6).map((c, i) => {
+                          const matches = accidentDetails.filter(d => Number(d.nguyenNhanId) === c.id);
+                          if (matches.length === 0) return null;
+                          return { c, code: i + 1, stats: aggregateStats(matches) };
+                        }).filter(Boolean) as any[];
+                        return matched.map(({ c, code, stats }) => (
                           <TableRow key={c.id}>
                             <TableCell sx={{ pl: 5, ...cellStyle }}>{c.name}</TableCell>
-                            <TableCell align="center" sx={cellStyle}>{i + 1}</TableCell>
+                            <TableCell align="center" sx={cellStyle}>{code}</TableCell>
                             <TableCell align="center" sx={cellStyle}>{stats.tongSoVu}</TableCell>
                             <TableCell align="center" sx={cellStyle}>{stats.tongSoVuNguoiChet}</TableCell>
                             <TableCell align="center" sx={cellStyle}>{stats.tongSoVu2Nguoi}</TableCell>
@@ -2463,19 +2645,22 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             <TableCell align="center" sx={cellStyle}>{stats.tongSoThuongNang}</TableCell>
                             <TableCell align="center" sx={cellStyle}>{stats.khongQlThuongNang}</TableCell>
                           </TableRow>
-                        );
-                      })}
+                        ));
+                      })()}
 
                       <TableRow sx={{ bgcolor: '#f8fafc' }}>
                         <TableCell colSpan={13} sx={{ fontStyle: 'italic', pl: 4, ...cellStyle }}>b. Do người lao động</TableCell>
                       </TableRow>
-                      {CAUSES.slice(6, 8).map((c, i) => {
-                        const match = accidentDetails.find(d => d.nguyenNhanId === c.id);
-                        const stats = match?.stats || createDefaultStats();
-                        return (
+                      {(() => {
+                        const matched = CAUSES.slice(6, 8).map((c, i) => {
+                          const matches = accidentDetails.filter(d => Number(d.nguyenNhanId) === c.id);
+                          if (matches.length === 0) return null;
+                          return { c, code: i + 7, stats: aggregateStats(matches) };
+                        }).filter(Boolean) as any[];
+                        return matched.map(({ c, code, stats }) => (
                           <TableRow key={c.id}>
                             <TableCell sx={{ pl: 5, ...cellStyle }}>{c.name}</TableCell>
-                            <TableCell align="center" sx={cellStyle}>{i + 7}</TableCell>
+                            <TableCell align="center" sx={cellStyle}>{code}</TableCell>
                             <TableCell align="center" sx={cellStyle}>{stats.tongSoVu}</TableCell>
                             <TableCell align="center" sx={cellStyle}>{stats.tongSoVuNguoiChet}</TableCell>
                             <TableCell align="center" sx={cellStyle}>{stats.tongSoVu2Nguoi}</TableCell>
@@ -2488,12 +2673,14 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             <TableCell align="center" sx={cellStyle}>{stats.tongSoThuongNang}</TableCell>
                             <TableCell align="center" sx={cellStyle}>{stats.khongQlThuongNang}</TableCell>
                           </TableRow>
-                        );
-                      })}
+                        ));
+                      })()}
 
-                      {CAUSES.slice(8, 9).map((c) => {
-                        const match = accidentDetails.find(d => d.nguyenNhanId === c.id);
-                        const stats = match?.stats || createDefaultStats();
+                      {(() => {
+                        const matches = accidentDetails.filter(d => Number(d.nguyenNhanId) === 9);
+                        if (matches.length === 0) return null;
+                        const stats = aggregateStats(matches);
+                        const c = CAUSES[8];
                         return (
                           <TableRow key={c.id}>
                             <TableCell sx={{ pl: 5, ...cellStyle }}>{c.name}</TableCell>
@@ -2511,59 +2698,69 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             <TableCell align="center" sx={cellStyle}>{stats.khongQlThuongNang}</TableCell>
                           </TableRow>
                         );
-                      })}
+                      })()}
 
                       {/* Injury factor classification */}
                       <TableRow sx={{ bgcolor: '#f8fafc' }}>
                         <TableCell colSpan={13} sx={{ fontWeight: 'bold', pl: 3, ...cellStyle }}>1.2 Phân theo yếu tố gây chấn thương</TableCell>
                       </TableRow>
                       {(() => {
-                        const match = accidentDetails.find(d => d.yeuToChanThuongId === 101);
-                        const stats = match?.stats || createDefaultStats();
-                        return (
-                          <TableRow>
-                            <TableCell sx={{ pl: 4, ...cellStyle }}>Thiết bị nâng</TableCell>
-                            <TableCell align="center" sx={cellStyle}>101</TableCell>
-                            <TableCell align="center" sx={cellStyle}>{stats.tongSoVu}</TableCell>
-                            <TableCell align="center" sx={cellStyle}>{stats.tongSoVuNguoiChet}</TableCell>
-                            <TableCell align="center" sx={cellStyle}>{stats.tongSoVu2Nguoi}</TableCell>
-                            <TableCell align="center" sx={cellStyle}>{stats.tongSoNguoiBiNan}</TableCell>
-                            <TableCell align="center" sx={cellStyle}>{stats.khongQlNguoiBiNan}</TableCell>
-                            <TableCell align="center" sx={cellStyle}>{stats.tongLaoDongNuBiNan}</TableCell>
-                            <TableCell align="center" sx={cellStyle}>{stats.khongQlNuBiNan}</TableCell>
-                            <TableCell align="center" sx={cellStyle}>{stats.tongSoNguoiChet}</TableCell>
-                            <TableCell align="center" sx={cellStyle}>{stats.khongQlNguoiChet}</TableCell>
-                            <TableCell align="center" sx={cellStyle}>{stats.tongSoThuongNang}</TableCell>
-                            <TableCell align="center" sx={cellStyle}>{stats.khongQlThuongNang}</TableCell>
-                          </TableRow>
-                        );
+                        const uniqueYeuToIds = Array.from(new Set(accidentDetails.map(d => Number(d.yeuToChanThuongId)).filter(Boolean)));
+                        return uniqueYeuToIds.map((factorId) => {
+                          const matches = accidentDetails.filter(d => Number(d.yeuToChanThuongId) === factorId);
+                          const stats = aggregateStats(matches);
+                          const factorInfo = injuryFactors.find((f: any) => f.id === factorId);
+                          const name = factorInfo?.name || `Yếu tố ${factorId}`;
+                          return (
+                            <TableRow key={factorId}>
+                              <TableCell sx={{ pl: 4, ...cellStyle }}>{name}</TableCell>
+                              <TableCell align="center" sx={cellStyle}>{factorId}</TableCell>
+                              <TableCell align="center" sx={cellStyle}>{stats.tongSoVu}</TableCell>
+                              <TableCell align="center" sx={cellStyle}>{stats.tongSoVuNguoiChet}</TableCell>
+                              <TableCell align="center" sx={cellStyle}>{stats.tongSoVu2Nguoi}</TableCell>
+                              <TableCell align="center" sx={cellStyle}>{stats.tongSoNguoiBiNan}</TableCell>
+                              <TableCell align="center" sx={cellStyle}>{stats.khongQlNguoiBiNan}</TableCell>
+                              <TableCell align="center" sx={cellStyle}>{stats.tongLaoDongNuBiNan}</TableCell>
+                              <TableCell align="center" sx={cellStyle}>{stats.khongQlNuBiNan}</TableCell>
+                              <TableCell align="center" sx={cellStyle}>{stats.tongSoNguoiChet}</TableCell>
+                              <TableCell align="center" sx={cellStyle}>{stats.khongQlNguoiChet}</TableCell>
+                              <TableCell align="center" sx={cellStyle}>{stats.tongSoThuongNang}</TableCell>
+                              <TableCell align="center" sx={cellStyle}>{stats.khongQlThuongNang}</TableCell>
+                            </TableRow>
+                          );
+                        });
                       })()}
 
                       {/* Occupation classification */}
                       <TableRow sx={{ bgcolor: '#f8fafc' }}>
                         <TableCell colSpan={13} sx={{ fontWeight: 'bold', pl: 3, ...cellStyle }}>1.3 Phân theo nghề nghiệp</TableCell>
                       </TableRow>
-                      {OCCUPATIONS.map((o) => {
-                        const match = accidentDetails.find(d => d.ngheNghiepId === o.id);
-                        const stats = match?.stats || createDefaultStats();
-                        return (
-                          <TableRow key={o.id}>
-                            <TableCell sx={{ pl: 4, ...cellStyle }}>{o.name}</TableCell>
-                            <TableCell align="center" sx={cellStyle}>{o.id}</TableCell>
-                            <TableCell align="center" sx={cellStyle}>{stats.tongSoVu}</TableCell>
-                            <TableCell align="center" sx={cellStyle}>{stats.tongSoVuNguoiChet}</TableCell>
-                            <TableCell align="center" sx={cellStyle}>{stats.tongSoVu2Nguoi}</TableCell>
-                            <TableCell align="center" sx={cellStyle}>{stats.tongSoNguoiBiNan}</TableCell>
-                            <TableCell align="center" sx={cellStyle}>{stats.khongQlNguoiBiNan}</TableCell>
-                            <TableCell align="center" sx={cellStyle}>{stats.tongLaoDongNuBiNan}</TableCell>
-                            <TableCell align="center" sx={cellStyle}>{stats.khongQlNuBiNan}</TableCell>
-                            <TableCell align="center" sx={cellStyle}>{stats.tongSoNguoiChet}</TableCell>
-                            <TableCell align="center" sx={cellStyle}>{stats.khongQlNguoiChet}</TableCell>
-                            <TableCell align="center" sx={cellStyle}>{stats.tongSoThuongNang}</TableCell>
-                            <TableCell align="center" sx={cellStyle}>{stats.khongQlThuongNang}</TableCell>
-                          </TableRow>
-                        );
-                      })}
+                      {(() => {
+                        const uniqueNgheNghiepIds = Array.from(new Set(accidentDetails.map(d => Number(d.ngheNghiepId)).filter(Boolean)));
+                        return uniqueNgheNghiepIds.map((occId) => {
+                          const matches = accidentDetails.filter(d => Number(d.ngheNghiepId) === occId);
+                          const stats = aggregateStats(matches);
+                          const occInfo = OCCUPATIONS.find(o => o.id === occId);
+                          const name = occInfo?.name || `Nghề nghiệp ${occId}`;
+                          return (
+                            <TableRow key={occId}>
+                              <TableCell sx={{ pl: 4, ...cellStyle }}>{name}</TableCell>
+                              <TableCell align="center" sx={cellStyle}>{occId}</TableCell>
+                              <TableCell align="center" sx={cellStyle}>{stats.tongSoVu}</TableCell>
+                              <TableCell align="center" sx={cellStyle}>{stats.tongSoVuNguoiChet}</TableCell>
+                              <TableCell align="center" sx={cellStyle}>{stats.tongSoVu2Nguoi}</TableCell>
+                              <TableCell align="center" sx={cellStyle}>{stats.tongSoNguoiBiNan}</TableCell>
+                              <TableCell align="center" sx={cellStyle}>{stats.khongQlNguoiBiNan}</TableCell>
+                              <TableCell align="center" sx={cellStyle}>{stats.tongLaoDongNuBiNan}</TableCell>
+                              <TableCell align="center" sx={cellStyle}>{stats.khongQlNuBiNan}</TableCell>
+                              <TableCell align="center" sx={cellStyle}>{stats.tongSoNguoiChet}</TableCell>
+                              <TableCell align="center" sx={cellStyle}>{stats.khongQlNguoiChet}</TableCell>
+                              <TableCell align="center" sx={cellStyle}>{stats.tongSoThuongNang}</TableCell>
+                              <TableCell align="center" sx={cellStyle}>{stats.khongQlThuongNang}</TableCell>
+                            </TableRow>
+                          );
+                        });
+                      })()}
 
                       {/* Section 2: Subsidies */}
                       <TableRow sx={{ bgcolor: '#f1f5f9' }}>

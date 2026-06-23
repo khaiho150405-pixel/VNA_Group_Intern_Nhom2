@@ -45,6 +45,9 @@ export class PeriodicReport {
   @Column({ name: "report_file_url", type: "varchar", length: 255, nullable: true })
   reportFileUrl: string;
 
+  @Column({ name: "report_file_name", type: "varchar", length: 255, nullable: true })
+  reportFileName: string;
+
   @Column({ name: "created_at", type: "timestamp", default: () => "CURRENT_TIMESTAMP" })
   createdAt: Date;
 

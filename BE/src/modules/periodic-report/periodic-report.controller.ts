@@ -43,8 +43,8 @@ export class PeriodicReportController {
 
   @Put(":id")
   @ApiOperation({ summary: "Cập nhật báo cáo" })
-  async update(@Param("id") id: string, @Body() payload: any) {
-    return await this.reportService.put(null, id, payload);
+  async update(@Param("id") id: string, @Body() payload: any, @Request() req: any) {
+    return await this.reportService.put(req.user, id, payload);
   }
 
   @Delete(":id")

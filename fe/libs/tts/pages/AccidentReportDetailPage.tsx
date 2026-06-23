@@ -44,12 +44,38 @@ export interface ReportRow {
 }
 
 import { useParams } from 'next/navigation';
-import { periodicReportService } from '@tts/services';
+import { DoetService, periodicReportService } from '@tts/services';
+
+const CAUSES = [
+  { id: 1, name: "Không có thiết bị an toàn hoặc thiết bị không đảm bảo an toàn" },
+  { id: 2, name: "Không có phương tiện bảo vệ cá nhân hoặc phương tiện bảo vệ cá nhân không tốt" },
+  { id: 3, name: "Tổ chức lao động không hợp lý" },
+  { id: 4, name: "Chưa huấn luyện hoặc huấn luyện an toàn vệ sinh lao động chưa đầy đủ" },
+  { id: 5, name: "Không có quy trình an toàn hoặc biện pháp làm việc an toàn" },
+  { id: 6, name: "Điều kiện làm việc không tốt" },
+  { id: 7, name: "Quy phạm nội quy, quy trình, quy chuẩn, biện pháp làm việc an toàn" },
+  { id: 8, name: "Không sử dụng phương tiện bảo vệ cá nhân" },
+  { id: 9, name: "Khách quan khó tránh/ Nguyên nhân chưa kể đến" }
+];
+
+const OCCUPATIONS = [
+  { id: 102, name: "Nhà lãnh đạo cơ quan Đảng Cộng sản Việt nam cấp Trung ương" },
+  { id: 103, name: "Công nhân" }
+];
+
+const getAbsoluteFileUrl = (url?: string) => {
+  if (!url) return '';
+  if (url.startsWith('blob:') || url.startsWith('http') || url.startsWith('data:')) {
+    return url;
+  }
+  const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3800/api/v1').replace('/api/v1', '');
+  return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+};
 
 export function AccidentReportDetailPage() {
   const [data, setData] = useState<ReportRow[]>([]);
   const [costs, setCosts] = useState<any>(null);
-  const [reportInfo, setReportInfo] = useState<{ year?: number, period?: string, fileUrl?: string } | null>(null);
+  const [reportInfo, setReportInfo] = useState<{ year?: number, period?: string, fileUrl?: string, fileName?: string } | null>(null);
   const params = useParams();
   const id = params?.id as string;
   const router = useRouter();
@@ -63,10 +89,14 @@ export function AccidentReportDetailPage() {
   useEffect(() => {
     if (!id) return;
 
-    const fetchData = async () => {
+      const fetchData = async () => {
       try {
-        const response: any = await periodicReportService.getById(id);
+        const [response, factorsRes]: any = await Promise.all([
+          periodicReportService.getById(id),
+          DoetService.getInjuryFactors()
+        ]);
         const report = response.data || response;
+        const factors = factorsRes.data || factorsRes || [];
 
         const mapData = (summary: any): ReportData => ({
           tongSoVu: summary?.tongSoVu || 0,
@@ -82,9 +112,26 @@ export function AccidentReportDetailPage() {
           thuongNangNgoai: summary?.khongQlThuongNang || 0,
         });
 
-        const getDetailByNguyenNhan = (id: number) => {
-          const detail = report.accidentDetails?.find((d: any) => d.nguyenNhanId === id && d.reportType === 'TAI_NAN_LAO_DONG');
-          return detail ? mapData(detail.stats) : mapData({});
+        const getSummedStatsForCause = (causeId: number) => {
+          const matches = (report.accidentDetails || []).filter((d: any) => Number(d.nguyenNhanId) === causeId && d.reportType === 'TAI_NAN_LAO_DONG');
+          if (matches.length === 0) return null;
+          
+          const sum: any = {};
+          matches.forEach((m: any) => {
+            const stats = m.stats || {};
+            sum.tongSoVu = (sum.tongSoVu || 0) + Number(stats.tongSoVu || 0);
+            sum.tongSoVuNguoiChet = (sum.tongSoVuNguoiChet || 0) + Number(stats.tongSoVuNguoiChet || 0);
+            sum.tongSoVu2Nguoi = (sum.tongSoVu2Nguoi || 0) + Number(stats.tongSoVu2NguoiTroLen || stats.tongSoVu2Nguoi || 0);
+            sum.tongSoNguoiBiNan = (sum.tongSoNguoiBiNan || 0) + Number(stats.tongSoNguoiBiNan || 0);
+            sum.khongQlNguoiBiNan = (sum.khongQlNguoiBiNan || 0) + Number(stats.khongQlNguoiBiNan || 0);
+            sum.tongLaoDongNuBiNan = (sum.tongLaoDongNuBiNan || 0) + Number(stats.tongLaoDongNuBiNan ?? stats.tongSoNuBiNan ?? 0);
+            sum.khongQlNuBiNan = (sum.khongQlNuBiNan || 0) + Number(stats.khongQlNuBiNan || 0);
+            sum.tongSoNguoiChet = (sum.tongSoNguoiChet || 0) + Number(stats.tongSoNguoiChet || 0);
+            sum.khongQlNguoiChet = (sum.khongQlNguoiChet || 0) + Number(stats.khongQlNguoiChet || 0);
+            sum.tongSoThuongNang = (sum.tongSoThuongNang || 0) + Number(stats.tongSoThuongNang || stats.tongSoNguoiThuongNang || 0);
+            sum.khongQlThuongNang = (sum.khongQlThuongNang || 0) + Number(stats.khongQlThuongNang || 0);
+          });
+          return mapData(sum);
         };
 
         const tnld = mapData(report.tnldSummary);
@@ -96,46 +143,85 @@ export function AccidentReportDetailPage() {
 
           { id: "1.1", code: "", name: "1.1 Phân theo nguyên nhân xảy ra TNLĐ", isHeader: true, level: 0 },
           { id: "1.1-a", code: "", name: "a. Do người sử dụng lao động", isHeader: true, level: 0 },
-          { id: "1.1-a-1", code: "1", name: "Không có thiết bị an toàn hoặc thiết bị không đảm bảo an toàn", isHeader: false, level: 0, data: getDetailByNguyenNhan(1) },
-          { id: "1.1-a-2", code: "2", name: "Không có phương tiện bảo vệ cá nhân hoặc phương tiện bảo vệ cá nhân không tốt", isHeader: false, level: 0, data: getDetailByNguyenNhan(2) },
-          { id: "1.1-a-3", code: "3", name: "Tổ chức lao động không hợp lý", isHeader: false, level: 0, data: getDetailByNguyenNhan(3) },
-          { id: "1.1-a-4", code: "4", name: "Chưa huấn luyện hoặc huấn luyện an toàn vệ sinh lao động chưa đầy đủ", isHeader: false, level: 0, data: getDetailByNguyenNhan(4) },
-          { id: "1.1-a-5", code: "5", name: "Không có quy trình an toàn hoặc biện pháp làm việc an toàn", isHeader: false, level: 0, data: getDetailByNguyenNhan(5) },
-          { id: "1.1-a-6", code: "6", name: "Điều kiện làm việc không tốt", isHeader: false, level: 0, data: getDetailByNguyenNhan(6) },
-
-          { id: "1.1-b", code: "", name: "b. Do người lao động", isHeader: true, level: 0 },
-          { id: "1.1-b-7", code: "7", name: "Quy phạm nội quy, quy trình, quy chuẩn, biện pháp làm việc an toàn", isHeader: false, level: 0, data: getDetailByNguyenNhan(7) },
-          { id: "1.1-b-8", code: "8", name: "Không sử dụng phương tiện bảo vệ cá nhân", isHeader: false, level: 0, data: getDetailByNguyenNhan(8) },
-
-          { id: "1.1-9", code: "9", name: "Khách quan khó tránh/ Nguyên nhân chưa kể đến", isHeader: false, level: 0, data: getDetailByNguyenNhan(9) },
-
-          { id: "1.2", code: "", name: "1.2. Phân theo yếu tố gây chấn thương", isHeader: true, level: 0 },
         ];
 
-        const yeuToDetails = report.accidentDetails?.filter((d: any) => d.yeuToChanThuongId && d.reportType === 'TAI_NAN_LAO_DONG') || [];
-        if (yeuToDetails.length === 0) {
-          rows.push({ id: "1.2-empty", code: "101", name: "Thiết bị nâng", isHeader: false, level: 0, data: mapData({}) });
-        } else {
-          yeuToDetails.forEach((d: any) => {
-            let name = "Yếu tố " + d.yeuToChanThuongId;
-            if (d.yeuToChanThuongId === 101) name = "Thiết bị nâng";
-            rows.push({ id: `1.2-${d.yeuToChanThuongId}`, code: `${d.yeuToChanThuongId}`, name, isHeader: false, level: 0, data: mapData(d.stats) });
-          });
+        CAUSES.slice(0, 6).forEach((c, i) => {
+          const stats = getSummedStatsForCause(c.id);
+          if (stats) {
+            rows.push({ id: `1.1-a-${c.id}`, code: String(i + 1), name: c.name, isHeader: false, level: 0, data: stats });
+          }
+        });
+
+        rows.push({ id: "1.1-b", code: "", name: "b. Do người lao động", isHeader: true, level: 0 });
+        CAUSES.slice(6, 8).forEach((c, i) => {
+          const stats = getSummedStatsForCause(c.id);
+          if (stats) {
+            rows.push({ id: `1.1-b-${c.id}`, code: String(i + 7), name: c.name, isHeader: false, level: 0, data: stats });
+          }
+        });
+
+        const otherStats = getSummedStatsForCause(9);
+        if (otherStats) {
+          rows.push({ id: "1.1-9", code: "9", name: CAUSES[8].name, isHeader: false, level: 0, data: otherStats });
         }
 
-        rows.push({ id: "1.3", code: "", name: "1.3 Phân theo nghề nghiệp", isHeader: true, level: 0 });
-        const ngheNghiepDetails = report.accidentDetails?.filter((d: any) => d.ngheNghiepId && d.reportType === 'TAI_NAN_LAO_DONG') || [];
-        if (ngheNghiepDetails.length === 0) {
-          rows.push({ id: "1.3-empty1", code: "102", name: "Nhà lãnh đạo cơ quan Đảng Cộng sản Việt nam cấp Trung ương", isHeader: false, level: 0, data: mapData({}) });
-          rows.push({ id: "1.3-empty2", code: "103", name: "Công nhân", isHeader: false, level: 0, data: mapData({}) });
-        } else {
-          ngheNghiepDetails.forEach((d: any) => {
-            let name = "Nghề nghiệp " + d.ngheNghiepId;
-            if (d.ngheNghiepId === 102) name = "Nhà lãnh đạo cơ quan Đảng Cộng sản Việt nam cấp Trung ương";
-            if (d.ngheNghiepId === 103) name = "Công nhân";
-            rows.push({ id: `1.3-${d.ngheNghiepId}`, code: `${d.ngheNghiepId}`, name, isHeader: false, level: 0, data: mapData(d.stats) });
+        rows.push({ id: "1.2", code: "", name: "1.2. Phân theo yếu tố gây chấn thương", isHeader: true, level: 0 });
+        const uniqueYeuToIds = Array.from(new Set(
+          (report.accidentDetails || [])
+            .filter((d: any) => d.yeuToChanThuongId && d.reportType === 'TAI_NAN_LAO_DONG')
+            .map((d: any) => Number(d.yeuToChanThuongId))
+        ));
+
+        uniqueYeuToIds.forEach((factorId) => {
+          const matches = (report.accidentDetails || []).filter((d: any) => Number(d.yeuToChanThuongId) === factorId && d.reportType === 'TAI_NAN_LAO_DONG');
+          const sum: any = {};
+          matches.forEach((m: any) => {
+            const stats = m.stats || {};
+            sum.tongSoVu = (sum.tongSoVu || 0) + Number(stats.tongSoVu || 0);
+            sum.tongSoVuNguoiChet = (sum.tongSoVuNguoiChet || 0) + Number(stats.tongSoVuNguoiChet || 0);
+            sum.tongSoVu2Nguoi = (sum.tongSoVu2Nguoi || 0) + Number(stats.tongSoVu2NguoiTroLen || stats.tongSoVu2Nguoi || 0);
+            sum.tongSoNguoiBiNan = (sum.tongSoNguoiBiNan || 0) + Number(stats.tongSoNguoiBiNan || 0);
+            sum.khongQlNguoiBiNan = (sum.khongQlNguoiBiNan || 0) + Number(stats.khongQlNguoiBiNan || 0);
+            sum.tongLaoDongNuBiNan = (sum.tongLaoDongNuBiNan || 0) + Number(stats.tongLaoDongNuBiNan ?? stats.tongSoNuBiNan ?? 0);
+            sum.khongQlNuBiNan = (sum.khongQlNuBiNan || 0) + Number(stats.khongQlNuBiNan || 0);
+            sum.tongSoNguoiChet = (sum.tongSoNguoiChet || 0) + Number(stats.tongSoNguoiChet || 0);
+            sum.khongQlNguoiChet = (sum.khongQlNguoiChet || 0) + Number(stats.khongQlNguoiChet || 0);
+            sum.tongSoThuongNang = (sum.tongSoThuongNang || 0) + Number(stats.tongSoThuongNang || stats.tongSoNguoiThuongNang || 0);
+            sum.khongQlThuongNang = (sum.khongQlThuongNang || 0) + Number(stats.khongQlThuongNang || 0);
           });
-        }
+          const factorInfo = factors.find((f: any) => f.id === factorId);
+          const name = factorInfo?.name || `Yếu tố ${factorId}`;
+          rows.push({ id: `1.2-${factorId}`, code: String(factorId), name, isHeader: false, level: 0, data: mapData(sum) });
+        });
+
+        rows.push({ id: "1.3", code: "", name: "1.3 Phân theo nghề nghiệp", isHeader: true, level: 0 });
+        const uniqueNgheNghiepIds = Array.from(new Set(
+          (report.accidentDetails || [])
+            .filter((d: any) => d.ngheNghiepId && d.reportType === 'TAI_NAN_LAO_DONG')
+            .map((d: any) => Number(d.ngheNghiepId))
+        ));
+
+        uniqueNgheNghiepIds.forEach((occId) => {
+          const matches = (report.accidentDetails || []).filter((d: any) => Number(d.ngheNghiepId) === occId && d.reportType === 'TAI_NAN_LAO_DONG');
+          const sum: any = {};
+          matches.forEach((m: any) => {
+            const stats = m.stats || {};
+            sum.tongSoVu = (sum.tongSoVu || 0) + Number(stats.tongSoVu || 0);
+            sum.tongSoVuNguoiChet = (sum.tongSoVuNguoiChet || 0) + Number(stats.tongSoVuNguoiChet || 0);
+            sum.tongSoVu2Nguoi = (sum.tongSoVu2Nguoi || 0) + Number(stats.tongSoVu2NguoiTroLen || stats.tongSoVu2Nguoi || 0);
+            sum.tongSoNguoiBiNan = (sum.tongSoNguoiBiNan || 0) + Number(stats.tongSoNguoiBiNan || 0);
+            sum.khongQlNguoiBiNan = (sum.khongQlNguoiBiNan || 0) + Number(stats.khongQlNguoiBiNan || 0);
+            sum.tongLaoDongNuBiNan = (sum.tongLaoDongNuBiNan || 0) + Number(stats.tongLaoDongNuBiNan ?? stats.tongSoNuBiNan ?? 0);
+            sum.khongQlNuBiNan = (sum.khongQlNuBiNan || 0) + Number(stats.khongQlNuBiNan || 0);
+            sum.tongSoNguoiChet = (sum.tongSoNguoiChet || 0) + Number(stats.tongSoNguoiChet || 0);
+            sum.khongQlNguoiChet = (sum.khongQlNguoiChet || 0) + Number(stats.khongQlNguoiChet || 0);
+            sum.tongSoThuongNang = (sum.tongSoThuongNang || 0) + Number(stats.tongSoThuongNang || stats.tongSoNguoiThuongNang || 0);
+            sum.khongQlThuongNang = (sum.khongQlThuongNang || 0) + Number(stats.khongQlThuongNang || 0);
+          });
+          const occInfo = OCCUPATIONS.find(o => o.id === occId);
+          const name = occInfo?.name || `Nghề nghiệp ${occId}`;
+          rows.push({ id: `1.3-${occId}`, code: String(occId), name, isHeader: false, level: 0, data: mapData(sum) });
+        });
 
         const sumData = (a: ReportData, b: ReportData): ReportData => ({
           tongSoVu: a.tongSoVu + b.tongSoVu,
@@ -159,7 +245,7 @@ export function AccidentReportDetailPage() {
 
         setData(rows);
         setCosts(report.tnldSummary);
-        setReportInfo({ year: report.year, period: report.period, fileUrl: report.reportFileUrl });
+        setReportInfo({ year: report.year, period: report.period, fileUrl: report.reportFileUrl, fileName: report.reportFileName });
       } catch (error) {
         console.error("Lỗi tải chi tiết báo cáo:", error);
       }
@@ -168,9 +254,11 @@ export function AccidentReportDetailPage() {
     fetchData();
   }, [id]);
 
-  const renderDataValue = (value?: number) => {
-    if (value === undefined || value === null) return '-';
-    return value.toString();
+  const renderDataValue = (value?: any) => {
+    if (value === undefined || value === null || value === '') return '-';
+    const num = Number(value);
+    if (isNaN(num)) return String(value);
+    return num.toLocaleString('vi-VN');
   };
 
   const cellStyle = { border: '1px solid #e2e8f0', borderColor: '#e2e8f0' };
@@ -240,12 +328,12 @@ export function AccidentReportDetailPage() {
               </Typography>
               {reportInfo?.fileUrl ? (
                 <MuiLink
-                  href={reportInfo.fileUrl.startsWith('http') ? reportInfo.fileUrl : `/${reportInfo.fileUrl}`}
+                  href={getAbsoluteFileUrl(reportInfo.fileUrl)}
                   target="_blank"
                   underline="always"
                   sx={{ color: '#3b82f6' }}
                 >
-                  {reportInfo.fileUrl.split('/').pop()}
+                  {reportInfo.fileName || reportInfo.fileUrl.split('/').pop() || 'Tệp đính kèm'}
                 </MuiLink>
               ) : (
                 <Typography sx={{ color: 'text.secondary', fontStyle: 'italic' }}>

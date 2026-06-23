@@ -160,9 +160,11 @@ export function AccidentReportSummaryPage() {
     fetchData();
   }, [searchParams]);
 
-  const renderDataValue = (value?: number) => {
-    if (value === undefined || value === null) return '-';
-    return value.toString();
+  const renderDataValue = (value?: any) => {
+    if (value === undefined || value === null || value === '') return '-';
+    const num = Number(value);
+    if (isNaN(num)) return String(value);
+    return num.toLocaleString('vi-VN');
   };
 
   const cellStyle = { border: '1px solid #e2e8f0', borderColor: '#e2e8f0' };

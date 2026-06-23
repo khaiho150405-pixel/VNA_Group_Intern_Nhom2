@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS periodic_reports (
     total_salary_fund BIGINT DEFAULT 0,
     "tnldSummary" JSONB,
     "tnldTroCapSummary" JSONB,
+    report_file_url VARCHAR(255),
+    report_file_name VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
