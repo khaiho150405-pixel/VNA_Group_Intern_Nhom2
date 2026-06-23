@@ -488,7 +488,7 @@ export const EnterpriseListPage = () => {
                                     <ViewIcon fontSize="small" />
                                   </IconButton>
                                 </Tooltip>
-                                {!isReadOnly ? (
+                                {!isReadOnly && (
                                   <>
                                     <Tooltip title="Chỉnh sửa">
                                       <IconButton
@@ -515,8 +515,6 @@ export const EnterpriseListPage = () => {
                                       </IconButton>
                                     </Tooltip>
                                   </>
-                                ) : (
-                                  <Typography variant="caption" sx={{ color: '#94a3b8', fontStyle: 'italic', ml: 1 }}>Chỉ xem</Typography>
                                 )}
                               </Box>
                             </TableCell>

@@ -244,7 +244,7 @@ export const AccidentReportPage = () => {
                                         disabled={loading}
                                         renderInput={(params) => (
                                             <TextField {...params}
-                                                placeholder="Tất cả"
+                                                placeholder="-- Chọn tỉnh/ thành phố --"
                                                 className={classes.filterField} />
                                         )}
                                     />
@@ -260,7 +260,7 @@ export const AccidentReportPage = () => {
                                         disabled={loading || !headerFilters.province}
                                         renderInput={(params) => (
                                             <TextField {...params}
-                                                placeholder="Tất cả"
+                                                placeholder="-- Chọn phường / xã --"
                                                 className={classes.filterField} />
                                         )}
                                     />
@@ -321,7 +321,7 @@ export const AccidentReportPage = () => {
                                                     value={tableFilters.reportPeriod}
                                                     onChange={(e) => handleTableFilterChange('reportPeriod', e.target.value)}
                                                 >
-                                                    <MenuItem value=""><em>Tất cả</em></MenuItem>
+                                                    <MenuItem value="">Tất cả</MenuItem>
                                                     <MenuItem value="6_THANG">6 tháng</MenuItem>
                                                     <MenuItem value="CA_NAM">Cả năm</MenuItem>
                                                 </Select>
@@ -335,7 +335,7 @@ export const AccidentReportPage = () => {
                                                     value={tableFilters.status}
                                                     onChange={(e) => handleTableFilterChange('status', e.target.value)}
                                                 >
-                                                    <MenuItem value=""><em>Tất cả</em></MenuItem>
+                                                    <MenuItem value="">Tất cả</MenuItem>
                                                     <MenuItem value="CHO_BAO_CAO">Chờ báo cáo</MenuItem>
                                                     <MenuItem value="DANG_BAO_CAO">Đang báo cáo</MenuItem>
                                                     <MenuItem value="DA_TIEP_NHAN">Đã tiếp nhận</MenuItem>

@@ -179,27 +179,33 @@ export const UserEditPage = () => {
         <MainLayout>
             <Box className={classes.root}>
                 <Box className={classes.pageHeader}>
-                    <Typography className={classes.headerTitle}>Chi tiết người dùng</Typography>
+                    <Typography className={classes.headerTitle}>
+                        {canEdit ? 'Chỉnh sửa người dùng' : 'Chi tiết người dùng'}
+                    </Typography>
                     <Box className={classes.actions}>
-                        <Button className={classes.cancelBtn} disableRipple disabled={loading} onClick={() => router.push('/users')}>Hủy bỏ</Button>
-                        <Button
-                            variant="contained"
-                            startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Save fontSize="small" />}
-                            className={classes.saveBtn}
-                            disableElevation
-                            onClick={handleSave}
-                            disabled={loading || !canEdit || !hasChanges()}
-                            sx={{
-                                ...((loading || !canEdit || !hasChanges()) && {
-                                    backgroundColor: '#b0b0b0 !important',
-                                    color: '#fff !important',
-                                    '&:hover': { backgroundColor: '#b0b0b0 !important' },
-                                    cursor: 'not-allowed',
-                                })
-                            }}
-                        >
-                            {loading ? 'Đang lưu...' : 'Lưu'}
+                        <Button className={classes.cancelBtn} disableRipple disabled={loading} onClick={() => router.push('/users')}>
+                            {canEdit ? 'Hủy bỏ' : 'Quay lại'}
                         </Button>
+                        {canEdit && (
+                            <Button
+                                variant="contained"
+                                startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Save fontSize="small" />}
+                                className={classes.saveBtn}
+                                disableElevation
+                                onClick={handleSave}
+                                disabled={loading || !hasChanges()}
+                                sx={{
+                                    ...((loading || !hasChanges()) && {
+                                        backgroundColor: '#b0b0b0 !important',
+                                        color: '#fff !important',
+                                        '&:hover': { backgroundColor: '#b0b0b0 !important' },
+                                        cursor: 'not-allowed',
+                                    })
+                                }}
+                            >
+                                {loading ? 'Đang lưu...' : 'Lưu'}
+                            </Button>
+                        )}
                     </Box>
                 </Box>
 
@@ -208,15 +214,17 @@ export const UserEditPage = () => {
 
                         <Grid size={{ xs: 12, md: 3 }}>
                             <Box className={classes.leftCard}>
-                                <IconButton
-                                    className={classes.deleteAvatarBtn}
-                                    onClick={() => dispatch({ type: 'removeAvatar' })}
-                                    disabled={loading || !avatarUrl || !canEdit}
-                                    size="small"
-                                    title="Xóa ảnh"
-                                >
-                                    <Delete fontSize="small" />
-                                </IconButton>
+                                {canEdit && avatarUrl && (
+                                    <IconButton
+                                        className={classes.deleteAvatarBtn}
+                                        onClick={() => dispatch({ type: 'removeAvatar' })}
+                                        disabled={loading}
+                                        size="small"
+                                        title="Xóa ảnh"
+                                    >
+                                        <Delete fontSize="small" />
+                                    </IconButton>
+                                )}
                                 <input
                                     type="file"
                                     hidden
@@ -229,15 +237,18 @@ export const UserEditPage = () => {
                                     backgroundSize: 'cover',
                                     backgroundPosition: 'center',
                                     position: 'relative',
-                                    overflow: 'hidden'
+                                    overflow: 'hidden',
+                                    cursor: canEdit ? 'pointer' : 'default'
                                 }}>
                                     {!avatarUrl && (
                                         <>
                                             <PhotoCamera className={classes.avatarIcon} />
-                                            <Typography className={classes.avatarText}>Tải ảnh đại diện</Typography>
+                                            <Typography className={classes.avatarText}>
+                                                {canEdit ? 'Tải ảnh đại diện' : 'Không có ảnh đại diện'}
+                                            </Typography>
                                         </>
                                     )}
-                                    {avatarUrl && (
+                                    {avatarUrl && canEdit && (
                                         <Box style={{
                                             position: 'absolute',
                                             top: 0, left: 0, width: '100%', height: '100%',
@@ -251,10 +262,12 @@ export const UserEditPage = () => {
                                         </Box>
                                     )}
                                 </Box>
-                                <Typography className={classes.avatarNote}>
-                                    *.jpeg, *.jpg, *.png.<br />
-                                    Kích thước tối đa 5 MB
-                                </Typography>
+                                {canEdit && (
+                                    <Typography className={classes.avatarNote}>
+                                        *.jpeg, *.jpg, *.png.<br />
+                                        Kích thước tối đa 5 MB
+                                    </Typography>
+                                )}
 
                                 <Box className={classes.activation}>
                                     <Typography style={{ fontWeight: 600, fontSize: '0.85rem', color: '#333' }}>Kích hoạt</Typography>

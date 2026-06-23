@@ -18,6 +18,7 @@ import {
     FileDownload as DownloadIcon,
     Visibility,
     VisibilityOff,
+    VisibilityOutlined as ViewIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useSnackbar } from 'notistack';
@@ -664,7 +665,17 @@ export const UserManagementPage = () => {
                                                         </TableCell>
                                                         <TableCell className={classes.bodyCell}>
                                                             <Box sx={{ display: "flex", gap: 0.25 }}>
-                                                                {!isReadOnly ? (
+                                                                {isReadOnly ? (
+                                                                    <Tooltip title="Xem chi tiết">
+                                                                        <IconButton
+                                                                            size="small"
+                                                                            className={classes.actionIcon}
+                                                                            onClick={() => router.push(`/users/${item.id}`)}
+                                                                        >
+                                                                            <ViewIcon fontSize="small" />
+                                                                        </IconButton>
+                                                                    </Tooltip>
+                                                                ) : (
                                                                     <>
                                                                         <Tooltip title="Chỉnh sửa">
                                                                             <IconButton
@@ -691,8 +702,6 @@ export const UserManagementPage = () => {
                                                                             </IconButton>
                                                                         </Tooltip>
                                                                     </>
-                                                                ) : (
-                                                                    <Typography variant="caption" sx={{ color: '#94a3b8', fontStyle: 'italic' }}>Chỉ xem</Typography>
                                                                 )}
                                                             </Box>
                                                         </TableCell>
