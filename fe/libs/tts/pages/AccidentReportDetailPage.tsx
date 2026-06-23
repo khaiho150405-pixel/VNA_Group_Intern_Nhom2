@@ -16,8 +16,10 @@ import {
 } from '@mui/material';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import PrintIcon from '@mui/icons-material/Print';
-import { useReactToPrint } from 'react-to-print';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import PizZip from 'pizzip';
+import Docxtemplater from 'docxtemplater';
+import { saveAs } from 'file-saver';
 import { MainLayout } from '@core/layouts/MainLayout';
 
 export interface ReportData {
@@ -72,31 +74,190 @@ const getAbsoluteFileUrl = (url?: string) => {
   return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
 };
 
+const formatNumberWithDots = (val: string | number) => {
+  if (val === undefined || val === null || val === '') return '0';
+  const raw = String(val).replace(/\./g, '');
+  if (isNaN(Number(raw))) return '0';
+  return Number(raw).toLocaleString('vi-VN');
+};
+
 export function AccidentReportDetailPage() {
   const [data, setData] = useState<ReportRow[]>([]);
+  const [injuryFactors, setInjuryFactors] = useState<any[]>([]);
   const [costs, setCosts] = useState<any>(null);
   const [reportInfo, setReportInfo] = useState<{ year?: number, period?: string, fileUrl?: string, fileName?: string } | null>(null);
+  const [rawReport, setRawReport] = useState<any>(null);
   const params = useParams();
   const id = params?.id as string;
   const router = useRouter();
-  const printRef = React.useRef(null);
 
-  const handlePrint = useReactToPrint({
-    contentRef: printRef,
-    documentTitle: `Bao_cao_tai_nan_lao_dong_${reportInfo?.period === 'CA_NAM' ? 'Ca_nam' : '6_thang'}_${reportInfo?.year || 2023}`,
-  });
+  const handleExportWord = async () => {
+    if (!rawReport) return;
+    try {
+      const response = await fetch('/template.docx');
+      if (!response.ok) throw new Error("Không thể tải template báo cáo");
+      const blob = await response.blob();
+      const arrayBuffer = await blob.arrayBuffer();
+
+      const zip = new PizZip(arrayBuffer);
+      const doc = new Docxtemplater(zip, {
+        paragraphLoop: true,
+        linebreaks: true,
+      });
+
+      const tnldSummary = rawReport.tnldSummary || {};
+      const tnldTroCapSummary = rawReport.tnldTroCapSummary || {};
+
+      const getDetailStats = (matches: any[]) => {
+        const sum: any = {};
+        matches.forEach((m: any) => {
+          const s = m.stats || {};
+          sum.tongSoVu = (sum.tongSoVu || 0) + Number(s.tongSoVu || 0);
+          sum.tongSoVuNguoiChet = (sum.tongSoVuNguoiChet || 0) + Number(s.tongSoVuNguoiChet || 0);
+          sum.tongSoVu2Nguoi = (sum.tongSoVu2Nguoi || 0) + Number(s.tongSoVu2NguoiTroLen || s.tongSoVu2Nguoi || 0);
+          sum.tongSoNguoiBiNan = (sum.tongSoNguoiBiNan || 0) + Number(s.tongSoNguoiBiNan || 0);
+          sum.tongSoNuBiNan = (sum.tongSoNuBiNan || 0) + Number(s.tongLaoDongNuBiNan ?? s.tongSoNuBiNan ?? 0);
+          sum.soNguoiChet = (sum.soNguoiChet || 0) + Number(s.tongSoNguoiChet || s.soNguoiChet || 0);
+          sum.soNguoiBiThuongNang = (sum.soNguoiBiThuongNang || 0) + Number(s.tongSoThuongNang || s.soNguoiBiThuongNang || 0);
+          sum.khongQlNguoiBiNan = (sum.khongQlNguoiBiNan || 0) + Number(s.khongQlNguoiBiNan || 0);
+          sum.khongQlNuBiNan = (sum.khongQlNuBiNan || 0) + Number(s.khongQlNuBiNan || 0);
+          sum.khongQlNguoiChet = (sum.khongQlNguoiChet || 0) + Number(s.khongQlNguoiChet || 0);
+          sum.khongQlNguoiBiThuongNang = (sum.khongQlNguoiBiThuongNang || 0) + Number(s.khongQlThuongNang || s.khongQlNguoiBiThuongNang || 0);
+        });
+        return sum;
+      };
+
+      const getStatCols = (stats: any, prefix: string) => {
+        const o = {
+          c3: formatNumberWithDots(stats?.tongSoVu || "0"),
+          c4: formatNumberWithDots(stats?.tongSoVuNguoiChet || "0"),
+          c5: formatNumberWithDots(stats?.tongSoVu2Nguoi || "0"),
+          c6: formatNumberWithDots(stats?.tongSoNguoiBiNan || "0"),
+          c7: formatNumberWithDots(stats?.tongSoNuBiNan || "0"),
+          c8: formatNumberWithDots(stats?.soNguoiChet || "0"),
+          c9: formatNumberWithDots(stats?.soNguoiBiThuongNang || "0"),
+          c10: formatNumberWithDots(stats?.khongQlNguoiBiNan || "0"),
+          c11: formatNumberWithDots(stats?.khongQlNuBiNan || "0"),
+          c12: formatNumberWithDots(stats?.khongQlNguoiChet || "0"),
+          c13: formatNumberWithDots(stats?.khongQlNguoiBiThuongNang || "0"),
+        };
+        if (!prefix) return o;
+        const res: any = {};
+        for (const [k, v] of Object.entries(o)) res[`${prefix}_${k}`] = v;
+        return res;
+      };
+
+      const sourceDetails = rawReport.accidentDetails || [];
+      const causesMapping: Record<number, string> = { 1: 'r8', 2: 'r9', 3: 'r10', 4: 'r11', 5: 'r12', 6: 'r13', 7: 'r15', 8: 'r16', 9: 'r17' };
+      let causesData = {};
+      for (let i = 1; i <= 9; i++) {
+        const matches = sourceDetails.filter((d: any) => Number(d.nguyenNhanId) === i && (!d.reportType || d.reportType === 'TAI_NAN_LAO_DONG'));
+        causesData = { ...causesData, ...getStatCols(getDetailStats(matches), causesMapping[i]) };
+      }
+
+      const uniqueFactors = Array.from(new Set(sourceDetails.filter((d: any) => d.yeuToChanThuongId && (!d.reportType || d.reportType === 'TAI_NAN_LAO_DONG')).map((d: any) => Number(d.yeuToChanThuongId))));
+      const factors = uniqueFactors.map((id: any) => {
+        const name = injuryFactors?.find((f: any) => f.id === id)?.name || (id === 101 ? 'Thiết bị nâng' : `Yếu tố ${id}`);
+        const matches = sourceDetails.filter((d: any) => Number(d.yeuToChanThuongId) === id && (!d.reportType || d.reportType === 'TAI_NAN_LAO_DONG'));
+        return { name, code: String(id), ...getStatCols(getDetailStats(matches), '') };
+      });
+
+      const OCC_MAP: any = { 102: "Nhà lãnh đạo cơ quan Đảng Cộng sản Việt nam cấp Trung ương", 103: "Công nhân" };
+      const uniqueOccs = Array.from(new Set(sourceDetails.filter((d: any) => d.ngheNghiepId && (!d.reportType || d.reportType === 'TAI_NAN_LAO_DONG')).map((d: any) => Number(d.ngheNghiepId))));
+      const occupations = uniqueOccs.map((id: any) => {
+        const name = OCC_MAP[id] || `Nghề nghiệp ${id}`;
+        const matches = sourceDetails.filter((d: any) => Number(d.ngheNghiepId) === id && (!d.reportType || d.reportType === 'TAI_NAN_LAO_DONG'));
+        return { name, code: String(id), ...getStatCols(getDetailStats(matches), '') };
+      });
+
+      // Prepare data
+      const data = {
+        ...causesData,
+        factors,
+        occupations,
+        companyName: rawReport.doet?.name || "",
+        periodName: rawReport.period === 'CA_NAM' ? 'cả năm' : '6 tháng',
+        reportYear: rawReport.year || "",
+        reportDate: new Date().toLocaleDateString('vi-VN'),
+        totalEmployees: rawReport.totalEmployees || "0",
+        femaleEmployees: rawReport.femaleEmployees || "0",
+        totalSalary: rawReport.totalSalaryFund || "0",
+        companyAddress: rawReport.company?.address || "",
+        addressCode: rawReport.company?.ward?.key || rawReport.company?.province?.key || "",
+        companyType: rawReport.company?.loaiHinhKinhDoanh?.name || rawReport.doet?.loaiHinhKinhDoanh?.name || "",
+        typeCode: rawReport.company?.loaiHinhKinhDoanh?.id || rawReport.doet?.loaiHinhKinhDoanh?.id || "",
+        companyField: rawReport.company?.businessLine?.name || rawReport.company?.businessLine?.tennganh || rawReport.doet?.businessLine?.name || rawReport.doet?.businessLine?.tennganh || "",
+        fieldCode: rawReport.company?.businessLine?.code || rawReport.company?.businessLine?.manganh || rawReport.doet?.businessLine?.code || rawReport.doet?.businessLine?.manganh || "",
+        headOfEnterprise: rawReport.company?.headOfEnterprise || rawReport.doet?.headOfEnterprise || "",
+
+        t1_c3: formatNumberWithDots(tnldSummary.tongSoVu || "0"),
+        t1_c4: formatNumberWithDots(tnldSummary.tongSoVuNguoiChet || "0"),
+        t1_c5: formatNumberWithDots(tnldSummary.tongSoVu2Nguoi || "0"),
+        t1_c6: formatNumberWithDots(tnldSummary.tongSoNguoiBiNan || "0"),
+        t1_c7: formatNumberWithDots(tnldSummary.tongLaoDongNuBiNan || "0"),
+        t1_c8: formatNumberWithDots(tnldSummary.tongSoNguoiChet || "0"),
+        t1_c9: formatNumberWithDots(tnldSummary.tongSoThuongNang || "0"),
+        t1_c10: formatNumberWithDots(tnldSummary.khongQlNguoiBiNan || "0"),
+        t1_c11: formatNumberWithDots(tnldSummary.khongQlNuBiNan || "0"),
+        t1_c12: formatNumberWithDots(tnldSummary.khongQlNguoiChet || "0"),
+        t1_c13: formatNumberWithDots(tnldSummary.khongQlThuongNang || "0"),
+
+        t2_c3: formatNumberWithDots(tnldTroCapSummary.tongSoVu || "0"),
+        t2_c4: formatNumberWithDots(tnldTroCapSummary.tongSoVuNguoiChet || "0"),
+        t2_c5: formatNumberWithDots(tnldTroCapSummary.tongSoVu2Nguoi || "0"),
+        t2_c6: formatNumberWithDots(tnldTroCapSummary.tongSoNguoiBiNan || "0"),
+        t2_c7: formatNumberWithDots(tnldTroCapSummary.tongLaoDongNuBiNan || "0"),
+        t2_c8: formatNumberWithDots(tnldTroCapSummary.tongSoNguoiChet || "0"),
+        t2_c9: formatNumberWithDots(tnldTroCapSummary.tongSoThuongNang || "0"),
+        t2_c10: formatNumberWithDots(tnldTroCapSummary.khongQlNguoiBiNan || "0"),
+        t2_c11: formatNumberWithDots(tnldTroCapSummary.khongQlNuBiNan || "0"),
+        t2_c12: formatNumberWithDots(tnldTroCapSummary.khongQlNguoiChet || "0"),
+        t2_c13: formatNumberWithDots(tnldTroCapSummary.khongQlThuongNang || "0"),
+
+        t3_c3: formatNumberWithDots(String(Number(tnldSummary.tongSoVu || 0) + Number(tnldTroCapSummary.tongSoVu || 0))),
+        t3_c4: formatNumberWithDots(String(Number(tnldSummary.tongSoVuNguoiChet || 0) + Number(tnldTroCapSummary.tongSoVuNguoiChet || 0))),
+        t3_c5: formatNumberWithDots(String(Number(tnldSummary.tongSoVu2Nguoi || 0) + Number(tnldTroCapSummary.tongSoVu2Nguoi || 0))),
+        t3_c6: formatNumberWithDots(String(Number(tnldSummary.tongSoNguoiBiNan || 0) + Number(tnldTroCapSummary.tongSoNguoiBiNan || 0))),
+        t3_c7: formatNumberWithDots(String(Number(tnldSummary.tongLaoDongNuBiNan || 0) + Number(tnldTroCapSummary.tongLaoDongNuBiNan || 0))),
+        t3_c8: formatNumberWithDots(String(Number(tnldSummary.tongSoNguoiChet || 0) + Number(tnldTroCapSummary.tongSoNguoiChet || 0))),
+        t3_c9: formatNumberWithDots(String(Number(tnldSummary.tongSoThuongNang || 0) + Number(tnldTroCapSummary.tongSoThuongNang || 0))),
+        t3_c10: formatNumberWithDots(String(Number(tnldSummary.khongQlNguoiBiNan || 0) + Number(tnldTroCapSummary.khongQlNguoiBiNan || 0))),
+        t3_c11: formatNumberWithDots(String(Number(tnldSummary.khongQlNuBiNan || 0) + Number(tnldTroCapSummary.khongQlNuBiNan || 0))),
+        t3_c12: formatNumberWithDots(String(Number(tnldSummary.khongQlNguoiChet || 0) + Number(tnldTroCapSummary.khongQlNguoiChet || 0))),
+        t3_c13: formatNumberWithDots(String(Number(tnldSummary.khongQlThuongNang || 0) + Number(tnldTroCapSummary.khongQlThuongNang || 0))),
+
+        t4_c1: formatNumberWithDots(tnldSummary.tongNgayNghi || "0"),
+        t4_c2: formatNumberWithDots(tnldSummary.tongChiPhi || "0"),
+        t4_c3: formatNumberWithDots(tnldSummary.chiPhiYTe || "0"),
+        t4_c4: formatNumberWithDots(tnldSummary.chiPhiTraLuong || "0"),
+        t4_c5: formatNumberWithDots(tnldSummary.chiPhiBoiThuong || "0"),
+        t4_c6: formatNumberWithDots(tnldSummary.thietHaiTaiSan || "0")
+      };
+
+      doc.render(data);
+      const out = doc.getZip().generate({
+        type: "blob",
+        mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      });
+      saveAs(out, `Bao_cao_tai_nan_lao_dong_${rawReport.period === 'CA_NAM' ? 'Ca_nam' : '6_thang'}_${rawReport.year}.docx`);
+    } catch (error) {
+      console.error("Export word error", error);
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
 
-      const fetchData = async () => {
+    const fetchData = async () => {
       try {
         const [response, factorsRes]: any = await Promise.all([
           periodicReportService.getById(id),
           DoetService.getInjuryFactors()
         ]);
         const report = response.data || response;
+        setRawReport(report);
         const factors = factorsRes.data || factorsRes || [];
+        setInjuryFactors(factors);
 
         const mapData = (summary: any): ReportData => ({
           tongSoVu: summary?.tongSoVu || 0,
@@ -115,7 +276,7 @@ export function AccidentReportDetailPage() {
         const getSummedStatsForCause = (causeId: number) => {
           const matches = (report.accidentDetails || []).filter((d: any) => Number(d.nguyenNhanId) === causeId && d.reportType === 'TAI_NAN_LAO_DONG');
           if (matches.length === 0) return null;
-          
+
           const sum: any = {};
           matches.forEach((m: any) => {
             const stats = m.stats || {};
@@ -290,33 +451,24 @@ export function AccidentReportDetailPage() {
             </Button>
             <Button
               variant="outlined"
-              startIcon={<PrintIcon />}
-              sx={{ color: '#3b82f6', borderColor: '#3b82f6' }}
-              onClick={() => handlePrint()}
+              startIcon={<FileDownloadIcon />}
+              sx={{ color: '#059669', borderColor: '#a7f3d0' }}
+              onClick={() => handleExportWord()}
             >
-              In báo cáo
+              Xuất báo cáo
             </Button>
           </Box>
         </Box>
 
         <Box sx={{ p: 3 }}>
           <Box
-            ref={printRef}
             sx={{
               backgroundColor: '#fff',
               p: 3,
               borderRadius: 2,
               border: '1px solid #e2e8f0',
-              '@media print': {
-                border: 'none',
-                m: 0,
-                p: 0,
-              }
             }}
           >
-            <style type="text/css" media="print">
-              {`@page { size: portrait; margin: 10mm; }`}
-            </style>
 
             <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
               Báo cáo tổng hợp tình hình tai nạn lao động - Kỳ báo cáo: {reportInfo?.period === 'CA_NAM' ? 'Cả năm' : '6 tháng'} năm {reportInfo?.year || 2023}

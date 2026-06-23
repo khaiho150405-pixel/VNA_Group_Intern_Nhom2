@@ -19,10 +19,15 @@ import {
   ExpandMore as ExpandMoreIcon,
   Print as PrintIcon,
   ChevronRight as ChevronRightIcon,
-  Save as SaveIcon
+  ChevronLeft as ChevronLeftIcon,
+  Save as SaveIcon,
+  FileDownload as FileDownloadIcon
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
 import { useReactToPrint } from 'react-to-print';
+import PizZip from 'pizzip';
+import Docxtemplater from 'docxtemplater';
+import { saveAs } from 'file-saver';
 import { useAccidentReportStyles } from '../logic/accident-report/style';
 import { DoetService, periodicReportService } from '@tts/services';
 
@@ -133,7 +138,7 @@ const aggregateStats = (list: any[]) => {
     sum.tongSoThuongNang += Number(s.tongSoThuongNang || s.tongSoNguoiThuongNang || 0);
     sum.khongQlThuongNang += Number(s.khongQlThuongNang || 0);
   });
-  
+
   const result: any = {};
   Object.keys(sum).forEach(key => {
     result[key] = String(sum[key as keyof typeof sum]);
@@ -149,7 +154,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
   const [mode, setMode] = useState<'list' | 'edit' | 'view'>('list');
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [loading, setLoading] = useState<boolean>(false);
-  
+
   // List data states
   const [existingReports, setExistingReports] = useState<any[]>([]);
   const [myCompany, setMyCompany] = useState<any>(null);
@@ -207,7 +212,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
 
       const numVal = parseInt(value) || 0;
       const tempStats = { ...stats, [field]: value };
-      
+
       const tongSoVu = parseInt(tempStats.tongSoVu || 0);
       const tongSoVuNguoiChet = parseInt(tempStats.tongSoVuNguoiChet || 0);
       const tongSoVu2Nguoi = parseInt(tempStats.tongSoVu2Nguoi || 0);
@@ -266,7 +271,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
       if (detail && detail.stats) {
         const tempStats = { ...detail.stats, [field]: value };
         const numVal = parseInt(value) || 0;
-        
+
         const tongSoVu = parseInt(tempStats.tongSoVu || 0);
         const tongSoVuNguoiChet = parseInt(tempStats.tongSoVuNguoiChet || 0);
         const tongSoVu2Nguoi = parseInt(tempStats.tongSoVu2Nguoi || 0);
@@ -339,7 +344,149 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
     documentTitle: `Bao_cao_tai_nan_lao_dong_${period === 'CA_NAM' ? 'Ca_nam' : '6_thang'}_${selectedYear}`,
   });
 
-  // Calculate year list dynamically
+  const handleExportWord = async () => {
+    try {
+      const response = await fetch('/template.docx');
+      if (!response.ok) throw new Error("Không thể tải template báo cáo");
+      const blob = await response.blob();
+      const arrayBuffer = await blob.arrayBuffer();
+
+      const zip = new PizZip(arrayBuffer);
+      const doc = new Docxtemplater(zip, {
+        paragraphLoop: true,
+        linebreaks: true,
+      });
+
+      const getDetailStats = (matches: any[]) => {
+        const sum: any = {};
+        matches.forEach((m: any) => {
+          const s = m.stats || {};
+          sum.tongSoVu = (sum.tongSoVu || 0) + Number(s.tongSoVu || 0);
+          sum.tongSoVuNguoiChet = (sum.tongSoVuNguoiChet || 0) + Number(s.tongSoVuNguoiChet || 0);
+          sum.tongSoVu2Nguoi = (sum.tongSoVu2Nguoi || 0) + Number(s.tongSoVu2NguoiTroLen || s.tongSoVu2Nguoi || 0);
+          sum.tongSoNguoiBiNan = (sum.tongSoNguoiBiNan || 0) + Number(s.tongSoNguoiBiNan || 0);
+          sum.tongSoNuBiNan = (sum.tongSoNuBiNan || 0) + Number(s.tongLaoDongNuBiNan ?? s.tongSoNuBiNan ?? 0);
+          sum.soNguoiChet = (sum.soNguoiChet || 0) + Number(s.tongSoNguoiChet || s.soNguoiChet || 0);
+          sum.soNguoiBiThuongNang = (sum.soNguoiBiThuongNang || 0) + Number(s.tongSoThuongNang || s.soNguoiBiThuongNang || 0);
+          sum.khongQlNguoiBiNan = (sum.khongQlNguoiBiNan || 0) + Number(s.khongQlNguoiBiNan || 0);
+          sum.khongQlNuBiNan = (sum.khongQlNuBiNan || 0) + Number(s.khongQlNuBiNan || 0);
+          sum.khongQlNguoiChet = (sum.khongQlNguoiChet || 0) + Number(s.khongQlNguoiChet || 0);
+          sum.khongQlNguoiBiThuongNang = (sum.khongQlNguoiBiThuongNang || 0) + Number(s.khongQlThuongNang || s.khongQlNguoiBiThuongNang || 0);
+        });
+        return sum;
+      };
+
+      const getStatCols = (stats: any, prefix: string) => {
+        const o = {
+          c3: formatNumberWithDots(stats?.tongSoVu || "0"),
+          c4: formatNumberWithDots(stats?.tongSoVuNguoiChet || "0"),
+          c5: formatNumberWithDots(stats?.tongSoVu2Nguoi || "0"),
+          c6: formatNumberWithDots(stats?.tongSoNguoiBiNan || "0"),
+          c7: formatNumberWithDots(stats?.tongSoNuBiNan || "0"),
+          c8: formatNumberWithDots(stats?.soNguoiChet || "0"),
+          c9: formatNumberWithDots(stats?.soNguoiBiThuongNang || "0"),
+          c10: formatNumberWithDots(stats?.khongQlNguoiBiNan || "0"),
+          c11: formatNumberWithDots(stats?.khongQlNuBiNan || "0"),
+          c12: formatNumberWithDots(stats?.khongQlNguoiChet || "0"),
+          c13: formatNumberWithDots(stats?.khongQlNguoiBiThuongNang || "0"),
+        };
+        if (!prefix) return o;
+        const res: any = {};
+        for (const [k, v] of Object.entries(o)) res[`${prefix}_${k}`] = v;
+        return res;
+      };
+
+      const sourceDetails = accidentDetails || [];
+      const causesMapping: Record<number, string> = { 1: 'r8', 2: 'r9', 3: 'r10', 4: 'r11', 5: 'r12', 6: 'r13', 7: 'r15', 8: 'r16', 9: 'r17' };
+      let causesData = {};
+      for (let i = 1; i <= 9; i++) {
+        const matches = sourceDetails.filter((d: any) => Number(d.nguyenNhanId) === i && (!d.reportType || d.reportType === 'TAI_NAN_LAO_DONG'));
+        causesData = { ...causesData, ...getStatCols(getDetailStats(matches), causesMapping[i]) };
+      }
+
+      const uniqueFactors = Array.from(new Set(sourceDetails.filter((d: any) => d.yeuToChanThuongId && (!d.reportType || d.reportType === 'TAI_NAN_LAO_DONG')).map((d: any) => Number(d.yeuToChanThuongId))));
+      const factors = uniqueFactors.map((id: any) => {
+        const name = injuryFactors?.find((f: any) => f.id === id)?.name || (id === 101 ? 'Thiết bị nâng' : `Yếu tố ${id}`);
+        const matches = sourceDetails.filter((d: any) => Number(d.yeuToChanThuongId) === id && (!d.reportType || d.reportType === 'TAI_NAN_LAO_DONG'));
+        return { name, code: String(id), ...getStatCols(getDetailStats(matches), '') };
+      });
+
+      const OCC_MAP: any = { 102: "Nhà lãnh đạo cơ quan Đảng Cộng sản Việt nam cấp Trung ương", 103: "Công nhân" };
+      const uniqueOccs = Array.from(new Set(sourceDetails.filter((d: any) => d.ngheNghiepId && (!d.reportType || d.reportType === 'TAI_NAN_LAO_DONG')).map((d: any) => Number(d.ngheNghiepId))));
+      const occupations = uniqueOccs.map((id: any) => {
+        const name = OCC_MAP[id] || `Nghề nghiệp ${id}`;
+        const matches = sourceDetails.filter((d: any) => Number(d.ngheNghiepId) === id && (!d.reportType || d.reportType === 'TAI_NAN_LAO_DONG'));
+        return { name, code: String(id), ...getStatCols(getDetailStats(matches), '') };
+      });
+
+      // Prepare data
+      const data = {
+        ...causesData,
+        factors,
+        occupations,
+        companyName: myCompany?.name || "",
+        period: period === 'CA_NAM' ? 'cả năm' : '6 tháng',
+        totalEmployees: totalEmployees || "0",
+        femaleEmployees: femaleEmployees || "0",
+        totalSalary: totalSalaryFund || "0",
+        companyField: myCompany?.businessLine?.tennganh || "",
+
+        t1_c3: formatNumberWithDots(tnldSummary.tongSoVu || "0"),
+        t1_c4: formatNumberWithDots(tnldSummary.tongSoVuNguoiChet || "0"),
+        t1_c5: formatNumberWithDots(tnldSummary.tongSoVu2Nguoi || "0"),
+        t1_c6: formatNumberWithDots(tnldSummary.tongSoNguoiBiNan || "0"),
+        t1_c7: formatNumberWithDots(tnldSummary.tongLaoDongNuBiNan || "0"),
+        t1_c8: formatNumberWithDots(tnldSummary.tongSoNguoiChet || "0"),
+        t1_c9: formatNumberWithDots(tnldSummary.tongSoThuongNang || "0"),
+        t1_c10: formatNumberWithDots(tnldSummary.khongQlNguoiBiNan || "0"),
+        t1_c11: formatNumberWithDots(tnldSummary.khongQlNuBiNan || "0"),
+        t1_c12: formatNumberWithDots(tnldSummary.khongQlNguoiChet || "0"),
+        t1_c13: formatNumberWithDots(tnldSummary.khongQlThuongNang || "0"),
+
+        t2_c3: formatNumberWithDots(tnldTroCapSummary.tongSoVu || "0"),
+        t2_c4: formatNumberWithDots(tnldTroCapSummary.tongSoVuNguoiChet || "0"),
+        t2_c5: formatNumberWithDots(tnldTroCapSummary.tongSoVu2Nguoi || "0"),
+        t2_c6: formatNumberWithDots(tnldTroCapSummary.tongSoNguoiBiNan || "0"),
+        t2_c7: formatNumberWithDots(tnldTroCapSummary.tongLaoDongNuBiNan || "0"),
+        t2_c8: formatNumberWithDots(tnldTroCapSummary.tongSoNguoiChet || "0"),
+        t2_c9: formatNumberWithDots(tnldTroCapSummary.tongSoThuongNang || "0"),
+        t2_c10: formatNumberWithDots(tnldTroCapSummary.khongQlNguoiBiNan || "0"),
+        t2_c11: formatNumberWithDots(tnldTroCapSummary.khongQlNuBiNan || "0"),
+        t2_c12: formatNumberWithDots(tnldTroCapSummary.khongQlNguoiChet || "0"),
+        t2_c13: formatNumberWithDots(tnldTroCapSummary.khongQlThuongNang || "0"),
+
+        t3_c3: formatNumberWithDots(String(Number(tnldSummary.tongSoVu || 0) + Number(tnldTroCapSummary.tongSoVu || 0))),
+        t3_c4: formatNumberWithDots(String(Number(tnldSummary.tongSoVuNguoiChet || 0) + Number(tnldTroCapSummary.tongSoVuNguoiChet || 0))),
+        t3_c5: formatNumberWithDots(String(Number(tnldSummary.tongSoVu2Nguoi || 0) + Number(tnldTroCapSummary.tongSoVu2Nguoi || 0))),
+        t3_c6: formatNumberWithDots(String(Number(tnldSummary.tongSoNguoiBiNan || 0) + Number(tnldTroCapSummary.tongSoNguoiBiNan || 0))),
+        t3_c7: formatNumberWithDots(String(Number(tnldSummary.tongLaoDongNuBiNan || 0) + Number(tnldTroCapSummary.tongLaoDongNuBiNan || 0))),
+        t3_c8: formatNumberWithDots(String(Number(tnldSummary.tongSoNguoiChet || 0) + Number(tnldTroCapSummary.tongSoNguoiChet || 0))),
+        t3_c9: formatNumberWithDots(String(Number(tnldSummary.tongSoThuongNang || 0) + Number(tnldTroCapSummary.tongSoThuongNang || 0))),
+        t3_c10: formatNumberWithDots(String(Number(tnldSummary.khongQlNguoiBiNan || 0) + Number(tnldTroCapSummary.khongQlNguoiBiNan || 0))),
+        t3_c11: formatNumberWithDots(String(Number(tnldSummary.khongQlNuBiNan || 0) + Number(tnldTroCapSummary.khongQlNuBiNan || 0))),
+        t3_c12: formatNumberWithDots(String(Number(tnldSummary.khongQlNguoiChet || 0) + Number(tnldTroCapSummary.khongQlNguoiChet || 0))),
+        t3_c13: formatNumberWithDots(String(Number(tnldSummary.khongQlThuongNang || 0) + Number(tnldTroCapSummary.khongQlThuongNang || 0))),
+
+        t4_c1: formatNumberWithDots(tnldSummary.tongNgayNghi || "0"),
+        t4_c2: formatNumberWithDots(tnldSummary.tongChiPhi || "0"),
+        t4_c3: formatNumberWithDots(tnldSummary.chiPhiYTe || "0"),
+        t4_c4: formatNumberWithDots(tnldSummary.chiPhiTraLuong || "0"),
+        t4_c5: formatNumberWithDots(tnldSummary.chiPhiBoiThuong || "0"),
+        t4_c6: formatNumberWithDots(tnldSummary.thietHaiTaiSan || "0")
+      };
+
+      doc.render(data);
+      const out = doc.getZip().generate({
+        type: "blob",
+        mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      });
+      saveAs(out, `Bao_cao_tai_nan_lao_dong_${period === 'CA_NAM' ? 'Ca_nam' : '6_thang'}_${selectedYear}.docx`);
+    } catch (error) {
+      console.error("Export word error", error);
+      enqueueSnackbar("Lỗi khi xuất file Word", { variant: 'error' });
+    }
+  };
+
   const years = useMemo(() => {
     const arr = [];
     const current = new Date().getFullYear();
@@ -451,13 +598,13 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
     setPeriod(row.period);
     setStep(0);
     setTabIndex(0);
-    
+
     if (row.reportId) {
       setLoading(true);
       try {
         const detailRes: any = await periodicReportService.getById(row.reportId);
         const report = detailRes?.data || detailRes;
-        
+
         setActiveReportId(report.id);
         setTotalEmployees(String(report.totalEmployees || ''));
         setFemaleEmployees(String(report.femaleEmployees || ''));
@@ -510,18 +657,18 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
     setPeriod(row.period);
     setStep(3); // review step
     setActiveReportId(row.reportId);
-    
+
     setLoading(true);
     try {
       const detailRes: any = await periodicReportService.getById(row.reportId);
       const report = detailRes?.data || detailRes;
-      
+
       setTotalEmployees(String(report.totalEmployees || ''));
       setFemaleEmployees(String(report.femaleEmployees || ''));
       setTotalSalaryFund(formatNumberWithDots(report.totalSalaryFund));
       setReportFileUrl(report.reportFileUrl || '');
       setReportFileName(report.reportFileName || '');
-      
+
       setTnldSummary(convertStatsToStrings({
         ...(report.tnldSummary || {}),
         tongLaoDongNuBiNan: report.tnldSummary?.tongLaoDongNuBiNan ?? report.tnldSummary?.tongSoNuBiNan ?? 0,
@@ -562,7 +709,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
     setStep(newStep);
   };
 
-      // Run validation of a specific step index
+  // Run validation of a specific step index
   const validateStep = (stepIndex: number, silent: boolean = false): boolean => {
     const error = (msg: string) => {
       if (!silent) enqueueSnackbar(msg, { variant: 'error' });
@@ -716,14 +863,51 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
 
 
   // Advanced logic step transitions (Tiếp tục button)
-  const handleNextStep = () => {
+  const handleNextStep = async () => {
     if (step < 3) {
       if (validateStep(step)) {
-        setStep(step + 1);
+        setLoading(true);
+        try {
+          const payload = buildPayload('DANG_BAO_CAO');
+          if (activeReportId) {
+            await periodicReportService.update(activeReportId, payload);
+          } else {
+            const res: any = await periodicReportService.create(payload);
+            const newId = res?.data?.id || res?.id;
+            if (newId) {
+              setActiveReportId(newId);
+            }
+          }
+          setStep(step + 1);
+        } catch (err: any) {
+          console.error("Error auto-saving draft", err);
+          enqueueSnackbar(err?.response?.data?.message || err?.message || "Lỗi khi tự động lưu nháp", { variant: 'error' });
+        } finally {
+          setLoading(false);
+        }
       }
-    } else {
-      // We are at step 3, so Continue button acts as Print
-      triggerPrint();
+    }
+  };
+
+  const handleGoBack = async () => {
+    if (step > 0) {
+      setLoading(true);
+      try {
+        const payload = buildPayload('DANG_BAO_CAO');
+        if (activeReportId) {
+          await periodicReportService.update(activeReportId, payload);
+        } else {
+          const res: any = await periodicReportService.create(payload);
+          const newId = res?.data?.id || res?.id;
+          if (newId) setActiveReportId(newId);
+        }
+      } catch (err: any) {
+        console.error("Error auto-saving draft on back", err);
+        enqueueSnackbar(err?.response?.data?.message || err?.message || "Lỗi khi tự động lưu nháp", { variant: 'error' });
+      } finally {
+        setLoading(false);
+        setStep(step - 1);
+      }
     }
   };
 
@@ -804,7 +988,6 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
 
   // Draft Save Handler
   const handleSaveDraft = async () => {
-    // Validate current and previous steps
     for (let s = 0; s <= step; s++) {
       if (!validateStep(s)) {
         return;
@@ -930,7 +1113,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
       cleaned = '0';
     }
     const num = parseInt(cleaned) || 0;
-    
+
     // Validate count limit
     if (num > 100) {
       enqueueSnackbar("Số lượng chi tiết vụ tai nạn vượt quá giới hạn (tối đa 100)", { variant: 'warning' });
@@ -942,7 +1125,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
     setAccidentDetails((prev) => {
       if (num === prev.length) return prev;
       if (num < prev.length) return prev.slice(0, num);
-      
+
       const added = [];
       const statsInit = createDefaultStats();
       statsInit.tongSoVu = '1'; // individual case is always 1 case
@@ -1089,7 +1272,6 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
         </>
       )}
 
-      {/* -------------------- 2. WIZARD DECLARATION SCREEN (mode === 'edit') -------------------- */}
       {mode === 'edit' && (
         <>
           <Box className={classes.pageHeader}>
@@ -1127,14 +1309,39 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
               >
                 Huỷ bỏ
               </Button>
-              <Button
-                variant="outlined"
-                startIcon={step < 3 ? <ChevronRightIcon /> : <PrintIcon />}
-                sx={{ color: '#2f65f0', borderColor: '#cfd9f3', borderRadius: 1.5, textTransform: 'none', fontWeight: 600 }}
-                onClick={handleNextStep}
-              >
-                {step < 3 ? 'Tiếp tục' : 'In báo cáo'}
-              </Button>
+              {step > 0 && (
+                <Button
+                  variant="outlined"
+                  startIcon={<ChevronLeftIcon />}
+                  sx={{ color: '#2f65f0', borderColor: '#cfd9f3', borderRadius: 1.5, textTransform: 'none', fontWeight: 600, mr: 1 }}
+                  onClick={handleGoBack}
+                  disabled={loading}
+                >
+                  Quay lại
+                </Button>
+              )}
+              {step < 3 && (
+                <Button
+                  variant="outlined"
+                  endIcon={<ChevronRightIcon />}
+                  sx={{ color: '#2f65f0', borderColor: '#cfd9f3', borderRadius: 1.5, textTransform: 'none', fontWeight: 600 }}
+                  onClick={handleNextStep}
+                  disabled={loading}
+                >
+                  Tiếp tục
+                </Button>
+              )}
+              {step === 3 && (
+                <Button
+                  variant="outlined"
+                  startIcon={<FileDownloadIcon />}
+                  sx={{ color: '#2f65f0', borderColor: '#cfd9f3', borderRadius: 1.5, textTransform: 'none', fontWeight: 600, ml: 1 }}
+                  onClick={handleExportWord}
+                  disabled={loading}
+                >
+                  Xuất Word
+                </Button>
+              )}
               <Button
                 variant="contained"
                 startIcon={step < 3 ? <SaveIcon /> : undefined}
@@ -1160,12 +1367,14 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                   { value: 2, label: '2. Tai nạn lao động được hưởng trợ cấp theo quy định tại khoản 2 Điều 39 Luật ATVSLĐ' },
                   { value: 3, label: 'Xem tổng quan báo cáo tai nạn lao động' },
                 ]}
-                value={{ value: step, label: [
-                  'Thông tin doanh nghiệp',
-                  '1. Tai nạn lao động',
-                  '2. Tai nạn lao động được hưởng trợ cấp theo quy định tại khoản 2 Điều 39 Luật ATVSLĐ',
-                  'Xem tổng quan báo cáo tai nạn lao động'
-                ][step] }}
+                value={{
+                  value: step, label: [
+                    'Thông tin doanh nghiệp',
+                    '1. Tai nạn lao động',
+                    '2. Tai nạn lao động được hưởng trợ cấp theo quy định tại khoản 2 Điều 39 Luật ATVSLĐ',
+                    'Xem tổng quan báo cáo tai nạn lao động'
+                  ][step]
+                }}
                 onChange={(_, v) => v && handleStepSelectChange(v.value)}
                 getOptionLabel={(opt) => opt.label}
                 isOptionEqualToValue={(o, v) => o.value === v.value}
@@ -1193,7 +1402,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         disabled
                         value={myCompany?.name || ''}
                         className={classes.field}
-                      label="Tên công ty" />
+                        label="Tên công ty" />
                     </Grid>
                     <Grid size={{ xs: 12, md: 4 }}>
                       <TextField
@@ -1202,7 +1411,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         disabled
                         value={myCompany?.loaiHinhKinhDoanh?.tenloaihinh || ''}
                         className={classes.field}
-                      label="Loại hình công ty" />
+                        label="Loại hình công ty" />
                     </Grid>
                     <Grid size={{ xs: 12, md: 4 }}>
                       <TextField
@@ -1211,7 +1420,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         disabled
                         value={myCompany?.businessLine?.tennganh || ''}
                         className={classes.field}
-                      label="Ngành nghề kinh doanh" />
+                        label="Ngành nghề kinh doanh" />
                     </Grid>
 
                     <Grid size={{ xs: 12, md: 4 }}>
@@ -1220,19 +1429,19 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         fullWidth
                         value={totalEmployees}
                         onChange={(e) => {
-        
+
                           const val = e.target.value.replace(/[^0-9]/g, '');
                           setTotalEmployees(val);
-                        
-        if (errors['totalEmployees']) setErrors(prev => ({ ...prev, ['totalEmployees']: '' }));
-      }}
+
+                          if (errors['totalEmployees']) setErrors(prev => ({ ...prev, ['totalEmployees']: '' }));
+                        }}
                         placeholder="Nhập tổng lao động..."
                         className={classes.field}
-                      label={<RequiredLabel text="Tổng lao động của cơ sở" />}
-    error={!!errors['totalEmployees']}
-    helperText={errors['totalEmployees']}
-    onBlur={(e) => validateField('totalEmployees', e.target.value)}
-   />
+                        label={<RequiredLabel text="Tổng lao động của cơ sở" />}
+                        error={!!errors['totalEmployees']}
+                        helperText={errors['totalEmployees']}
+                        onBlur={(e) => validateField('totalEmployees', e.target.value)}
+                      />
                     </Grid>
                     <Grid size={{ xs: 12, md: 4 }}>
                       <TextField
@@ -1240,19 +1449,19 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         fullWidth
                         value={femaleEmployees}
                         onChange={(e) => {
-        
+
                           const val = e.target.value.replace(/[^0-9]/g, '');
                           setFemaleEmployees(val);
-                        
-        if (errors['femaleEmployees']) setErrors(prev => ({ ...prev, ['femaleEmployees']: '' }));
-      }}
+
+                          if (errors['femaleEmployees']) setErrors(prev => ({ ...prev, ['femaleEmployees']: '' }));
+                        }}
                         placeholder="Nhập lao động nữ..."
                         className={classes.field}
-                      label={<RequiredLabel text="Tổng số lao động nữ" />}
-    error={!!errors['femaleEmployees']}
-    helperText={errors['femaleEmployees']}
-    onBlur={(e) => validateField('femaleEmployees', e.target.value)}
-   />
+                        label={<RequiredLabel text="Tổng số lao động nữ" />}
+                        error={!!errors['femaleEmployees']}
+                        helperText={errors['femaleEmployees']}
+                        onBlur={(e) => validateField('femaleEmployees', e.target.value)}
+                      />
                     </Grid>
                     <Grid size={{ xs: 12, md: 4 }}>
                       <TextField
@@ -1260,12 +1469,12 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         fullWidth
                         value={totalSalaryFund}
                         onChange={(e) => {
-        
+
                           const val = e.target.value.replace(/[^0-9]/g, '');
                           setTotalSalaryFund(formatNumberWithDots(val));
-                        
-        if (errors['totalSalaryFund']) setErrors(prev => ({ ...prev, ['totalSalaryFund']: '' }));
-      }}
+
+                          if (errors['totalSalaryFund']) setErrors(prev => ({ ...prev, ['totalSalaryFund']: '' }));
+                        }}
                         placeholder="Nhập tổng quỹ lương..."
                         className={classes.field}
                         slotProps={{
@@ -1273,11 +1482,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             endAdornment: <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', ml: 1 }}>(1.000đ)</Typography>
                           }
                         }}
-                      label={<RequiredLabel text="Tổng quỹ lương" />}
-    error={!!errors['totalSalaryFund']}
-    helperText={errors['totalSalaryFund']}
-    onBlur={(e) => validateField('totalSalaryFund', e.target.value)}
-   />
+                        label={<RequiredLabel text="Tổng quỹ lương" />}
+                        error={!!errors['totalSalaryFund']}
+                        helperText={errors['totalSalaryFund']}
+                        onBlur={(e) => validateField('totalSalaryFund', e.target.value)}
+                      />
                     </Grid>
                   </Grid>
                 </Box>
@@ -1316,18 +1525,18 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             fullWidth
                             value={tnldSummary.tongSoVu || ''}
                             onChange={(e) => {
-        
+
                               const val = e.target.value.replace(/[^0-9]/g, '');
                               handleTongSoVuChange(val);
-                            
-        if (errors['tnldSummary_tongSoVu']) setErrors(prev => ({ ...prev, ['tnldSummary_tongSoVu']: '' }));
-      }}
+
+                              if (errors['tnldSummary_tongSoVu']) setErrors(prev => ({ ...prev, ['tnldSummary_tongSoVu']: '' }));
+                            }}
                             className={classes.field}
-                          label={<RequiredLabel text="Tổng số vụ" />}
-    error={!!errors['tnldSummary_tongSoVu']}
-    helperText={errors['tnldSummary_tongSoVu']}
-    onBlur={(e) => validateField('tnldSummary_tongSoVu', e.target.value)}
-   />
+                            label={<RequiredLabel text="Tổng số vụ" />}
+                            error={!!errors['tnldSummary_tongSoVu']}
+                            helperText={errors['tnldSummary_tongSoVu']}
+                            onBlur={(e) => validateField('tnldSummary_tongSoVu', e.target.value)}
+                          />
                         </Grid>
                         <Grid size={{ xs: 12, md: 3 }}>
                           <TextField
@@ -1335,18 +1544,18 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             fullWidth
                             value={tnldSummary.tongSoVuNguoiChet || ''}
                             onChange={(e) => {
-        
+
                               const val = e.target.value.replace(/[^0-9]/g, '');
                               handleSummaryFieldChange('tongSoVuNguoiChet', val);
-                            
-        if (errors['tnldSummary_tongSoVuNguoiChet']) setErrors(prev => ({ ...prev, ['tnldSummary_tongSoVuNguoiChet']: '' }));
-      }}
+
+                              if (errors['tnldSummary_tongSoVuNguoiChet']) setErrors(prev => ({ ...prev, ['tnldSummary_tongSoVuNguoiChet']: '' }));
+                            }}
                             className={classes.field}
-                          label={<RequiredLabel text="Tổng số vụ có người chết" />}
-    error={!!errors['tnldSummary_tongSoVuNguoiChet']}
-    helperText={errors['tnldSummary_tongSoVuNguoiChet']}
-    onBlur={(e) => validateField('tnldSummary_tongSoVuNguoiChet', e.target.value)}
-   />
+                            label={<RequiredLabel text="Tổng số vụ có người chết" />}
+                            error={!!errors['tnldSummary_tongSoVuNguoiChet']}
+                            helperText={errors['tnldSummary_tongSoVuNguoiChet']}
+                            onBlur={(e) => validateField('tnldSummary_tongSoVuNguoiChet', e.target.value)}
+                          />
                         </Grid>
                         <Grid size={{ xs: 12, md: 3 }}>
                           <TextField
@@ -1354,18 +1563,18 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             fullWidth
                             value={tnldSummary.tongSoVu2Nguoi || ''}
                             onChange={(e) => {
-        
+
                               const val = e.target.value.replace(/[^0-9]/g, '');
                               handleSummaryFieldChange('tongSoVu2Nguoi', val);
-                            
-        if (errors['tnldSummary_tongSoVu2Nguoi']) setErrors(prev => ({ ...prev, ['tnldSummary_tongSoVu2Nguoi']: '' }));
-      }}
+
+                              if (errors['tnldSummary_tongSoVu2Nguoi']) setErrors(prev => ({ ...prev, ['tnldSummary_tongSoVu2Nguoi']: '' }));
+                            }}
                             className={classes.field}
-                          label={<RequiredLabel text="Tổng số vụ có 2 người bị nạn trở lên" />}
-    error={!!errors['tnldSummary_tongSoVu2Nguoi']}
-    helperText={errors['tnldSummary_tongSoVu2Nguoi']}
-    onBlur={(e) => validateField('tnldSummary_tongSoVu2Nguoi', e.target.value)}
-   />
+                            label={<RequiredLabel text="Tổng số vụ có 2 người bị nạn trở lên" />}
+                            error={!!errors['tnldSummary_tongSoVu2Nguoi']}
+                            helperText={errors['tnldSummary_tongSoVu2Nguoi']}
+                            onBlur={(e) => validateField('tnldSummary_tongSoVu2Nguoi', e.target.value)}
+                          />
                         </Grid>
                         <Grid size={{ md: 3 }} sx={{ display: { xs: 'none', md: 'block' } }} />
                         <Grid size={{ xs: 12, md: 3 }}>
@@ -1374,18 +1583,18 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             fullWidth
                             value={tnldSummary.tongSoNguoiBiNan || ''}
                             onChange={(e) => {
-        
+
                               const val = e.target.value.replace(/[^0-9]/g, '');
                               handleSummaryFieldChange('tongSoNguoiBiNan', val);
-                            
-        if (errors['tnldSummary_tongSoNguoiBiNan']) setErrors(prev => ({ ...prev, ['tnldSummary_tongSoNguoiBiNan']: '' }));
-      }}
+
+                              if (errors['tnldSummary_tongSoNguoiBiNan']) setErrors(prev => ({ ...prev, ['tnldSummary_tongSoNguoiBiNan']: '' }));
+                            }}
                             className={classes.field}
-                          label={<RequiredLabel text="Tổng số người bị nạn" />}
-    error={!!errors['tnldSummary_tongSoNguoiBiNan']}
-    helperText={errors['tnldSummary_tongSoNguoiBiNan']}
-    onBlur={(e) => validateField('tnldSummary_tongSoNguoiBiNan', e.target.value)}
-   />
+                            label={<RequiredLabel text="Tổng số người bị nạn" />}
+                            error={!!errors['tnldSummary_tongSoNguoiBiNan']}
+                            helperText={errors['tnldSummary_tongSoNguoiBiNan']}
+                            onBlur={(e) => validateField('tnldSummary_tongSoNguoiBiNan', e.target.value)}
+                          />
                         </Grid>
 
                         <Grid size={{ xs: 12, md: 3 }}>
@@ -1394,18 +1603,18 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             fullWidth
                             value={tnldSummary.tongLaoDongNuBiNan || ''}
                             onChange={(e) => {
-        
+
                               const val = e.target.value.replace(/[^0-9]/g, '');
                               handleSummaryFieldChange('tongLaoDongNuBiNan', val);
-                            
-        if (errors['tnldSummary_tongLaoDongNuBiNan']) setErrors(prev => ({ ...prev, ['tnldSummary_tongLaoDongNuBiNan']: '' }));
-      }}
+
+                              if (errors['tnldSummary_tongLaoDongNuBiNan']) setErrors(prev => ({ ...prev, ['tnldSummary_tongLaoDongNuBiNan']: '' }));
+                            }}
                             className={classes.field}
-                          label={<RequiredLabel text="Tổng số lao động nữ bị nạn" />}
-    error={!!errors['tnldSummary_tongLaoDongNuBiNan']}
-    helperText={errors['tnldSummary_tongLaoDongNuBiNan']}
-    onBlur={(e) => validateField('tnldSummary_tongLaoDongNuBiNan', e.target.value)}
-   />
+                            label={<RequiredLabel text="Tổng số lao động nữ bị nạn" />}
+                            error={!!errors['tnldSummary_tongLaoDongNuBiNan']}
+                            helperText={errors['tnldSummary_tongLaoDongNuBiNan']}
+                            onBlur={(e) => validateField('tnldSummary_tongLaoDongNuBiNan', e.target.value)}
+                          />
                         </Grid>
                         <Grid size={{ xs: 12, md: 3 }}>
                           <TextField
@@ -1413,18 +1622,18 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             fullWidth
                             value={tnldSummary.tongSoNguoiChet || ''}
                             onChange={(e) => {
-        
+
                               const val = e.target.value.replace(/[^0-9]/g, '');
                               handleSummaryFieldChange('tongSoNguoiChet', val);
-                            
-        if (errors['tnldSummary_tongSoNguoiChet']) setErrors(prev => ({ ...prev, ['tnldSummary_tongSoNguoiChet']: '' }));
-      }}
+
+                              if (errors['tnldSummary_tongSoNguoiChet']) setErrors(prev => ({ ...prev, ['tnldSummary_tongSoNguoiChet']: '' }));
+                            }}
                             className={classes.field}
-                          label={<RequiredLabel text="Tổng số người bị chết" />}
-    error={!!errors['tnldSummary_tongSoNguoiChet']}
-    helperText={errors['tnldSummary_tongSoNguoiChet']}
-    onBlur={(e) => validateField('tnldSummary_tongSoNguoiChet', e.target.value)}
-   />
+                            label={<RequiredLabel text="Tổng số người bị chết" />}
+                            error={!!errors['tnldSummary_tongSoNguoiChet']}
+                            helperText={errors['tnldSummary_tongSoNguoiChet']}
+                            onBlur={(e) => validateField('tnldSummary_tongSoNguoiChet', e.target.value)}
+                          />
                         </Grid>
                         <Grid size={{ xs: 12, md: 3 }}>
                           <TextField
@@ -1432,38 +1641,38 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             fullWidth
                             value={tnldSummary.tongSoThuongNang || ''}
                             onChange={(e) => {
-        
+
                               const val = e.target.value.replace(/[^0-9]/g, '');
                               handleSummaryFieldChange('tongSoThuongNang', val);
-                            
-        if (errors['tnldSummary_tongSoThuongNang']) setErrors(prev => ({ ...prev, ['tnldSummary_tongSoThuongNang']: '' }));
-      }}
+
+                              if (errors['tnldSummary_tongSoThuongNang']) setErrors(prev => ({ ...prev, ['tnldSummary_tongSoThuongNang']: '' }));
+                            }}
                             className={classes.field}
-                          label={<RequiredLabel text="Tổng số người bị thương nặng" />}
-    error={!!errors['tnldSummary_tongSoThuongNang']}
-    helperText={errors['tnldSummary_tongSoThuongNang']}
-    onBlur={(e) => validateField('tnldSummary_tongSoThuongNang', e.target.value)}
-   />
+                            label={<RequiredLabel text="Tổng số người bị thương nặng" />}
+                            error={!!errors['tnldSummary_tongSoThuongNang']}
+                            helperText={errors['tnldSummary_tongSoThuongNang']}
+                            onBlur={(e) => validateField('tnldSummary_tongSoThuongNang', e.target.value)}
+                          />
                         </Grid>
-                        
+
                         <Grid size={{ xs: 12, md: 3 }}>
                           <TextField
                             size="small"
                             fullWidth
                             value={tnldSummary.khongQlNguoiBiNan || ''}
                             onChange={(e) => {
-        
+
                               const val = e.target.value.replace(/[^0-9]/g, '');
                               handleSummaryFieldChange('khongQlNguoiBiNan', val);
-                            
-        if (errors['tnldSummary_khongQlNguoiBiNan']) setErrors(prev => ({ ...prev, ['tnldSummary_khongQlNguoiBiNan']: '' }));
-      }}
+
+                              if (errors['tnldSummary_khongQlNguoiBiNan']) setErrors(prev => ({ ...prev, ['tnldSummary_khongQlNguoiBiNan']: '' }));
+                            }}
                             className={classes.field}
-                          label={<RequiredLabel text="Số người bị nạn không QL" />}
-    error={!!errors['tnldSummary_khongQlNguoiBiNan']}
-    helperText={errors['tnldSummary_khongQlNguoiBiNan']}
-    onBlur={(e) => validateField('tnldSummary_khongQlNguoiBiNan', e.target.value)}
-   />
+                            label={<RequiredLabel text="Số người bị nạn không QL" />}
+                            error={!!errors['tnldSummary_khongQlNguoiBiNan']}
+                            helperText={errors['tnldSummary_khongQlNguoiBiNan']}
+                            onBlur={(e) => validateField('tnldSummary_khongQlNguoiBiNan', e.target.value)}
+                          />
                         </Grid>
                         <Grid size={{ xs: 12, md: 3 }}>
                           <TextField
@@ -1471,18 +1680,18 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             fullWidth
                             value={tnldSummary.khongQlNuBiNan || ''}
                             onChange={(e) => {
-        
+
                               const val = e.target.value.replace(/[^0-9]/g, '');
                               handleSummaryFieldChange('khongQlNuBiNan', val);
-                            
-        if (errors['tnldSummary_khongQlNuBiNan']) setErrors(prev => ({ ...prev, ['tnldSummary_khongQlNuBiNan']: '' }));
-      }}
+
+                              if (errors['tnldSummary_khongQlNuBiNan']) setErrors(prev => ({ ...prev, ['tnldSummary_khongQlNuBiNan']: '' }));
+                            }}
                             className={classes.field}
-                          label={<RequiredLabel text="Lao động nữ bị nạn không QL" />}
-    error={!!errors['tnldSummary_khongQlNuBiNan']}
-    helperText={errors['tnldSummary_khongQlNuBiNan']}
-    onBlur={(e) => validateField('tnldSummary_khongQlNuBiNan', e.target.value)}
-   />
+                            label={<RequiredLabel text="Lao động nữ bị nạn không QL" />}
+                            error={!!errors['tnldSummary_khongQlNuBiNan']}
+                            helperText={errors['tnldSummary_khongQlNuBiNan']}
+                            onBlur={(e) => validateField('tnldSummary_khongQlNuBiNan', e.target.value)}
+                          />
                         </Grid>
                         <Grid size={{ xs: 12, md: 3 }}>
                           <TextField
@@ -1490,18 +1699,18 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             fullWidth
                             value={tnldSummary.khongQlNguoiChet || ''}
                             onChange={(e) => {
-        
+
                               const val = e.target.value.replace(/[^0-9]/g, '');
                               handleSummaryFieldChange('khongQlNguoiChet', val);
-                            
-        if (errors['tnldSummary_khongQlNguoiChet']) setErrors(prev => ({ ...prev, ['tnldSummary_khongQlNguoiChet']: '' }));
-      }}
+
+                              if (errors['tnldSummary_khongQlNguoiChet']) setErrors(prev => ({ ...prev, ['tnldSummary_khongQlNguoiChet']: '' }));
+                            }}
                             className={classes.field}
-                          label={<RequiredLabel text="Số người chết không QL" />}
-    error={!!errors['tnldSummary_khongQlNguoiChet']}
-    helperText={errors['tnldSummary_khongQlNguoiChet']}
-    onBlur={(e) => validateField('tnldSummary_khongQlNguoiChet', e.target.value)}
-   />
+                            label={<RequiredLabel text="Số người chết không QL" />}
+                            error={!!errors['tnldSummary_khongQlNguoiChet']}
+                            helperText={errors['tnldSummary_khongQlNguoiChet']}
+                            onBlur={(e) => validateField('tnldSummary_khongQlNguoiChet', e.target.value)}
+                          />
                         </Grid>
                         <Grid size={{ xs: 12, md: 3 }}>
                           <TextField
@@ -1509,18 +1718,18 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             fullWidth
                             value={tnldSummary.khongQlThuongNang || ''}
                             onChange={(e) => {
-        
+
                               const val = e.target.value.replace(/[^0-9]/g, '');
                               handleSummaryFieldChange('khongQlThuongNang', val);
-                            
-        if (errors['tnldSummary_khongQlThuongNang']) setErrors(prev => ({ ...prev, ['tnldSummary_khongQlThuongNang']: '' }));
-      }}
+
+                              if (errors['tnldSummary_khongQlThuongNang']) setErrors(prev => ({ ...prev, ['tnldSummary_khongQlThuongNang']: '' }));
+                            }}
                             className={classes.field}
-                          label={<RequiredLabel text="Người bị thương nặng không QL" />}
-    error={!!errors['tnldSummary_khongQlThuongNang']}
-    helperText={errors['tnldSummary_khongQlThuongNang']}
-    onBlur={(e) => validateField('tnldSummary_khongQlThuongNang', e.target.value)}
-   />
+                            label={<RequiredLabel text="Người bị thương nặng không QL" />}
+                            error={!!errors['tnldSummary_khongQlThuongNang']}
+                            helperText={errors['tnldSummary_khongQlThuongNang']}
+                            onBlur={(e) => validateField('tnldSummary_khongQlThuongNang', e.target.value)}
+                          />
                         </Grid>
                       </Grid>
 
@@ -1537,11 +1746,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             onChange={(e) => updateSummaryCost('chiPhiYTe', e.target.value)}
                             className={classes.field}
                             slotProps={{ input: { endAdornment: <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>(1.000đ)</Typography> } }}
-                          label={<RequiredLabel text="Chi phí y tế" />}
-    error={!!errors['tnldSummary_chiPhiYTe']}
-    helperText={errors['tnldSummary_chiPhiYTe']}
-    onBlur={(e) => validateField('tnldSummary_chiPhiYTe', e.target.value)}
-   />
+                            label={<RequiredLabel text="Chi phí y tế" />}
+                            error={!!errors['tnldSummary_chiPhiYTe']}
+                            helperText={errors['tnldSummary_chiPhiYTe']}
+                            onBlur={(e) => validateField('tnldSummary_chiPhiYTe', e.target.value)}
+                          />
                         </Grid>
                         <Grid size={{ xs: 12, md: 3 }}>
                           <TextField
@@ -1551,11 +1760,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             onChange={(e) => updateSummaryCost('chiPhiTraLuong', e.target.value)}
                             className={classes.field}
                             slotProps={{ input: { endAdornment: <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>(1.000đ)</Typography> } }}
-                          label={<RequiredLabel text="Chi phí trả lương trong thời gian điều trị" />}
-    error={!!errors['tnldSummary_chiPhiTraLuong']}
-    helperText={errors['tnldSummary_chiPhiTraLuong']}
-    onBlur={(e) => validateField('tnldSummary_chiPhiTraLuong', e.target.value)}
-   />
+                            label={<RequiredLabel text="Chi phí trả lương trong thời gian điều trị" />}
+                            error={!!errors['tnldSummary_chiPhiTraLuong']}
+                            helperText={errors['tnldSummary_chiPhiTraLuong']}
+                            onBlur={(e) => validateField('tnldSummary_chiPhiTraLuong', e.target.value)}
+                          />
                         </Grid>
                         <Grid size={{ xs: 12, md: 3 }}>
                           <TextField
@@ -1565,11 +1774,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             onChange={(e) => updateSummaryCost('chiPhiBoiThuong', e.target.value)}
                             className={classes.field}
                             slotProps={{ input: { endAdornment: <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>(1.000đ)</Typography> } }}
-                          label={<RequiredLabel text="Chi phí bồi thường trợ cấp" />}
-    error={!!errors['tnldSummary_chiPhiBoiThuong']}
-    helperText={errors['tnldSummary_chiPhiBoiThuong']}
-    onBlur={(e) => validateField('tnldSummary_chiPhiBoiThuong', e.target.value)}
-   />
+                            label={<RequiredLabel text="Chi phí bồi thường trợ cấp" />}
+                            error={!!errors['tnldSummary_chiPhiBoiThuong']}
+                            helperText={errors['tnldSummary_chiPhiBoiThuong']}
+                            onBlur={(e) => validateField('tnldSummary_chiPhiBoiThuong', e.target.value)}
+                          />
                         </Grid>
 
                         <Grid size={{ xs: 12, md: 3 }}>
@@ -1580,11 +1789,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             value={formatNumberWithDots(tnldSummary.tongChiPhi)}
                             className={classes.field}
                             slotProps={{ input: { endAdornment: <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>(1.000đ)</Typography> } }}
-                          label="Tổng số tiền chi phí"
-    error={!!errors['tnldSummary_tongChiPhi']}
-    helperText={errors['tnldSummary_tongChiPhi']}
-    onBlur={(e) => validateField('tnldSummary_tongChiPhi', e.target.value)}
-   />
+                            label="Tổng số tiền chi phí"
+                            error={!!errors['tnldSummary_tongChiPhi']}
+                            helperText={errors['tnldSummary_tongChiPhi']}
+                            onBlur={(e) => validateField('tnldSummary_tongChiPhi', e.target.value)}
+                          />
                         </Grid>
                         <Grid size={{ xs: 12, md: 3 }}>
                           <TextField
@@ -1593,11 +1802,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             value={tnldSummary.tongNgayNghi || ''}
                             onChange={(e) => handleSummaryFieldChange('tongNgayNghi', e.target.value.replace(/[^0-9]/g, ''))}
                             className={classes.field}
-                          label={<RequiredLabel text="Tổng số ngày nghỉ vì TNLĐ" />}
-    error={!!errors['tnldSummary_tongNgayNghi']}
-    helperText={errors['tnldSummary_tongNgayNghi']}
-    onBlur={(e) => validateField('tnldSummary_tongNgayNghi', e.target.value)}
-   />
+                            label={<RequiredLabel text="Tổng số ngày nghỉ vì TNLĐ" />}
+                            error={!!errors['tnldSummary_tongNgayNghi']}
+                            helperText={errors['tnldSummary_tongNgayNghi']}
+                            onBlur={(e) => validateField('tnldSummary_tongNgayNghi', e.target.value)}
+                          />
                         </Grid>
                         <Grid size={{ xs: 12, md: 3 }}>
                           <TextField
@@ -1607,11 +1816,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             onChange={(e) => updateSummaryCost('thietHaiTaiSan', e.target.value)}
                             className={classes.field}
                             slotProps={{ input: { endAdornment: <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>(1.000đ)</Typography> } }}
-                          label={<RequiredLabel text="Thiệt hại tài sản" />}
-    error={!!errors['tnldSummary_thietHaiTaiSan']}
-    helperText={errors['tnldSummary_thietHaiTaiSan']}
-    onBlur={(e) => validateField('tnldSummary_thietHaiTaiSan', e.target.value)}
-   />
+                            label={<RequiredLabel text="Thiệt hại tài sản" />}
+                            error={!!errors['tnldSummary_thietHaiTaiSan']}
+                            helperText={errors['tnldSummary_thietHaiTaiSan']}
+                            onBlur={(e) => validateField('tnldSummary_thietHaiTaiSan', e.target.value)}
+                          />
                         </Grid>
                       </Grid>
                     </Box>
@@ -1674,7 +1883,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 2, color: 'text.primary' }}>
                               4. Chi tiết vụ tai nạn số {index + 1}
                             </Typography>
-                            
+
                             <Grid container spacing={3} sx={{ mb: 4 }}>
                               <Grid size={{ xs: 12, md: 3 }}>
                                 <TextField
@@ -1683,11 +1892,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                                   disabled
                                   value={1}
                                   className={classes.field}
-                                label={<RequiredLabel text="Tổng số vụ" />}
-    error={!!errors[`accidentDetails_${index}_tongSoVu`]}
-    helperText={errors[`accidentDetails_${index}_tongSoVu`]}
-    onBlur={(e) => validateField(`accidentDetails_${index}_tongSoVu`, e.target.value)}
-   />
+                                  label={<RequiredLabel text="Tổng số vụ" />}
+                                  error={!!errors[`accidentDetails_${index}_tongSoVu`]}
+                                  helperText={errors[`accidentDetails_${index}_tongSoVu`]}
+                                  onBlur={(e) => validateField(`accidentDetails_${index}_tongSoVu`, e.target.value)}
+                                />
                               </Grid>
                               <Grid size={{ xs: 12, md: 3 }}>
                                 <TextField
@@ -1696,11 +1905,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                                   value={detail.stats.tongSoVuNguoiChet || ''}
                                   onChange={(e) => handleDetailFieldChange(index, 'tongSoVuNguoiChet', e.target.value.replace(/[^0-9]/g, ''), true)}
                                   className={classes.field}
-                                label={<RequiredLabel text="Số vụ có người chết" />}
-    error={!!errors[`accidentDetails_${index}_tongSoVuNguoiChet`]}
-    helperText={errors[`accidentDetails_${index}_tongSoVuNguoiChet`]}
-    onBlur={(e) => validateField(`accidentDetails_${index}_tongSoVuNguoiChet`, e.target.value)}
-   />
+                                  label={<RequiredLabel text="Số vụ có người chết" />}
+                                  error={!!errors[`accidentDetails_${index}_tongSoVuNguoiChet`]}
+                                  helperText={errors[`accidentDetails_${index}_tongSoVuNguoiChet`]}
+                                  onBlur={(e) => validateField(`accidentDetails_${index}_tongSoVuNguoiChet`, e.target.value)}
+                                />
                               </Grid>
                               <Grid size={{ xs: 12, md: 3 }}>
                                 <TextField
@@ -1709,11 +1918,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                                   value={detail.stats.tongSoVu2Nguoi || ''}
                                   onChange={(e) => handleDetailFieldChange(index, 'tongSoVu2Nguoi', e.target.value.replace(/[^0-9]/g, ''), true)}
                                   className={classes.field}
-                                label={<RequiredLabel text="Số vụ có 2 người bị nạn trở lên" />}
-    error={!!errors[`accidentDetails_${index}_tongSoVu2Nguoi`]}
-    helperText={errors[`accidentDetails_${index}_tongSoVu2Nguoi`]}
-    onBlur={(e) => validateField(`accidentDetails_${index}_tongSoVu2Nguoi`, e.target.value)}
-   />
+                                  label={<RequiredLabel text="Số vụ có 2 người bị nạn trở lên" />}
+                                  error={!!errors[`accidentDetails_${index}_tongSoVu2Nguoi`]}
+                                  helperText={errors[`accidentDetails_${index}_tongSoVu2Nguoi`]}
+                                  onBlur={(e) => validateField(`accidentDetails_${index}_tongSoVu2Nguoi`, e.target.value)}
+                                />
                               </Grid>
                               <Grid size={{ md: 3 }} sx={{ display: { xs: 'none', md: 'block' } }} />
                               <Grid size={{ xs: 12, md: 3 }}>
@@ -1723,11 +1932,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                                   value={detail.stats.tongSoNguoiBiNan || ''}
                                   onChange={(e) => handleDetailFieldChange(index, 'tongSoNguoiBiNan', e.target.value.replace(/[^0-9]/g, ''), true)}
                                   className={classes.field}
-                                label={<RequiredLabel text="Tổng số người bị nạn" />}
-    error={!!errors[`accidentDetails_${index}_tongSoNguoiBiNan`]}
-    helperText={errors[`accidentDetails_${index}_tongSoNguoiBiNan`]}
-    onBlur={(e) => validateField(`accidentDetails_${index}_tongSoNguoiBiNan`, e.target.value)}
-   />
+                                  label={<RequiredLabel text="Tổng số người bị nạn" />}
+                                  error={!!errors[`accidentDetails_${index}_tongSoNguoiBiNan`]}
+                                  helperText={errors[`accidentDetails_${index}_tongSoNguoiBiNan`]}
+                                  onBlur={(e) => validateField(`accidentDetails_${index}_tongSoNguoiBiNan`, e.target.value)}
+                                />
                               </Grid>
 
                               <Grid size={{ xs: 12, md: 3 }}>
@@ -1737,11 +1946,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                                   value={detail.stats.tongLaoDongNuBiNan || ''}
                                   onChange={(e) => handleDetailFieldChange(index, 'tongLaoDongNuBiNan', e.target.value.replace(/[^0-9]/g, ''), true)}
                                   className={classes.field}
-                                label={<RequiredLabel text="Tổng số lao động nữ bị nạn" />}
-    error={!!errors[`accidentDetails_${index}_tongLaoDongNuBiNan`]}
-    helperText={errors[`accidentDetails_${index}_tongLaoDongNuBiNan`]}
-    onBlur={(e) => validateField(`accidentDetails_${index}_tongLaoDongNuBiNan`, e.target.value)}
-   />
+                                  label={<RequiredLabel text="Tổng số lao động nữ bị nạn" />}
+                                  error={!!errors[`accidentDetails_${index}_tongLaoDongNuBiNan`]}
+                                  helperText={errors[`accidentDetails_${index}_tongLaoDongNuBiNan`]}
+                                  onBlur={(e) => validateField(`accidentDetails_${index}_tongLaoDongNuBiNan`, e.target.value)}
+                                />
                               </Grid>
                               <Grid size={{ xs: 12, md: 3 }}>
                                 <TextField
@@ -1750,11 +1959,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                                   value={detail.stats.tongSoNguoiChet || ''}
                                   onChange={(e) => handleDetailFieldChange(index, 'tongSoNguoiChet', e.target.value.replace(/[^0-9]/g, ''), true)}
                                   className={classes.field}
-                                label={<RequiredLabel text="Tổng số người bị chết" />}
-    error={!!errors[`accidentDetails_${index}_tongSoNguoiChet`]}
-    helperText={errors[`accidentDetails_${index}_tongSoNguoiChet`]}
-    onBlur={(e) => validateField(`accidentDetails_${index}_tongSoNguoiChet`, e.target.value)}
-   />
+                                  label={<RequiredLabel text="Tổng số người bị chết" />}
+                                  error={!!errors[`accidentDetails_${index}_tongSoNguoiChet`]}
+                                  helperText={errors[`accidentDetails_${index}_tongSoNguoiChet`]}
+                                  onBlur={(e) => validateField(`accidentDetails_${index}_tongSoNguoiChet`, e.target.value)}
+                                />
                               </Grid>
                               <Grid size={{ xs: 12, md: 3 }}>
                                 <TextField
@@ -1763,13 +1972,13 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                                   value={detail.stats.tongSoThuongNang || ''}
                                   onChange={(e) => handleDetailFieldChange(index, 'tongSoThuongNang', e.target.value.replace(/[^0-9]/g, ''), true)}
                                   className={classes.field}
-                                label={<RequiredLabel text="Tổng số người bị thương nặng" />}
-    error={!!errors[`accidentDetails_${index}_tongSoThuongNang`]}
-    helperText={errors[`accidentDetails_${index}_tongSoThuongNang`]}
-    onBlur={(e) => validateField(`accidentDetails_${index}_tongSoThuongNang`, e.target.value)}
-   />
+                                  label={<RequiredLabel text="Tổng số người bị thương nặng" />}
+                                  error={!!errors[`accidentDetails_${index}_tongSoThuongNang`]}
+                                  helperText={errors[`accidentDetails_${index}_tongSoThuongNang`]}
+                                  onBlur={(e) => validateField(`accidentDetails_${index}_tongSoThuongNang`, e.target.value)}
+                                />
                               </Grid>
-                              
+
                               <Grid size={{ xs: 12, md: 3 }}>
                                 <TextField
                                   size="small"
@@ -1777,11 +1986,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                                   value={detail.stats.khongQlNguoiBiNan || ''}
                                   onChange={(e) => handleDetailFieldChange(index, 'khongQlNguoiBiNan', e.target.value.replace(/[^0-9]/g, ''), true)}
                                   className={classes.field}
-                                label={<RequiredLabel text="Số người bị nạn không QL" />}
-    error={!!errors[`accidentDetails_${index}_khongQlNguoiBiNan`]}
-    helperText={errors[`accidentDetails_${index}_khongQlNguoiBiNan`]}
-    onBlur={(e) => validateField(`accidentDetails_${index}_khongQlNguoiBiNan`, e.target.value)}
-   />
+                                  label={<RequiredLabel text="Số người bị nạn không QL" />}
+                                  error={!!errors[`accidentDetails_${index}_khongQlNguoiBiNan`]}
+                                  helperText={errors[`accidentDetails_${index}_khongQlNguoiBiNan`]}
+                                  onBlur={(e) => validateField(`accidentDetails_${index}_khongQlNguoiBiNan`, e.target.value)}
+                                />
                               </Grid>
                               <Grid size={{ xs: 12, md: 3 }}>
                                 <TextField
@@ -1790,11 +1999,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                                   value={detail.stats.khongQlNuBiNan || ''}
                                   onChange={(e) => handleDetailFieldChange(index, 'khongQlNuBiNan', e.target.value.replace(/[^0-9]/g, ''), true)}
                                   className={classes.field}
-                                label={<RequiredLabel text="Lao động nữ bị nạn không QL" />}
-    error={!!errors[`accidentDetails_${index}_khongQlNuBiNan`]}
-    helperText={errors[`accidentDetails_${index}_khongQlNuBiNan`]}
-    onBlur={(e) => validateField(`accidentDetails_${index}_khongQlNuBiNan`, e.target.value)}
-   />
+                                  label={<RequiredLabel text="Lao động nữ bị nạn không QL" />}
+                                  error={!!errors[`accidentDetails_${index}_khongQlNuBiNan`]}
+                                  helperText={errors[`accidentDetails_${index}_khongQlNuBiNan`]}
+                                  onBlur={(e) => validateField(`accidentDetails_${index}_khongQlNuBiNan`, e.target.value)}
+                                />
                               </Grid>
                               <Grid size={{ xs: 12, md: 3 }}>
                                 <TextField
@@ -1803,11 +2012,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                                   value={detail.stats.khongQlNguoiChet || ''}
                                   onChange={(e) => handleDetailFieldChange(index, 'khongQlNguoiChet', e.target.value.replace(/[^0-9]/g, ''), true)}
                                   className={classes.field}
-                                label={<RequiredLabel text="Số người chết không QL" />}
-    error={!!errors[`accidentDetails_${index}_khongQlNguoiChet`]}
-    helperText={errors[`accidentDetails_${index}_khongQlNguoiChet`]}
-    onBlur={(e) => validateField(`accidentDetails_${index}_khongQlNguoiChet`, e.target.value)}
-   />
+                                  label={<RequiredLabel text="Số người chết không QL" />}
+                                  error={!!errors[`accidentDetails_${index}_khongQlNguoiChet`]}
+                                  helperText={errors[`accidentDetails_${index}_khongQlNguoiChet`]}
+                                  onBlur={(e) => validateField(`accidentDetails_${index}_khongQlNguoiChet`, e.target.value)}
+                                />
                               </Grid>
                               <Grid size={{ xs: 12, md: 3 }}>
                                 <TextField
@@ -1816,18 +2025,18 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                                   value={detail.stats.khongQlThuongNang || ''}
                                   onChange={(e) => handleDetailFieldChange(index, 'khongQlThuongNang', e.target.value.replace(/[^0-9]/g, ''), true)}
                                   className={classes.field}
-                                label={<RequiredLabel text="Người bị thương nặng không QL" />}
-    error={!!errors[`accidentDetails_${index}_khongQlThuongNang`]}
-    helperText={errors[`accidentDetails_${index}_khongQlThuongNang`]}
-    onBlur={(e) => validateField(`accidentDetails_${index}_khongQlThuongNang`, e.target.value)}
-   />
+                                  label={<RequiredLabel text="Người bị thương nặng không QL" />}
+                                  error={!!errors[`accidentDetails_${index}_khongQlThuongNang`]}
+                                  helperText={errors[`accidentDetails_${index}_khongQlThuongNang`]}
+                                  onBlur={(e) => validateField(`accidentDetails_${index}_khongQlThuongNang`, e.target.value)}
+                                />
                               </Grid>
                             </Grid>
 
                             <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 2, color: 'text.primary' }}>
                               5. Thiệt hại do tai nạn lao động số {index + 1}
                             </Typography>
-                            
+
                             <Grid container spacing={3}>
                               <Grid size={{ xs: 12, md: 3 }}>
                                 <TextField
@@ -1837,11 +2046,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                                   onChange={(e) => updateDetailCost(index, 'chiPhiYTe', e.target.value)}
                                   className={classes.field}
                                   slotProps={{ input: { endAdornment: <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>(1.000đ)</Typography> } }}
-                                label={<RequiredLabel text="Chi phí y tế" />}
-    error={!!errors[`accidentDetails_${index}_chiPhiYTe`]}
-    helperText={errors[`accidentDetails_${index}_chiPhiYTe`]}
-    onBlur={(e) => validateField(`accidentDetails_${index}_chiPhiYTe`, e.target.value)}
-   />
+                                  label={<RequiredLabel text="Chi phí y tế" />}
+                                  error={!!errors[`accidentDetails_${index}_chiPhiYTe`]}
+                                  helperText={errors[`accidentDetails_${index}_chiPhiYTe`]}
+                                  onBlur={(e) => validateField(`accidentDetails_${index}_chiPhiYTe`, e.target.value)}
+                                />
                               </Grid>
                               <Grid size={{ xs: 12, md: 3 }}>
                                 <TextField
@@ -1851,11 +2060,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                                   onChange={(e) => updateDetailCost(index, 'chiPhiTraLuong', e.target.value)}
                                   className={classes.field}
                                   slotProps={{ input: { endAdornment: <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>(1.000đ)</Typography> } }}
-                                label={<RequiredLabel text="Chi phí trả lương trong thời gian điều trị" />}
-    error={!!errors[`accidentDetails_${index}_chiPhiTraLuong`]}
-    helperText={errors[`accidentDetails_${index}_chiPhiTraLuong`]}
-    onBlur={(e) => validateField(`accidentDetails_${index}_chiPhiTraLuong`, e.target.value)}
-   />
+                                  label={<RequiredLabel text="Chi phí trả lương trong thời gian điều trị" />}
+                                  error={!!errors[`accidentDetails_${index}_chiPhiTraLuong`]}
+                                  helperText={errors[`accidentDetails_${index}_chiPhiTraLuong`]}
+                                  onBlur={(e) => validateField(`accidentDetails_${index}_chiPhiTraLuong`, e.target.value)}
+                                />
                               </Grid>
                               <Grid size={{ xs: 12, md: 3 }}>
                                 <TextField
@@ -1865,11 +2074,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                                   onChange={(e) => updateDetailCost(index, 'chiPhiBoiThuong', e.target.value)}
                                   className={classes.field}
                                   slotProps={{ input: { endAdornment: <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>(1.000đ)</Typography> } }}
-                                label={<RequiredLabel text="Chi phí bồi thường trợ cấp" />}
-    error={!!errors[`accidentDetails_${index}_chiPhiBoiThuong`]}
-    helperText={errors[`accidentDetails_${index}_chiPhiBoiThuong`]}
-    onBlur={(e) => validateField(`accidentDetails_${index}_chiPhiBoiThuong`, e.target.value)}
-   />
+                                  label={<RequiredLabel text="Chi phí bồi thường trợ cấp" />}
+                                  error={!!errors[`accidentDetails_${index}_chiPhiBoiThuong`]}
+                                  helperText={errors[`accidentDetails_${index}_chiPhiBoiThuong`]}
+                                  onBlur={(e) => validateField(`accidentDetails_${index}_chiPhiBoiThuong`, e.target.value)}
+                                />
                               </Grid>
 
                               <Grid size={{ xs: 12, md: 3 }}>
@@ -1880,11 +2089,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                                   value={formatNumberWithDots(detail.stats.tongChiPhi)}
                                   className={classes.field}
                                   slotProps={{ input: { endAdornment: <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>(1.000đ)</Typography> } }}
-                                label="Tổng số tiền chi phí"
-    error={!!errors[`accidentDetails_${index}_tongChiPhi`]}
-    helperText={errors[`accidentDetails_${index}_tongChiPhi`]}
-    onBlur={(e) => validateField(`accidentDetails_${index}_tongChiPhi`, e.target.value)}
-   />
+                                  label="Tổng số tiền chi phí"
+                                  error={!!errors[`accidentDetails_${index}_tongChiPhi`]}
+                                  helperText={errors[`accidentDetails_${index}_tongChiPhi`]}
+                                  onBlur={(e) => validateField(`accidentDetails_${index}_tongChiPhi`, e.target.value)}
+                                />
                               </Grid>
                               <Grid size={{ xs: 12, md: 3 }}>
                                 <TextField
@@ -1893,11 +2102,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                                   value={detail.stats.tongNgayNghi || ''}
                                   onChange={(e) => handleDetailFieldChange(index, 'tongNgayNghi', e.target.value.replace(/[^0-9]/g, ''), true)}
                                   className={classes.field}
-                                label={<RequiredLabel text="Tổng số ngày nghỉ vì TNLĐ" />}
-    error={!!errors[`accidentDetails_${index}_tongNgayNghi`]}
-    helperText={errors[`accidentDetails_${index}_tongNgayNghi`]}
-    onBlur={(e) => validateField(`accidentDetails_${index}_tongNgayNghi`, e.target.value)}
-   />
+                                  label={<RequiredLabel text="Tổng số ngày nghỉ vì TNLĐ" />}
+                                  error={!!errors[`accidentDetails_${index}_tongNgayNghi`]}
+                                  helperText={errors[`accidentDetails_${index}_tongNgayNghi`]}
+                                  onBlur={(e) => validateField(`accidentDetails_${index}_tongNgayNghi`, e.target.value)}
+                                />
                               </Grid>
                               <Grid size={{ xs: 12, md: 3 }}>
                                 <TextField
@@ -1907,11 +2116,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                                   onChange={(e) => updateDetailCost(index, 'thietHaiTaiSan', e.target.value)}
                                   className={classes.field}
                                   slotProps={{ input: { endAdornment: <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>(1.000đ)</Typography> } }}
-                                label={<RequiredLabel text="Thiệt hại tài sản" />}
-    error={!!errors[`accidentDetails_${index}_thietHaiTaiSan`]}
-    helperText={errors[`accidentDetails_${index}_thietHaiTaiSan`]}
-    onBlur={(e) => validateField(`accidentDetails_${index}_thietHaiTaiSan`, e.target.value)}
-   />
+                                  label={<RequiredLabel text="Thiệt hại tài sản" />}
+                                  error={!!errors[`accidentDetails_${index}_thietHaiTaiSan`]}
+                                  helperText={errors[`accidentDetails_${index}_thietHaiTaiSan`]}
+                                  onBlur={(e) => validateField(`accidentDetails_${index}_thietHaiTaiSan`, e.target.value)}
+                                />
                               </Grid>
                             </Grid>
                           </AccordionDetails>
@@ -1937,11 +2146,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         value={tnldTroCapSummary.tongSoVu || ''}
                         onChange={(e) => handleSummaryFieldChange('tongSoVu', e.target.value.replace(/[^0-9]/g, ''), true)}
                         className={classes.field}
-                      label={<RequiredLabel text="Tổng số vụ" />}
-    error={!!errors['tnldTroCapSummary_tongSoVu']}
-    helperText={errors['tnldTroCapSummary_tongSoVu']}
-    onBlur={(e) => validateField('tnldTroCapSummary_tongSoVu', e.target.value)}
-   />
+                        label={<RequiredLabel text="Tổng số vụ" />}
+                        error={!!errors['tnldTroCapSummary_tongSoVu']}
+                        helperText={errors['tnldTroCapSummary_tongSoVu']}
+                        onBlur={(e) => validateField('tnldTroCapSummary_tongSoVu', e.target.value)}
+                      />
                     </Grid>
                     <Grid size={{ xs: 12, md: 3 }}>
                       <TextField
@@ -1950,11 +2159,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         value={tnldTroCapSummary.tongSoVuNguoiChet || ''}
                         onChange={(e) => handleSummaryFieldChange('tongSoVuNguoiChet', e.target.value.replace(/[^0-9]/g, ''), true)}
                         className={classes.field}
-                      label={<RequiredLabel text="Tổng số vụ có người chết" />}
-    error={!!errors['tnldTroCapSummary_tongSoVuNguoiChet']}
-    helperText={errors['tnldTroCapSummary_tongSoVuNguoiChet']}
-    onBlur={(e) => validateField('tnldTroCapSummary_tongSoVuNguoiChet', e.target.value)}
-   />
+                        label={<RequiredLabel text="Tổng số vụ có người chết" />}
+                        error={!!errors['tnldTroCapSummary_tongSoVuNguoiChet']}
+                        helperText={errors['tnldTroCapSummary_tongSoVuNguoiChet']}
+                        onBlur={(e) => validateField('tnldTroCapSummary_tongSoVuNguoiChet', e.target.value)}
+                      />
                     </Grid>
                     <Grid size={{ xs: 12, md: 3 }}>
                       <TextField
@@ -1963,11 +2172,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         value={tnldTroCapSummary.tongSoVu2Nguoi || ''}
                         onChange={(e) => handleSummaryFieldChange('tongSoVu2Nguoi', e.target.value.replace(/[^0-9]/g, ''), true)}
                         className={classes.field}
-                      label={<RequiredLabel text="Tổng số vụ có 2 người bị nạn trở lên" />}
-    error={!!errors['tnldTroCapSummary_tongSoVu2Nguoi']}
-    helperText={errors['tnldTroCapSummary_tongSoVu2Nguoi']}
-    onBlur={(e) => validateField('tnldTroCapSummary_tongSoVu2Nguoi', e.target.value)}
-   />
+                        label={<RequiredLabel text="Tổng số vụ có 2 người bị nạn trở lên" />}
+                        error={!!errors['tnldTroCapSummary_tongSoVu2Nguoi']}
+                        helperText={errors['tnldTroCapSummary_tongSoVu2Nguoi']}
+                        onBlur={(e) => validateField('tnldTroCapSummary_tongSoVu2Nguoi', e.target.value)}
+                      />
                     </Grid>
                     <Grid size={{ md: 3 }} sx={{ display: { xs: 'none', md: 'block' } }} />
                     <Grid size={{ xs: 12, md: 3 }}>
@@ -1977,11 +2186,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         value={tnldTroCapSummary.tongSoNguoiBiNan || ''}
                         onChange={(e) => handleSummaryFieldChange('tongSoNguoiBiNan', e.target.value.replace(/[^0-9]/g, ''), true)}
                         className={classes.field}
-                      label={<RequiredLabel text="Tổng số người bị nạn" />}
-    error={!!errors['tnldTroCapSummary_tongSoNguoiBiNan']}
-    helperText={errors['tnldTroCapSummary_tongSoNguoiBiNan']}
-    onBlur={(e) => validateField('tnldTroCapSummary_tongSoNguoiBiNan', e.target.value)}
-   />
+                        label={<RequiredLabel text="Tổng số người bị nạn" />}
+                        error={!!errors['tnldTroCapSummary_tongSoNguoiBiNan']}
+                        helperText={errors['tnldTroCapSummary_tongSoNguoiBiNan']}
+                        onBlur={(e) => validateField('tnldTroCapSummary_tongSoNguoiBiNan', e.target.value)}
+                      />
                     </Grid>
 
                     <Grid size={{ xs: 12, md: 3 }}>
@@ -1991,11 +2200,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         value={tnldTroCapSummary.tongLaoDongNuBiNan || ''}
                         onChange={(e) => handleSummaryFieldChange('tongLaoDongNuBiNan', e.target.value.replace(/[^0-9]/g, ''), true)}
                         className={classes.field}
-                      label={<RequiredLabel text="Tổng số lao động nữ bị nạn" />}
-    error={!!errors['tnldTroCapSummary_tongLaoDongNuBiNan']}
-    helperText={errors['tnldTroCapSummary_tongLaoDongNuBiNan']}
-    onBlur={(e) => validateField('tnldTroCapSummary_tongLaoDongNuBiNan', e.target.value)}
-   />
+                        label={<RequiredLabel text="Tổng số lao động nữ bị nạn" />}
+                        error={!!errors['tnldTroCapSummary_tongLaoDongNuBiNan']}
+                        helperText={errors['tnldTroCapSummary_tongLaoDongNuBiNan']}
+                        onBlur={(e) => validateField('tnldTroCapSummary_tongLaoDongNuBiNan', e.target.value)}
+                      />
                     </Grid>
                     <Grid size={{ xs: 12, md: 3 }}>
                       <TextField
@@ -2004,11 +2213,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         value={tnldTroCapSummary.tongSoNguoiChet || ''}
                         onChange={(e) => handleSummaryFieldChange('tongSoNguoiChet', e.target.value.replace(/[^0-9]/g, ''), true)}
                         className={classes.field}
-                      label={<RequiredLabel text="Tổng số người bị chết" />}
-    error={!!errors['tnldTroCapSummary_tongSoNguoiChet']}
-    helperText={errors['tnldTroCapSummary_tongSoNguoiChet']}
-    onBlur={(e) => validateField('tnldTroCapSummary_tongSoNguoiChet', e.target.value)}
-   />
+                        label={<RequiredLabel text="Tổng số người bị chết" />}
+                        error={!!errors['tnldTroCapSummary_tongSoNguoiChet']}
+                        helperText={errors['tnldTroCapSummary_tongSoNguoiChet']}
+                        onBlur={(e) => validateField('tnldTroCapSummary_tongSoNguoiChet', e.target.value)}
+                      />
                     </Grid>
                     <Grid size={{ xs: 12, md: 3 }}>
                       <TextField
@@ -2017,13 +2226,13 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         value={tnldTroCapSummary.tongSoThuongNang || ''}
                         onChange={(e) => handleSummaryFieldChange('tongSoThuongNang', e.target.value.replace(/[^0-9]/g, ''), true)}
                         className={classes.field}
-                      label={<RequiredLabel text="Tổng số người bị thương nặng" />}
-    error={!!errors['tnldTroCapSummary_tongSoThuongNang']}
-    helperText={errors['tnldTroCapSummary_tongSoThuongNang']}
-    onBlur={(e) => validateField('tnldTroCapSummary_tongSoThuongNang', e.target.value)}
-   />
+                        label={<RequiredLabel text="Tổng số người bị thương nặng" />}
+                        error={!!errors['tnldTroCapSummary_tongSoThuongNang']}
+                        helperText={errors['tnldTroCapSummary_tongSoThuongNang']}
+                        onBlur={(e) => validateField('tnldTroCapSummary_tongSoThuongNang', e.target.value)}
+                      />
                     </Grid>
-                    
+
                     <Grid size={{ xs: 12, md: 3 }}>
                       <TextField
                         size="small"
@@ -2031,11 +2240,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         value={tnldTroCapSummary.khongQlNguoiBiNan || ''}
                         onChange={(e) => handleSummaryFieldChange('khongQlNguoiBiNan', e.target.value.replace(/[^0-9]/g, ''), true)}
                         className={classes.field}
-                      label={<RequiredLabel text="Số người bị nạn không QL" />}
-    error={!!errors['tnldTroCapSummary_khongQlNguoiBiNan']}
-    helperText={errors['tnldTroCapSummary_khongQlNguoiBiNan']}
-    onBlur={(e) => validateField('tnldTroCapSummary_khongQlNguoiBiNan', e.target.value)}
-   />
+                        label={<RequiredLabel text="Số người bị nạn không QL" />}
+                        error={!!errors['tnldTroCapSummary_khongQlNguoiBiNan']}
+                        helperText={errors['tnldTroCapSummary_khongQlNguoiBiNan']}
+                        onBlur={(e) => validateField('tnldTroCapSummary_khongQlNguoiBiNan', e.target.value)}
+                      />
                     </Grid>
                     <Grid size={{ xs: 12, md: 3 }}>
                       <TextField
@@ -2044,11 +2253,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         value={tnldTroCapSummary.khongQlNuBiNan || ''}
                         onChange={(e) => handleSummaryFieldChange('khongQlNuBiNan', e.target.value.replace(/[^0-9]/g, ''), true)}
                         className={classes.field}
-                      label={<RequiredLabel text="Lao động nữ bị nạn không QL" />}
-    error={!!errors['tnldTroCapSummary_khongQlNuBiNan']}
-    helperText={errors['tnldTroCapSummary_khongQlNuBiNan']}
-    onBlur={(e) => validateField('tnldTroCapSummary_khongQlNuBiNan', e.target.value)}
-   />
+                        label={<RequiredLabel text="Lao động nữ bị nạn không QL" />}
+                        error={!!errors['tnldTroCapSummary_khongQlNuBiNan']}
+                        helperText={errors['tnldTroCapSummary_khongQlNuBiNan']}
+                        onBlur={(e) => validateField('tnldTroCapSummary_khongQlNuBiNan', e.target.value)}
+                      />
                     </Grid>
                     <Grid size={{ xs: 12, md: 3 }}>
                       <TextField
@@ -2057,11 +2266,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         value={tnldTroCapSummary.khongQlNguoiChet || ''}
                         onChange={(e) => handleSummaryFieldChange('khongQlNguoiChet', e.target.value.replace(/[^0-9]/g, ''), true)}
                         className={classes.field}
-                      label={<RequiredLabel text="Số người chết không QL" />}
-    error={!!errors['tnldTroCapSummary_khongQlNguoiChet']}
-    helperText={errors['tnldTroCapSummary_khongQlNguoiChet']}
-    onBlur={(e) => validateField('tnldTroCapSummary_khongQlNguoiChet', e.target.value)}
-   />
+                        label={<RequiredLabel text="Số người chết không QL" />}
+                        error={!!errors['tnldTroCapSummary_khongQlNguoiChet']}
+                        helperText={errors['tnldTroCapSummary_khongQlNguoiChet']}
+                        onBlur={(e) => validateField('tnldTroCapSummary_khongQlNguoiChet', e.target.value)}
+                      />
                     </Grid>
                     <Grid size={{ xs: 12, md: 3 }}>
                       <TextField
@@ -2070,11 +2279,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         value={tnldTroCapSummary.khongQlThuongNang || ''}
                         onChange={(e) => handleSummaryFieldChange('khongQlThuongNang', e.target.value.replace(/[^0-9]/g, ''), true)}
                         className={classes.field}
-                      label={<RequiredLabel text="Người bị thương nặng không QL" />}
-    error={!!errors['tnldTroCapSummary_khongQlThuongNang']}
-    helperText={errors['tnldTroCapSummary_khongQlThuongNang']}
-    onBlur={(e) => validateField('tnldTroCapSummary_khongQlThuongNang', e.target.value)}
-   />
+                        label={<RequiredLabel text="Người bị thương nặng không QL" />}
+                        error={!!errors['tnldTroCapSummary_khongQlThuongNang']}
+                        helperText={errors['tnldTroCapSummary_khongQlThuongNang']}
+                        onBlur={(e) => validateField('tnldTroCapSummary_khongQlThuongNang', e.target.value)}
+                      />
                     </Grid>
                   </Grid>
 
@@ -2091,11 +2300,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         onChange={(e) => updateSummaryCost('chiPhiYTe', e.target.value, true)}
                         className={classes.field}
                         slotProps={{ input: { endAdornment: <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>(1.000đ)</Typography> } }}
-                      label={<RequiredLabel text="Chi phí y tế" />}
-    error={!!errors['tnldTroCapSummary_chiPhiYTe']}
-    helperText={errors['tnldTroCapSummary_chiPhiYTe']}
-    onBlur={(e) => validateField('tnldTroCapSummary_chiPhiYTe', e.target.value)}
-   />
+                        label={<RequiredLabel text="Chi phí y tế" />}
+                        error={!!errors['tnldTroCapSummary_chiPhiYTe']}
+                        helperText={errors['tnldTroCapSummary_chiPhiYTe']}
+                        onBlur={(e) => validateField('tnldTroCapSummary_chiPhiYTe', e.target.value)}
+                      />
                     </Grid>
                     <Grid size={{ xs: 12, md: 3 }}>
                       <TextField
@@ -2105,11 +2314,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         onChange={(e) => updateSummaryCost('chiPhiTraLuong', e.target.value, true)}
                         className={classes.field}
                         slotProps={{ input: { endAdornment: <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>(1.000đ)</Typography> } }}
-                      label={<RequiredLabel text="Chi phí trả lương trong thời gian điều trị" />}
-    error={!!errors['tnldTroCapSummary_chiPhiTraLuong']}
-    helperText={errors['tnldTroCapSummary_chiPhiTraLuong']}
-    onBlur={(e) => validateField('tnldTroCapSummary_chiPhiTraLuong', e.target.value)}
-   />
+                        label={<RequiredLabel text="Chi phí trả lương trong thời gian điều trị" />}
+                        error={!!errors['tnldTroCapSummary_chiPhiTraLuong']}
+                        helperText={errors['tnldTroCapSummary_chiPhiTraLuong']}
+                        onBlur={(e) => validateField('tnldTroCapSummary_chiPhiTraLuong', e.target.value)}
+                      />
                     </Grid>
                     <Grid size={{ xs: 12, md: 3 }}>
                       <TextField
@@ -2119,11 +2328,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         onChange={(e) => updateSummaryCost('chiPhiBoiThuong', e.target.value, true)}
                         className={classes.field}
                         slotProps={{ input: { endAdornment: <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>(1.000đ)</Typography> } }}
-                      label={<RequiredLabel text="Chi phí bồi thường trợ cấp" />}
-    error={!!errors['tnldTroCapSummary_chiPhiBoiThuong']}
-    helperText={errors['tnldTroCapSummary_chiPhiBoiThuong']}
-    onBlur={(e) => validateField('tnldTroCapSummary_chiPhiBoiThuong', e.target.value)}
-   />
+                        label={<RequiredLabel text="Chi phí bồi thường trợ cấp" />}
+                        error={!!errors['tnldTroCapSummary_chiPhiBoiThuong']}
+                        helperText={errors['tnldTroCapSummary_chiPhiBoiThuong']}
+                        onBlur={(e) => validateField('tnldTroCapSummary_chiPhiBoiThuong', e.target.value)}
+                      />
                     </Grid>
 
                     <Grid size={{ xs: 12, md: 3 }}>
@@ -2134,11 +2343,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         value={formatNumberWithDots(tnldTroCapSummary.tongChiPhi)}
                         className={classes.field}
                         slotProps={{ input: { endAdornment: <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>(1.000đ)</Typography> } }}
-                      label="Tổng số tiền chi phí"
-    error={!!errors['tnldTroCapSummary_tongChiPhi']}
-    helperText={errors['tnldTroCapSummary_tongChiPhi']}
-    onBlur={(e) => validateField('tnldTroCapSummary_tongChiPhi', e.target.value)}
-   />
+                        label="Tổng số tiền chi phí"
+                        error={!!errors['tnldTroCapSummary_tongChiPhi']}
+                        helperText={errors['tnldTroCapSummary_tongChiPhi']}
+                        onBlur={(e) => validateField('tnldTroCapSummary_tongChiPhi', e.target.value)}
+                      />
                     </Grid>
                     <Grid size={{ xs: 12, md: 3 }}>
                       <TextField
@@ -2147,11 +2356,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         value={tnldTroCapSummary.tongNgayNghi || ''}
                         onChange={(e) => handleSummaryFieldChange('tongNgayNghi', e.target.value.replace(/[^0-9]/g, ''), true)}
                         className={classes.field}
-                      label={<RequiredLabel text="Tổng số ngày nghỉ vì TNLĐ" />}
-    error={!!errors['tnldTroCapSummary_tongNgayNghi']}
-    helperText={errors['tnldTroCapSummary_tongNgayNghi']}
-    onBlur={(e) => validateField('tnldTroCapSummary_tongNgayNghi', e.target.value)}
-   />
+                        label={<RequiredLabel text="Tổng số ngày nghỉ vì TNLĐ" />}
+                        error={!!errors['tnldTroCapSummary_tongNgayNghi']}
+                        helperText={errors['tnldTroCapSummary_tongNgayNghi']}
+                        onBlur={(e) => validateField('tnldTroCapSummary_tongNgayNghi', e.target.value)}
+                      />
                     </Grid>
                     <Grid size={{ xs: 12, md: 3 }}>
                       <TextField
@@ -2161,11 +2370,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         onChange={(e) => updateSummaryCost('thietHaiTaiSan', e.target.value, true)}
                         className={classes.field}
                         slotProps={{ input: { endAdornment: <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>(1.000đ)</Typography> } }}
-                      label={<RequiredLabel text="Thiệt hại tài sản" />}
-    error={!!errors['tnldTroCapSummary_thietHaiTaiSan']}
-    helperText={errors['tnldTroCapSummary_thietHaiTaiSan']}
-    onBlur={(e) => validateField('tnldTroCapSummary_thietHaiTaiSan', e.target.value)}
-   />
+                        label={<RequiredLabel text="Thiệt hại tài sản" />}
+                        error={!!errors['tnldTroCapSummary_thietHaiTaiSan']}
+                        helperText={errors['tnldTroCapSummary_thietHaiTaiSan']}
+                        onBlur={(e) => validateField('tnldTroCapSummary_thietHaiTaiSan', e.target.value)}
+                      />
                     </Grid>
                   </Grid>
                 </Box>
@@ -2184,7 +2393,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                     <Typography sx={{ fontWeight: 600, color: '#475569', fontSize: '0.9rem' }}>
                       Vui lòng đính kèm báo cáo TNLĐ có dấu mộc công ty:
                     </Typography>
-                    
+
                     <Button
                       variant="outlined"
                       component="label"
