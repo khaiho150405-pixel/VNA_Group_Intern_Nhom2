@@ -1,9 +1,10 @@
 import { BadRequestException, Injectable, OnApplicationBootstrap } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Repository, getManager } from "typeorm";
 import { PeriodicReport } from "./periodic-report.entity";
 import { AccidentDetail } from "./accident-detail.entity";
 import { Doet } from "../doet/doet.entity";
+import { ReportPeriod } from "../report-period/report-period.entity";
 import * as fs from "fs";
 import * as path from "path";
 import Response from "../../commons/response";
@@ -84,14 +85,19 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
       let allPossibleReports: any[] = [];
       const filterYear = parseInt(year || new Date().getFullYear());
 
+      // Fetch active periods from ReportPeriod configuration
+      const activePeriods = await getManager().find(ReportPeriod, {
+        where: { year: filterYear, status: 'ACTIVE' }
+      });
+
       for (const d of doets) {
-        const periods = period ? [period] : ['6_THANG', 'CA_NAM'];
-        for (const p of periods) {
+        for (const config of activePeriods) {
+          if (period && config.period !== period) continue;
           allPossibleReports.push({
             doetId: d.id,
             companyName: d.name,
             taxCode: d.taxCode,
-            period: p,
+            period: config.period,
             year: filterYear,
             doet: d
           });
@@ -332,27 +338,58 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
   }
 
   async createReport(payload: any) {
+    if (payload.accidentDetails && Array.isArray(payload.accidentDetails)) {
+      for (const detail of payload.accidentDetails) {
+        if (detail.stats) {
+          detail.stats.tongSoVu = 1;
+          const numChet = parseInt(detail.stats.tongSoNguoiChet || 0) || 0;
+          detail.stats.tongSoVuNguoiChet = numChet > 0 ? 1 : 0;
+          const numBiNan = parseInt(detail.stats.tongSoNguoiBiNan || 0) || 0;
+          detail.stats.tongSoVu2Nguoi = numBiNan >= 2 ? 1 : 0;
+        }
+      }
+    }
+
     const status = payload.status || 'DA_TIEP_NHAN';
     if (status === 'DA_TIEP_NHAN') {
       if (!payload.reportFileUrl) throw new BadRequestException("Vui lòng đính kèm báo cáo TNLĐ có dấu mộc công ty");
-    }
-    if (payload.totalEmployees === undefined || payload.totalEmployees === null || payload.totalEmployees === '') throw new BadRequestException("Tổng số lao động là bắt buộc");
-    if (payload.femaleEmployees === undefined || payload.femaleEmployees === null || payload.femaleEmployees === '') throw new BadRequestException("Tổng số lao động nữ là bắt buộc");
-    if (payload.totalSalaryFund === undefined || payload.totalSalaryFund === null || payload.totalSalaryFund === '') throw new BadRequestException("Tổng quỹ lương là bắt buộc");
+      if (payload.totalEmployees === undefined || payload.totalEmployees === null || payload.totalEmployees === '') throw new BadRequestException("Tổng số lao động là bắt buộc");
+      if (payload.femaleEmployees === undefined || payload.femaleEmployees === null || payload.femaleEmployees === '') throw new BadRequestException("Tổng số lao động nữ là bắt buộc");
+      if (payload.totalSalaryFund === undefined || payload.totalSalaryFund === null || payload.totalSalaryFund === '') throw new BadRequestException("Tổng quỹ lương là bắt buộc");
 
-    if (payload.totalEmployees < 0 || payload.femaleEmployees < 0 || payload.totalSalaryFund < 0) {
-      throw new BadRequestException("Dữ liệu không được là số âm");
+      if (payload.totalEmployees < 0 || payload.femaleEmployees < 0 || payload.totalSalaryFund < 0) {
+        throw new BadRequestException("Dữ liệu không được là số âm");
+      }
+
+      if (payload.femaleEmployees > payload.totalEmployees) {
+        throw new BadRequestException("Số lao động nữ không được lớn hơn tổng số lao động");
+      }
+
+      if (payload.tnldSummary) {
+        this.validateSummaryAndDetails(payload.tnldSummary, payload.accidentDetails, 'TAI_NAN_LAO_DONG', 'TNLĐ: ', false);
+      }
+      if (payload.tnldTroCapSummary) {
+        this.validateSummaryAndDetails(payload.tnldTroCapSummary, payload.accidentDetails, 'TAI_NAN_LAO_DONG_TRO_CAP', 'Trợ cấp: ', true);
+      }
     }
 
-    if (payload.femaleEmployees > payload.totalEmployees) {
-      throw new BadRequestException("Số lao động nữ không được lớn hơn tổng số lao động");
+    // Clean up NaN values or invalid numbers to avoid Postgres type errors
+    if (payload.totalEmployees === undefined || payload.totalEmployees === null || payload.totalEmployees === '' || isNaN(+payload.totalEmployees)) {
+      payload.totalEmployees = null;
+    } else {
+      payload.totalEmployees = +payload.totalEmployees;
     }
 
-    if (payload.tnldSummary) {
-      this.validateSummaryAndDetails(payload.tnldSummary, payload.accidentDetails, 'TAI_NAN_LAO_DONG', 'TNLĐ: ', false);
+    if (payload.femaleEmployees === undefined || payload.femaleEmployees === null || payload.femaleEmployees === '' || isNaN(+payload.femaleEmployees)) {
+      payload.femaleEmployees = null;
+    } else {
+      payload.femaleEmployees = +payload.femaleEmployees;
     }
-    if (payload.tnldTroCapSummary) {
-      this.validateSummaryAndDetails(payload.tnldTroCapSummary, payload.accidentDetails, 'TAI_NAN_LAO_DONG_TRO_CAP', 'Trợ cấp: ', true);
+
+    if (payload.totalSalaryFund === undefined || payload.totalSalaryFund === null || payload.totalSalaryFund === '' || isNaN(+payload.totalSalaryFund)) {
+      payload.totalSalaryFund = null;
+    } else {
+      payload.totalSalaryFund = +payload.totalSalaryFund;
     }
 
     if (payload.doetId && !isNaN(+payload.doetId)) {
@@ -374,26 +411,64 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
   }
 
   async put(currentUser: any, id: any, payload: any): Promise<any> {
-    const status = payload.status || 'DA_TIEP_NHAN';
-    if (status === 'DA_TIEP_NHAN') {
-      if (!payload.reportFileUrl) throw new BadRequestException("Vui lòng đính kèm báo cáo TNLĐ có dấu mộc công ty");
+    if (payload.accidentDetails && Array.isArray(payload.accidentDetails)) {
+      for (const detail of payload.accidentDetails) {
+        if (detail.stats) {
+          detail.stats.tongSoVu = 1;
+          const numChet = parseInt(detail.stats.tongSoNguoiChet || 0) || 0;
+          detail.stats.tongSoVuNguoiChet = numChet > 0 ? 1 : 0;
+          const numBiNan = parseInt(detail.stats.tongSoNguoiBiNan || 0) || 0;
+          detail.stats.tongSoVu2Nguoi = numBiNan >= 2 ? 1 : 0;
+        }
+      }
     }
+
+    const status = payload.status || 'DA_TIEP_NHAN';
     const currentReport = await this.reportRepo.findOne({ where: { id } });
     if (!currentReport) throw new BadRequestException("Không tìm thấy báo cáo");
     if (currentReport.status === 'DA_TIEP_NHAN') throw new BadRequestException("Báo cáo đã được tiếp nhận, không thể chỉnh sửa");
 
-    const total = payload.totalEmployees !== undefined ? payload.totalEmployees : currentReport.totalEmployees;
-    const female = payload.femaleEmployees !== undefined ? payload.femaleEmployees : currentReport.femaleEmployees;
+    if (status === 'DA_TIEP_NHAN') {
+      if (!payload.reportFileUrl) throw new BadRequestException("Vui lòng đính kèm báo cáo TNLĐ có dấu mộc công ty");
+      
+      const total = payload.totalEmployees !== undefined ? payload.totalEmployees : currentReport.totalEmployees;
+      const female = payload.femaleEmployees !== undefined ? payload.femaleEmployees : currentReport.femaleEmployees;
 
-    if (female > total) {
-      throw new BadRequestException("Số lao động nữ không được lớn hơn tổng số lao động");
+      if (female > total) {
+        throw new BadRequestException("Số lao động nữ không được lớn hơn tổng số lao động");
+      }
+
+      if (payload.tnldSummary) {
+        this.validateSummaryAndDetails(payload.tnldSummary, payload.accidentDetails, 'TAI_NAN_LAO_DONG', 'TNLĐ: ', false);
+      }
+      if (payload.tnldTroCapSummary) {
+        this.validateSummaryAndDetails(payload.tnldTroCapSummary, payload.accidentDetails, 'TAI_NAN_LAO_DONG_TRO_CAP', 'Trợ cấp: ', true);
+      }
     }
 
-    if (payload.tnldSummary) {
-      this.validateSummaryAndDetails(payload.tnldSummary, payload.accidentDetails, 'TAI_NAN_LAO_DONG', 'TNLĐ: ', false);
+    // Clean up NaN values or invalid numbers to avoid Postgres type errors
+    if (payload.totalEmployees !== undefined) {
+      if (payload.totalEmployees === null || payload.totalEmployees === '' || isNaN(+payload.totalEmployees)) {
+        payload.totalEmployees = null;
+      } else {
+        payload.totalEmployees = +payload.totalEmployees;
+      }
     }
-    if (payload.tnldTroCapSummary) {
-      this.validateSummaryAndDetails(payload.tnldTroCapSummary, payload.accidentDetails, 'TAI_NAN_LAO_DONG_TRO_CAP', 'Trợ cấp: ', true);
+
+    if (payload.femaleEmployees !== undefined) {
+      if (payload.femaleEmployees === null || payload.femaleEmployees === '' || isNaN(+payload.femaleEmployees)) {
+        payload.femaleEmployees = null;
+      } else {
+        payload.femaleEmployees = +payload.femaleEmployees;
+      }
+    }
+
+    if (payload.totalSalaryFund !== undefined) {
+      if (payload.totalSalaryFund === null || payload.totalSalaryFund === '' || isNaN(+payload.totalSalaryFund)) {
+        payload.totalSalaryFund = null;
+      } else {
+        payload.totalSalaryFund = +payload.totalSalaryFund;
+      }
     }
 
     // Không cho phép frontend tự override tên công ty
@@ -443,16 +518,32 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
       throw new BadRequestException(`${prefixMsg}Tổng chi phí phải bằng tổng của Chi phí y tế, Chi phí trả lương và Chi phí bồi thường`);
     }
 
+    // 2. Ràng buộc cấp độ "Vụ" (Accidents)
     if (tongVuChet > tongVu) throw new BadRequestException(`${prefixMsg}Tổng số vụ có người chết không được lớn hơn Tổng số vụ`);
     if (tongVu2Nguoi > tongVu) throw new BadRequestException(`${prefixMsg}Tổng số vụ có 2 người bị nạn trở lên không được lớn hơn Tổng số vụ`);
 
+    // 3. Ràng buộc cấp độ "Người bị nạn" (Victims)
     if (tongNuNan > tongNguoiNan) throw new BadRequestException(`${prefixMsg}Tổng số lao động nữ bị nạn không được lớn hơn Tổng số người bị nạn`);
+    if (tongNguoiChet > tongNguoiNan) throw new BadRequestException(`${prefixMsg}Tổng số người chết không được lớn hơn Tổng số người bị nạn`);
+    if (tongThuongNang > tongNguoiNan) throw new BadRequestException(`${prefixMsg}Tổng số người bị thương nặng không được lớn hơn Tổng số người bị nạn`);
     if (tongNguoiChet + tongThuongNang > tongNguoiNan) throw new BadRequestException(`${prefixMsg}Tổng số người chết và bị thương nặng không được vượt quá Tổng số người bị nạn`);
 
-    if (khongQlNan > tongNguoiNan) throw new BadRequestException(`${prefixMsg}Số người bị nạn không QL không được lớn hơn Tổng số người bị nạn`);
-    if (khongQlNuNan > tongNuNan) throw new BadRequestException(`${prefixMsg}Lao động nữ bị nạn không QL không được lớn hơn Tổng số LĐ nữ bị nạn`);
-    if (khongQlChet > tongNguoiChet) throw new BadRequestException(`${prefixMsg}Số người chết không QL không được lớn hơn Tổng số người chết`);
-    if (khongQlThuongNang > tongThuongNang) throw new BadRequestException(`${prefixMsg}Người bị thương nặng không QL không được lớn hơn Tổng số người bị thương nặng`);
+    // 4. Ràng buộc chéo giữa "Vụ" và "Người"
+    if (tongVu === 0 && tongNguoiNan > 0) throw new BadRequestException(`${prefixMsg}Tổng số người bị nạn phải bằng 0 khi tổng số vụ bằng 0`);
+    if (tongVu > 0 && tongNguoiNan < (tongVu + tongVu2Nguoi)) {
+      throw new BadRequestException(`${prefixMsg}Tổng số người bị nạn phải lớn hơn hoặc bằng Tổng số vụ + Số vụ có 2 người bị nạn trở lên (${tongVu + tongVu2Nguoi})`);
+    }
+    if (tongVu2Nguoi === 0 && tongVu > 0 && tongNguoiNan !== tongVu) {
+      throw new BadRequestException(`${prefixMsg}Khi không có vụ nào có từ 2 người bị nạn trở lên, tổng số người bị nạn phải bằng tổng số vụ (${tongVu})`);
+    }
+
+    if (tongVuChet === 0 && tongNguoiChet > 0) throw new BadRequestException(`${prefixMsg}Số người chết phải bằng 0 khi số vụ có người chết bằng 0`);
+    if (tongVuChet > 0 && tongNguoiChet < tongVuChet) throw new BadRequestException(`${prefixMsg}Tổng số người bị chết phải lớn hơn hoặc bằng Tổng số vụ có người chết`);
+
+    // Ràng buộc không quản lý (khongQl...)
+    if (khongQlNuNan > khongQlNan) throw new BadRequestException(`${prefixMsg}Lao động nữ bị nạn không QL không được lớn hơn Số người bị nạn không QL`);
+    if (khongQlChet > khongQlNan) throw new BadRequestException(`${prefixMsg}Số người chết không QL không được lớn hơn Số người bị nạn không QL`);
+    if (khongQlThuongNang > khongQlNan) throw new BadRequestException(`${prefixMsg}Người bị thương nặng không QL không được lớn hơn Số người bị nạn không QL`);
     if (khongQlChet + khongQlThuongNang > khongQlNan) throw new BadRequestException(`${prefixMsg}Tổng người chết và thương nặng không QL không được lớn hơn Số người bị nạn không QL`);
   }
 
@@ -468,12 +559,24 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
         if (!allowDefaultZero) throw new BadRequestException(`${prefixMsg}Vui lòng nhập đầy đủ dữ liệu bắt buộc`);
         summary[field] = 0;
       }
-      if (parseFloat(summary[field]) < 0) {
+      const isMoneyField = ['chiPhiYTe', 'chiPhiTraLuong', 'chiPhiBoiThuong', 'tongChiPhi', 'thietHaiTaiSan'].includes(field);
+      const strVal = String(summary[field]);
+      const isInt = isMoneyField 
+        ? (/^\d+(\.\d+)*$/.test(strVal) || /^\d+$/.test(strVal.replace(/\./g, ''))) 
+        : /^\d+$/.test(strVal);
+      if (!isInt) {
+        throw new BadRequestException(`${prefixMsg}Giá trị trường ${field} phải là số nguyên dương hoặc bằng 0`);
+      }
+      if (parseFloat(strVal.replace(/\./g, '')) < 0) {
         throw new BadRequestException(`${prefixMsg}Dữ liệu không được là số âm`);
       }
     }
     if (summary.thietHaiTaiSan !== undefined && summary.thietHaiTaiSan !== null && summary.thietHaiTaiSan !== '') {
-      if (parseFloat(summary.thietHaiTaiSan) < 0) {
+      const isInt = /^\d+(\.\d+)*$/.test(String(summary.thietHaiTaiSan)) || /^\d+$/.test(String(summary.thietHaiTaiSan).replace(/\./g, ''));
+      if (!isInt) {
+        throw new BadRequestException(`${prefixMsg}Thiệt hại tài sản phải là số nguyên dương hoặc bằng 0`);
+      }
+      if (parseFloat(String(summary.thietHaiTaiSan).replace(/\./g, '')) < 0) {
         throw new BadRequestException(`${prefixMsg}Thiệt hại tài sản không được là số âm`);
       }
     }

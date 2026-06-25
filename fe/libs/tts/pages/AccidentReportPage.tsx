@@ -244,6 +244,7 @@ export const AccidentReportPage = () => {
                                         disabled={loading}
                                         renderInput={(params) => (
                                             <TextField {...params}
+                                                label="Tỉnh/Thành phố"
                                                 placeholder="-- Chọn tỉnh/ thành phố --"
                                                 className={classes.filterField} />
                                         )}
@@ -260,6 +261,7 @@ export const AccidentReportPage = () => {
                                         disabled={loading || !headerFilters.province}
                                         renderInput={(params) => (
                                             <TextField {...params}
+                                                label="Phường/Xã"
                                                 placeholder="-- Chọn phường / xã --"
                                                 className={classes.filterField} />
                                         )}
