@@ -630,7 +630,9 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
 
     if (isEdit || isProfile) {
       delete payload.taxCode;
-      delete payload.email;
+      if (isProfile) {
+        delete payload.email;
+      }
     }
     return payload;
   };

@@ -17,6 +17,7 @@ import { UploadModule } from "./modules/upload/upload.module";
 import { InjuryTypeModule } from "./modules/injury-type/injury-type.module";
 import { InjuryFactorModule } from "./modules/injury-factor/injury-factor.module";
 import { PeriodicReportModule } from "./modules/periodic-report/periodic-report.module";
+import { ReportPeriodModule } from "./modules/report-period/report-period.module";
 import { DomainMiddleware } from "./commons/middleware/domain.middleware";
 
 @Module({
@@ -45,6 +46,7 @@ import { DomainMiddleware } from "./commons/middleware/domain.middleware";
     InjuryTypeModule,
     InjuryFactorModule,
     PeriodicReportModule,
+    ReportPeriodModule,
   ],
   controllers: [AppController],
   providers: [AppService]

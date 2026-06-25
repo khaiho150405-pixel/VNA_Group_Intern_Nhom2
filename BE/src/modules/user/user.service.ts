@@ -6,6 +6,7 @@ import { EntityManager, getManager, ILike, In, IsNull, Not, Repository, Raw } fr
 import { CurrentUser } from "../auth/auth.model";
 import { User } from "./user.entity";
 import { Role } from "../role/role.entity";
+import { Doet } from "../doet/doet.entity";
 import * as argon from "argon2";
 
 @Injectable()
@@ -720,6 +721,25 @@ export class UserService extends BaseService<User> implements OnApplicationBoots
           .andWhere("u.id != :id", { id })
           .getOne();
         if (existedEmail) throw Response.errorBad("Email này đã được sử dụng bởi một tài khoản khác");
+
+        if (user.doet_id) {
+          const existedDoetEmail = await this.manager.createQueryBuilder(Doet, 'doet')
+            .where('LOWER(doet.email) = LOWER(:email)', { email })
+            .andWhere('doet.id <> :doetId', { doetId: user.doet_id })
+            .andWhere('doet.deletedAt IS NULL')
+            .getOne();
+          if (existedDoetEmail) {
+            throw Response.errorBad("Email này đã được sử dụng bởi một doanh nghiệp khác");
+          }
+        } else {
+          const existedDoetEmail = await this.manager.createQueryBuilder(Doet, 'doet')
+            .where('LOWER(doet.email) = LOWER(:email)', { email })
+            .andWhere('doet.deletedAt IS NULL')
+            .getOne();
+          if (existedDoetEmail) {
+            throw Response.errorBad("Email này đã được sử dụng bởi một doanh nghiệp khác");
+          }
+        }
         user.email = email;
       }
 
@@ -787,12 +807,12 @@ export class UserService extends BaseService<User> implements OnApplicationBoots
           UPDATE doets
           SET 
             name = $1,
-            "gpkdDate" = $2,
+            gpkd_date = $2,
             email = $3,
             province = $4,
             ward = $5,
             address = $6,
-            "taxCode" = $7
+            tax_code = $7
           WHERE id = $8
         `, [
           user.fullName,
