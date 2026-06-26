@@ -31,7 +31,9 @@ export const AccountInfoPage = () => {
     handleInputChange,
     handleSave,
     hasChanges,
-    isAdmin
+    isAdmin,
+    isRoleEditable,
+    editableRoles
   } = useAccountInfo();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [calendarAnchor, setCalendarAnchor] = React.useState<null | HTMLElement>(null);
@@ -56,6 +58,11 @@ export const AccountInfoPage = () => {
     provinces,
     districts
   } = state;
+
+  const roleDisplayValue = React.useMemo(() => {
+    const matched = state.roles?.find((r: any) => String(r.role) === String(role) || String(r.id) === String(role));
+    return matched ? matched.name : role;
+  }, [state.roles, role]);
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
@@ -298,30 +305,40 @@ export const AccountInfoPage = () => {
                   />
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField
-                    select fullWidth label={<RequiredLabel label="Vai trò" />} variant="outlined" size="small"
-                    className={classes.field} value={role}
-                    onChange={(e) => handleInputChange('role', e.target.value)}
-                    onFocus={handleInputFocus}
-                    slotProps={{
-                      inputLabel: { shrink: true },
-                      select: { displayEmpty: true }
-                    }}
-                    disabled={loading || !isAdmin || username?.trim().toLowerCase() === 'testuser'}
-                  >
-                    <MenuItem value="" disabled selected>Chọn vai trò</MenuItem>
-                    {roles && roles.length > 0 ? (
-                      roles.map((r) => (
-                        <MenuItem key={r.id} value={r.role}>{r.name}</MenuItem>
-                      ))
-                    ) : [
-                      <MenuItem key="superAdmin" value="superAdmin">Quản trị viên</MenuItem>,
-                      <MenuItem key="leader" value="leader">Lãnh đạo</MenuItem>,
-                      <MenuItem key="expert" value="expert">Chuyên viên</MenuItem>,
-                      <MenuItem key="employee" value="employee">Nhân viên</MenuItem>,
-                      <MenuItem key="enterprise" value="enterprise">Quản trị DN</MenuItem>
-                    ]}
-                  </TextField>
+                  {isRoleEditable ? (
+                    <TextField
+                      select fullWidth label={<RequiredLabel label="Vai trò" />} variant="outlined" size="small"
+                      className={classes.field} value={role}
+                      onChange={(e) => handleInputChange('role', e.target.value)}
+                      onFocus={handleInputFocus}
+                      slotProps={{
+                        inputLabel: { shrink: true },
+                        select: { displayEmpty: true }
+                      }}
+                      disabled={loading || username?.trim().toLowerCase() === 'testuser'}
+                    >
+                      <MenuItem value="" disabled selected>Chọn vai trò</MenuItem>
+                      {editableRoles && editableRoles.length > 0 ? (
+                        editableRoles.map((r) => (
+                          <MenuItem key={r.id} value={r.role}>{r.name}</MenuItem>
+                        ))
+                      ) : [
+                        <MenuItem key="superAdmin" value="superAdmin">Quản trị viên</MenuItem>,
+                        <MenuItem key="leader" value="leader">Lãnh đạo</MenuItem>,
+                        <MenuItem key="expert" value="expert">Chuyên viên</MenuItem>,
+                        <MenuItem key="employee" value="employee">Nhân viên</MenuItem>,
+                        <MenuItem key="enterprise" value="enterprise">Quản trị DN</MenuItem>
+                      ]}
+                    </TextField>
+                  ) : (
+                    <TextField
+                      fullWidth label={<RequiredLabel label="Vai trò" />} variant="outlined" size="small"
+                      className={classes.field} value={roleDisplayValue}
+                      onFocus={handleInputFocus}
+                      slotProps={{ inputLabel: { shrink: true } }}
+                      disabled
+                    />
+                  )}
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
                   <TextField

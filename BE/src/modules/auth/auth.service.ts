@@ -149,6 +149,28 @@ export class AuthService {
         throw Response.errorUnauthorized("Mật khẩu đã thay đổi, vui lòng đăng nhập lại.");
       }
 
+      // Check if role has changed
+      if (payload.role && Number(dbUser.roleId) !== Number(payload.role.id)) {
+        throw Response.errorUnauthorized("Vai trò của tài khoản đã thay đổi, vui lòng đăng nhập lại.");
+      }
+
+      // Check if role configuration / permissions have changed
+      if (dbUser.role && dbUser.role.updatedAt && payload.iat) {
+        const tokenIssuedAt = new Date(payload.iat * 1000);
+        const dbRoleUpdatedAt = new Date(dbUser.role.updatedAt);
+        // Compare with tolerance of 2 seconds to avoid clock discrepancies
+        if (dbRoleUpdatedAt.getTime() > (payload.iat * 1000 + 2000)) {
+          throw Response.errorUnauthorized("Quyền hạn của vai trò đã thay đổi, vui lòng đăng nhập lại.");
+        }
+      }
+
+      // Check if allowedRoles has changed
+      const dbAllowed = Array.isArray(dbUser.allowedRoles) ? dbUser.allowedRoles.map(String).sort() : [];
+      const payloadAllowed = Array.isArray(payload.allowedRoles) ? payload.allowedRoles.map(String).sort() : [];
+      if (JSON.stringify(dbAllowed) !== JSON.stringify(payloadAllowed)) {
+        throw Response.errorUnauthorized("Danh sách vai trò được phép hoạt động đã thay đổi, vui lòng đăng nhập lại.");
+      }
+
       const _doet = (doet && doet.id) ? doet.id : (payload.doet || null);
       const user = new CurrentUser(_doet, payload);
       const views = await this.viewService.getViewsByRoleId(user.role?.id as any);

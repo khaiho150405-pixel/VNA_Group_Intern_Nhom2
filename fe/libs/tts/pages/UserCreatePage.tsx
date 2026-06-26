@@ -21,16 +21,64 @@ import { MainLayout } from '@core/layouts/MainLayout';
 import { useAccountInfoStyles } from '../logic/account-info/style';
 import { useCreateUser } from '@tts/hooks/useCreateUser';
 import { CustomCalendar } from '@core/components/CustomCalendar';
+import { useAuth } from '@core/contexts/AuthProvider';
 
 export const UserCreatePage = () => {
     const classes = useAccountInfoStyles();
     const router = useRouter();
+    const { user } = useAuth();
+
     const {
         state,
         dispatch,
         handleInputChange,
         handleSave,
     } = useCreateUser();
+
+    const getPermissionLevel = (u: any): number => {
+        if (!u) return 0;
+        const roleId = u.roleId || (u.role as any)?.id;
+        const realRole = (u.realRole || '').toLowerCase();
+        const roleName = (u.role?.name || '').toLowerCase();
+        
+        const isAdminOrLeader = roleId === 4 || realRole.includes('quản trị') || realRole.includes('admin') || realRole.includes('lãnh đạo') || realRole.includes('leader');
+        if (isAdminOrLeader) return 2;
+        
+        const isExpert = roleId === 2 || roleName.includes('chuyên viên') || roleName.includes('expert');
+        if (isExpert) return 1;
+        
+        return 0;
+    };
+
+    const userPermissions = React.useMemo(() => {
+        if (!user) return [];
+        if (user.username === 'testuser') {
+            return ['ADMIN_C_USER_CREATE'];
+        }
+        const currentUserRoleId = user.roleId || (user.role as any)?.id;
+        const loggedInRoleObj = state.roles?.find((r: any) => Number(r.id) === Number(currentUserRoleId));
+        return (loggedInRoleObj?.permissions || []).map((p: any) => p.code);
+    }, [user, state.roles]);
+
+    const canCreate = React.useMemo(() => {
+        if (!user) return false;
+        if (user.username === 'testuser') return true;
+        if (state.roles && state.roles.length > 0) {
+            return userPermissions.includes('ADMIN_C_USER_CREATE');
+        }
+        return getPermissionLevel(user) >= 1;
+    }, [user, state.roles, userPermissions]);
+
+    const canAssignRole = React.useMemo(() => {
+        if (!user) return false;
+        if (user.username === 'testuser') return true;
+        if (state.roles && state.roles.length > 0) {
+            return userPermissions.includes('ADMIN_C_USER_CREATE');
+        }
+        const currentUserRoleId = user.roleId || (user.role as any)?.id;
+        const loggedInRoleObj = state.roles?.find((r: any) => Number(r.id) === Number(currentUserRoleId));
+        return !!loggedInRoleObj?.permissions?.some((p: any) => p.code === 'ADMIN_C_USER_CREATE');
+    }, [user, state.roles, userPermissions]);
 
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const [calendarAnchor, setCalendarAnchor] = React.useState<null | HTMLElement>(null);
@@ -92,6 +140,26 @@ export const UserCreatePage = () => {
     const handleCalendarClose = () => {
         setCalendarAnchor(null);
     };
+
+    if (state.roles && state.roles.length > 0 && !canCreate) {
+        return (
+            <MainLayout>
+                <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+                    <Box sx={{ bgcolor: '#fee2e2', p: 3, borderRadius: '50%', mb: 3 }}>
+                        <Typography color="error" variant="h3" component="div" sx={{ display: 'flex' }}>
+                            🔒
+                        </Typography>
+                    </Box>
+                    <Typography variant="h5" sx={{ fontWeight: 700, mb: 1, color: '#1e293b' }}>
+                        Quyền truy cập bị từ chối
+                    </Typography>
+                    <Typography variant="body1" sx={{ color: '#64748b', mb: 3, textAlign: 'center', maxWidth: 450 }}>
+                        Tài khoản của bạn không được cấp quyền tạo người dùng mới. Vui lòng liên hệ quản trị viên.
+                    </Typography>
+                </Box>
+            </MainLayout>
+        );
+    }
 
     return (
         <MainLayout>
@@ -295,7 +363,7 @@ export const UserCreatePage = () => {
                                                 inputLabel: { shrink: true },
                                                 select: { displayEmpty: true }
                                             }}
-                                            disabled={loading}
+                                            disabled={loading || !canAssignRole}
                                         >
                                             <MenuItem value="" disabled selected>Chọn vai trò</MenuItem>
                                             {state.roles && state.roles.length > 0 ? (

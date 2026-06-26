@@ -99,7 +99,10 @@ export const useEditUser = () => {
                         address: userData.address || '',
                         active: userData.status === true,
                         avatarUrl: userData.avatar || '',
-                        title: userData.workUnit || ''
+                        title: userData.workUnit || '',
+                        allowedRoles: Array.isArray(userData.allowedRoles)
+                            ? userData.allowedRoles.map(String)
+                            : (userData.allowedRoles ? String(userData.allowedRoles).split(',').filter(Boolean) : [])
                     }
                 });
 
@@ -171,7 +174,8 @@ export const useEditUser = () => {
                 address: state.address || null,
                 avatar: state.avatarUrl || null,
                 workUnit: state.title,
-                status: state.active
+                status: state.active,
+                allowedRoles: state.allowedRoles || []
             };
 
 

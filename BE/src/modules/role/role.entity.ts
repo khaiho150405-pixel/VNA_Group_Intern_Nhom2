@@ -1,12 +1,13 @@
 import { BaseEntity } from 'src/commons';
-import { Column, Entity, PrimaryGeneratedColumn, OneToMany } from 'typeorm';
+import { Column, Entity, PrimaryGeneratedColumn, OneToMany, ManyToMany, JoinTable } from 'typeorm';
 import { User } from '../user/user.entity';
+import { Permission } from '../permission/permission.entity';
 
 @Entity('roles')
 export class Role extends BaseEntity {
   constructor(
     roles?: Partial<Role>,
-    keys: string[] = ['id', 'role', 'name', 'users', 'type', 'status'],
+    keys: string[] = ['id', 'role', 'name', 'users', 'type', 'status', 'permissions'],
   ) {
     super(roles);
     roles &&
@@ -34,4 +35,13 @@ export class Role extends BaseEntity {
     onUpdate: 'CASCADE',
   })
   users: Array<User>;
+
+  @ManyToMany(() => Permission, (permission) => permission.roles)
+  @JoinTable({
+    name: 'role_permissions',
+    joinColumn: { name: 'role_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'permission_code', referencedColumnName: 'code' },
+  })
+  permissions: Permission[];
 }
+

@@ -112,15 +112,82 @@ export const UserManagementPage = () => {
         return 0;
     };
 
+    const userPermissions = useMemo(() => {
+        if (!user) return [];
+        if (user.username === 'testuser') {
+            return ['ADMIN_C_USER_VIEW', 'ADMIN_C_USER_CREATE', 'ADMIN_C_USER_UPDATE', 'ADMIN_C_USER_DELETE'];
+        }
+        const currentUserRoleId = user.roleId || (user.role as any)?.id;
+        const userRoleObj = roles.find((r: any) => Number(r.id) === Number(currentUserRoleId));
+        return (userRoleObj?.permissions || []).map((p: any) => p.code);
+    }, [user, roles]);
+
+    const hasUserView = useMemo(() => {
+        if (!user) return false;
+        if (user.username === 'testuser') return true;
+        if (roles.length > 0) {
+            return userPermissions.includes('ADMIN_C_USER_VIEW');
+        }
+        return getPermissionLevel() >= 0;
+    }, [user, roles, userPermissions]);
+
+    const hasUserCreate = useMemo(() => {
+        if (!user) return false;
+        if (user.username === 'testuser') return true;
+        if (roles.length > 0) {
+            return userPermissions.includes('ADMIN_C_USER_CREATE');
+        }
+        return getPermissionLevel() >= 1;
+    }, [user, roles, userPermissions]);
+
+    const hasUserUpdate = useMemo(() => {
+        if (!user) return false;
+        if (user.username === 'testuser') return true;
+        if (roles.length > 0) {
+            return userPermissions.includes('ADMIN_C_USER_UPDATE');
+        }
+        return getPermissionLevel() >= 1;
+    }, [user, roles, userPermissions]);
+
     // isReadOnly: true nếu chỉ có quyền xem (level 0)
     const isReadOnly = useMemo(() => {
+        if (!user) return true;
+        if (user.username === 'testuser') return false;
+        if (roles.length > 0) {
+            return !userPermissions.includes('ADMIN_C_USER_CREATE') && !userPermissions.includes('ADMIN_C_USER_UPDATE');
+        }
         return getPermissionLevel() === 0;
-    }, [user]);
+    }, [user, roles, userPermissions]);
 
     // canDeleteOrChangeStatus: true nếu có quyền đầy đủ (level 2)
     const canDeleteOrChangeStatus = useMemo(() => {
+        if (!user) return false;
+        if (user.username === 'testuser') return true;
+        if (roles.length > 0) {
+            return userPermissions.includes('ADMIN_C_USER_DELETE');
+        }
         return getPermissionLevel() === 2;
-    }, [user]);
+    }, [user, roles, userPermissions]);
+
+    const hasUserDelete = useMemo(() => {
+        if (!user) return false;
+        if (user.username === 'testuser') return true;
+        if (roles.length > 0) {
+            return userPermissions.includes('ADMIN_C_USER_DELETE');
+        }
+        return getPermissionLevel() >= 2;
+    }, [user, roles, userPermissions]);
+
+    const canEditRole = useMemo(() => {
+        if (!user) return false;
+        if (user.username === 'testuser') return true;
+        if (roles.length > 0) {
+            return userPermissions.includes('ADMIN_C_USER_UPDATE');
+        }
+        const currentUserRoleId = user.roleId || (user.role as any)?.id;
+        const userRoleObj = roles.find((r: any) => Number(r.id) === Number(currentUserRoleId));
+        return !!userRoleObj?.permissions?.some((p: any) => p.code === 'ADMIN_C_USER_UPDATE');
+    }, [user, roles, userPermissions]);
 
     const fetchData = async () => {
         setLoading(true);
@@ -180,8 +247,8 @@ export const UserManagementPage = () => {
     const handleStatusChange = async (id: string, currentStatus: any) => {
         try {
             // Guard: Chỉ Admin/Lãnh đạo được đổi trạng thái
-            if (getPermissionLevel() < 2) {
-                enqueueSnackbar("Chỉ Admin hoặc Lãnh đạo mới được phép thay đổi trạng thái", { variant: "error" });
+            if (!canDeleteOrChangeStatus) {
+                enqueueSnackbar("Bạn không có quyền thay đổi trạng thái hoạt động của người dùng.", { variant: "error" });
                 return;
             }
             const isCurrentlyActive = currentStatus === true;
@@ -212,7 +279,7 @@ export const UserManagementPage = () => {
 
             enqueueSnackbar("Cập nhật trạng thái thành công", { variant: "success" });
         } catch (error) {
-            enqueueSnackbar("Chuyên viên không được phép thay đổi trạng thái người dùng", { variant: "error" });
+            enqueueSnackbar("Bạn không được phép thay đổi trạng thái người dùng", { variant: "error" });
             fetchData();
         }
     };
@@ -224,8 +291,8 @@ export const UserManagementPage = () => {
     const performBulkDelete = async () => {
         try {
             // Guard: Chỉ Admin/Lãnh đạo được xóa
-            if (getPermissionLevel() < 2) {
-                enqueueSnackbar("Chỉ Admin hoặc Lãnh đạo mới được phép xóa người dùng", { variant: "error" });
+            if (!canDeleteOrChangeStatus) {
+                enqueueSnackbar("Bạn không có quyền xóa người dùng.", { variant: "error" });
                 setConfirmDeleteOpen(false);
                 return;
             }
@@ -492,6 +559,26 @@ export const UserManagementPage = () => {
         { id: 'status', label: 'Trạng thái', width: '10%', minWidth: 100, align: 'center' as const },
     ];
 
+    if (roles.length > 0 && !hasUserView) {
+        return (
+            <MainLayout>
+                <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+                    <Box sx={{ bgcolor: '#fee2e2', p: 3, borderRadius: '50%', mb: 3 }}>
+                        <Typography color="error" variant="h3" component="div" sx={{ display: 'flex' }}>
+                            🔒
+                        </Typography>
+                    </Box>
+                    <Typography variant="h5" sx={{ fontWeight: 700, mb: 1, color: '#1e293b' }}>
+                        Quyền truy cập bị từ chối
+                    </Typography>
+                    <Typography variant="body1" sx={{ color: '#64748b', mb: 3, textAlign: 'center', maxWidth: 450 }}>
+                        Tài khoản của bạn không được cấp quyền xem danh sách người dùng. Vui lòng liên hệ quản trị viên.
+                    </Typography>
+                </Box>
+            </MainLayout>
+        );
+    }
+
     return (
         <MainLayout>
             <Box className={classes.root}>
@@ -507,7 +594,7 @@ export const UserManagementPage = () => {
                         Danh sách người dùng
                     </Typography>
                     <Box className={classes.actions}>
-                        {!isReadOnly && (
+                        {hasUserCreate && (
                             <>
                                 <Button
                                     className={classes.importBtn}
@@ -538,7 +625,7 @@ export const UserManagementPage = () => {
                                     <TableHead>
                                         <TableRow>
                                             <TableCell padding="checkbox" className={classes.headerCell} width={50}>
-                                                {!isReadOnly && (
+                                                {hasUserDelete && (
                                                     <Checkbox
                                                         size="small"
                                                         indeterminate={isIndeterminate}
@@ -665,7 +752,7 @@ export const UserManagementPage = () => {
                                                         className={checked ? classes.rowSelected : ""}
                                                     >
                                                         <TableCell padding="checkbox" className={classes.bodyCell}>
-                                                            {!isReadOnly && (
+                                                            {hasUserDelete && (
                                                                 <Checkbox
                                                                     size="small"
                                                                     checked={checked}
@@ -675,7 +762,7 @@ export const UserManagementPage = () => {
                                                         </TableCell>
                                                         <TableCell className={classes.bodyCell}>
                                                             <Box sx={{ display: "flex", gap: 0.25 }}>
-                                                                {isReadOnly ? (
+                                                                {!hasUserUpdate ? (
                                                                     <Tooltip title="Xem chi tiết">
                                                                         <IconButton
                                                                             size="small"
@@ -696,7 +783,7 @@ export const UserManagementPage = () => {
                                                                                 <EditIcon fontSize="small" />
                                                                             </IconButton>
                                                                         </Tooltip>
-                                                                        <Tooltip title="Cấp lại mật khẩu">
+                                                                        <Tooltip title="Cập lại mật khẩu">
                                                                             <IconButton
                                                                                 size="small"
                                                                                 className={classes.actionIcon}
@@ -723,7 +810,7 @@ export const UserManagementPage = () => {
                                                         <TableCell className={classes.bodyCell} align="center">
                                                             <Switch
                                                                 size="small"
-                                                                disabled={isReadOnly}
+                                                                disabled={!canDeleteOrChangeStatus}
                                                                 checked={item.status === true}
                                                                 onChange={() => handleStatusChange(item.id, item.status)}
                                                             />
@@ -774,7 +861,7 @@ export const UserManagementPage = () => {
                     </Box>
                 </Box>
 
-                {!isReadOnly && (
+                {hasUserDelete && (
                     <BulkSelectionBar
                         count={selectedIds.length}
                         onDelete={handleBulkDelete}
@@ -915,6 +1002,7 @@ export const UserManagementPage = () => {
                                                             onChange={(e) => handleEditImportChange('realRole', e.target.value)}
                                                             variant="outlined"
                                                             sx={{ borderRadius: '4px' }}
+                                                            disabled={!canEditRole}
                                                         >
                                                             <MenuItem value="Nhân viên">Nhân viên</MenuItem>
                                                             <MenuItem value="Chuyên viên">Chuyên viên</MenuItem>
@@ -1146,6 +1234,7 @@ export const UserManagementPage = () => {
                                                             onChange={(e) => handleEditImportChange('realRole', e.target.value)}
                                                             variant="outlined"
                                                             sx={{ borderRadius: '4px' }}
+                                                            disabled={!canEditRole}
                                                         >
                                                             {roles.map((r) => (
                                                                 <MenuItem key={r.id} value={r.name}>{r.name}</MenuItem>

@@ -31,6 +31,8 @@ export const NAVIGATION_ITEMS: NavItem[] = [
       { id: 'company-mgmt', label: 'Quản lý doanh nghiệp', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO'], path: '/doets' },
       { id: 'my-company', label: 'Thông tin doanh nghiệp', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_DN'], path: '/enterprise-profile' },
       { id: 'report-period', label: 'Kỳ báo cáo', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO'], path: '/report-periods' },
+      { id: 'roles', label: 'Quản lý vai trò', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO'], path: '/roles' },
+      { id: 'permissions', label: 'Quản lý quyền hạn', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO'], path: '/permissions' },
     ]
   },
   {

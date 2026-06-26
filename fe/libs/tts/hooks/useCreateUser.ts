@@ -136,7 +136,8 @@ export const useCreateUser = () => {
                 district: state.district ? { key: String(state.district), value: selectedDistrict?.name || state.district } : null,
                 address: state.address,
                 avatar: state.avatarUrl || '',
-                status: state.active
+                status: state.active,
+                allowedRoles: state.allowedRoles || []
             };
 
             const response = await userService.create(payload);

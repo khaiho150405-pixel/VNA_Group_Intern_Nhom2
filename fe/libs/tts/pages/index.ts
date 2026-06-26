@@ -13,3 +13,6 @@ export * from './AccidentReportDetailPage';
 export * from './AccidentReportSummaryPage';
 export * from './EnterpriseAccidentReportPage';
 export * from './ReportPeriodPage';
+export * from './PermissionListPage';
+export * from './RoleManagementPage';
+
