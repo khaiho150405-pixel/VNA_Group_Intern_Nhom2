@@ -273,10 +273,14 @@ export const UserEditPage = () => {
                                     <Typography style={{ fontWeight: 600, fontSize: '0.85rem', color: '#333' }}>Kích hoạt</Typography>
                                     <Switch
                                         checked={active}
-                                        onChange={() => dispatch({ type: 'toggleActive' })}
+                                        onChange={() => {
+                                            // Guard: testuser không được tắt trạng thái
+                                            if (username?.trim().toLowerCase() === 'testuser' && active === true) return;
+                                            dispatch({ type: 'toggleActive' });
+                                        }}
                                         color="primary"
                                         size="small"
-                                        disabled={loading || !canEdit || getPermissionLevel(user) < 2}
+                                        disabled={loading || !canEdit || getPermissionLevel(user) < 2 || (username?.trim().toLowerCase() === 'testuser')}
                                     />
                                 </Box>
                             </Box>

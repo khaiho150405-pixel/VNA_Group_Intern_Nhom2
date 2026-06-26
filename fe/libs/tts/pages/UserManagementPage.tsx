@@ -187,6 +187,13 @@ export const UserManagementPage = () => {
             const isCurrentlyActive = currentStatus === true;
             const nextStatus = !isCurrentlyActive;
 
+            // Guard: testuser không được tắt trạng thái
+            const targetUser = data.find((u) => u.id === id);
+            if (targetUser?.username?.trim().toLowerCase() === 'testuser' && isCurrentlyActive) {
+                enqueueSnackbar("Tài khoản admin testuser là tài khoản mặc định, không thể bị tắt trạng thái hoạt động.", { variant: "error" });
+                return;
+            }
+
             // Optimistic update
             setData((prev) =>
                 prev.map((item) =>
@@ -559,6 +566,7 @@ export const UserManagementPage = () => {
                                                 <TextField
                                                     fullWidth
                                                     size="small"
+                                                    placeholder="Tìm kiếm..."
                                                     className={classes.filterField}
                                                     value={filters.fullName}
                                                     onChange={(e) => handleFilterChange("fullName", e.target.value)}
@@ -568,6 +576,7 @@ export const UserManagementPage = () => {
                                                 <TextField
                                                     fullWidth
                                                     size="small"
+                                                    placeholder="Tìm kiếm..."
                                                     className={classes.filterField}
                                                     value={filters.username}
                                                     onChange={(e) => handleFilterChange("username", e.target.value)}
@@ -577,6 +586,7 @@ export const UserManagementPage = () => {
                                                 <TextField
                                                     fullWidth
                                                     size="small"
+                                                    placeholder="Tìm kiếm..."
                                                     className={classes.filterField}
                                                     value={filters.email}
                                                     onChange={(e) => handleFilterChange("email", e.target.value)}

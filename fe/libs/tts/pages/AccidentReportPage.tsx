@@ -5,10 +5,12 @@ import {
     Box, Typography, Button, Table, TableBody, TableCell,
     TableContainer, TableHead, TableRow, Checkbox,
     IconButton, TextField, Select, MenuItem, CircularProgress,
-    TablePagination, Autocomplete, InputAdornment, Divider, Grid
+    TablePagination, Autocomplete, InputAdornment, Divider, Grid,
+    Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
 import {
     Visibility as VisibilityIcon,
+    Close as CloseIcon
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -19,6 +21,7 @@ import { useAccidentReportStyles } from '../logic/accident-report/style';
 import { DoetService, periodicReportService } from '@tts/services';
 import { useAuth } from '@core/contexts/AuthProvider';
 import { EnterpriseAccidentReportPage } from './EnterpriseAccidentReportPage';
+import { ConfirmDialog } from '@core/components/ConfirmDialog';
 
 export const AccidentReportPage = () => {
     const classes = useAccidentReportStyles();
@@ -28,19 +31,106 @@ export const AccidentReportPage = () => {
 
     const isSo = (user as any)?.role?.type === 'SO';
 
-    if (!isSo) {
-        return (
-            <MainLayout>
-                <EnterpriseAccidentReportPage user={user} />
-            </MainLayout>
-        );
-    }
-
 
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<any[]>([]);
     const [total, setTotal] = useState(0);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+    const [rejectReason, setRejectReason] = useState('');
+    const [actionType, setActionType] = useState<'DA_TIEP_NHAN' | 'HUY_TIEP_NHAN' | null>(null);
+
+    const handleConfirmAction = (type: 'DA_TIEP_NHAN' | 'HUY_TIEP_NHAN') => {
+        setActionType(type);
+        if (type === 'HUY_TIEP_NHAN') {
+            setRejectReason('');
+            setCancelDialogOpen(true);
+        } else {
+            setConfirmOpen(true);
+        }
+    };
+
+    const handleExecuteCancel = async () => {
+        if (!rejectReason.trim()) {
+            enqueueSnackbar("Vui lòng nhập lý do hủy tiếp nhận", { variant: 'warning' });
+            return;
+        }
+        setCancelDialogOpen(false);
+        setLoading(true);
+
+        // Optimistic UI update
+        setData((prevData) =>
+            prevData.map((item) =>
+                selectedIds.includes(item.id)
+                    ? { ...item, status: 'HUY_TIEP_NHAN', rejectReason: rejectReason }
+                    : item
+            )
+        );
+
+        try {
+            await Promise.all(
+                selectedIds.map(id =>
+                    periodicReportService.update(Number(id), {
+                        status: 'HUY_TIEP_NHAN',
+                        rejectReason: rejectReason
+                    })
+                )
+            );
+            enqueueSnackbar("Hủy tiếp nhận báo cáo thành công", { variant: 'success' });
+            setSelectedIds([]);
+            setRejectReason('');
+            fetchData();
+        } catch (error: any) {
+            enqueueSnackbar(
+                error?.response?.data?.message || error?.message || "Đã xảy ra lỗi khi hủy tiếp nhận",
+                { variant: 'error' }
+            );
+            fetchData();
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleExecuteAction = async () => {
+        if (!actionType) return;
+        setConfirmOpen(false);
+        setLoading(true);
+
+        // Cập nhật trạng thái tức thời ở UI (Optimistic UI update)
+        setData((prevData) =>
+            prevData.map((item) =>
+                selectedIds.includes(item.id)
+                    ? { ...item, status: actionType }
+                    : item
+            )
+        );
+
+        try {
+            await Promise.all(
+                selectedIds.map(id => 
+                    periodicReportService.update(Number(id), { status: actionType })
+                )
+            );
+            enqueueSnackbar(
+                actionType === 'DA_TIEP_NHAN' 
+                    ? "Duyệt báo cáo thành công" 
+                    : "Hủy duyệt báo cáo thành công", 
+                { variant: 'success' }
+            );
+            setSelectedIds([]);
+            fetchData();
+        } catch (error: any) {
+            enqueueSnackbar(
+                error?.response?.data?.message || error?.message || "Đã xảy ra lỗi khi thực hiện thao tác", 
+                { variant: 'error' }
+            );
+            fetchData(); // Rollback bằng cách tải lại dữ liệu đúng từ server
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const years = useMemo(() => {
         const arr = [];
@@ -74,6 +164,7 @@ export const AccidentReportPage = () => {
     const [wards, setWards] = useState<any[]>([]);
 
     useEffect(() => {
+        if (!isSo) return;
         const fetchLocationMasterData = async () => {
             try {
                 const res: any = await DoetService.getProvinces();
@@ -88,9 +179,10 @@ export const AccidentReportPage = () => {
             }
         };
         fetchLocationMasterData();
-    }, []);
+    }, [isSo]);
 
     useEffect(() => {
+        if (!isSo) return;
         if (headerFilters.province?.code) {
             const fetchWards = async () => {
                 try {
@@ -109,7 +201,7 @@ export const AccidentReportPage = () => {
         } else {
             setWards([]);
         }
-    }, [headerFilters.province]);
+    }, [headerFilters.province, isSo]);
 
     const fetchData = async () => {
         setLoading(true);
@@ -139,8 +231,9 @@ export const AccidentReportPage = () => {
     };
 
     useEffect(() => {
+        if (!isSo) return;
         fetchData();
-    }, [headerFilters, tableFilters]);
+    }, [headerFilters, tableFilters, isSo]);
 
     const handleTableFilterChange = (field: string, value: any) => {
         setTableFilters((prev) => ({
@@ -152,8 +245,12 @@ export const AccidentReportPage = () => {
     };
 
     const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.checked) setSelectedIds(data.map((d) => d.id));
-        else setSelectedIds([]);
+        if (e.target.checked) {
+            const selectable = data.filter((d: any) => d.status !== 'CHO_BAO_CAO' && d.status !== 'DANG_BAO_CAO');
+            setSelectedIds(selectable.map((d: any) => d.id));
+        } else {
+            setSelectedIds([]);
+        }
     };
 
     const handleSelectOne = (id: string) => {
@@ -166,8 +263,8 @@ export const AccidentReportPage = () => {
         if (status === 'DANG_BAO_CAO') {
             return (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#94a3b8' }} />
-                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#1b3b87' }} />
+                    <Typography variant="body2" sx={{ color: '#1b3b87', fontWeight: 500 }}>
                         Đang báo cáo
                     </Typography>
                 </Box>
@@ -176,22 +273,64 @@ export const AccidentReportPage = () => {
         if (status === 'CHO_BAO_CAO') {
             return (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#cbd5e1' }} />
-                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#94a3b8' }} />
+                    <Typography variant="body2" sx={{ color: '#94a3b8', fontWeight: 500 }}>
                         Chờ báo cáo
+                    </Typography>
+                </Box>
+            );
+        }
+        if (status === 'CHO_XET_DUYET') {
+            return (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#f59e0b' }} />
+                    <Typography variant="body2" sx={{ color: '#f59e0b', fontWeight: 600 }}>
+                        Chờ xét duyệt
+                    </Typography>
+                </Box>
+            );
+        }
+        if (status === 'HUY_TIEP_NHAN') {
+            return (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#ef4444' }} />
+                    <Typography variant="body2" sx={{ color: '#ef4444', fontWeight: 600 }}>
+                        Hủy tiếp nhận
+                    </Typography>
+                </Box>
+            );
+        }
+        if (status === 'HET_HAN') {
+            return (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#cbd5e1' }} />
+                    <Typography variant="body2" sx={{ color: '#cbd5e1', fontWeight: 600 }}>
+                        Hết hạn báo cáo
                     </Typography>
                 </Box>
             );
         }
         return (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#3b82f6' }} />
-                <Typography variant="body2" color="primary" sx={{ fontWeight: 600 }}>
+                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#2e7d32' }} />
+                <Typography variant="body2" sx={{ color: '#2e7d32', fontWeight: 600 }}>
                     Đã tiếp nhận
                 </Typography>
             </Box>
         );
     };
+
+    if (!isSo) {
+        return (
+            <MainLayout>
+                <EnterpriseAccidentReportPage user={user} />
+            </MainLayout>
+        );
+    }
+
+    const selectedItems = data.filter((item: any) => selectedIds.includes(item.id));
+    const hasDaTiepNhan = selectedItems.some((item: any) => item.status === 'DA_TIEP_NHAN');
+    const hasHuyTiepNhan = selectedItems.some((item: any) => item.status === 'HUY_TIEP_NHAN');
 
     return (
         <MainLayout>
@@ -201,17 +340,18 @@ export const AccidentReportPage = () => {
                         Báo cáo định kỳ Tai nạn lao động
                     </Typography>
                     <Box className={classes.actions}>
-                        <Select
+                        <Autocomplete
                             size="small"
+                            options={years}
+                            getOptionLabel={(option) => String(option)}
                             value={headerFilters.year}
-                            onChange={(e) => setHeaderFilters(p => ({ ...p, year: Number(e.target.value) }))}
-                            className={classes.filterField}
-                            sx={{ minWidth: 100 }}
-                        >
-                            {years.map(y => (
-                                <MenuItem key={y} value={y}>{y}</MenuItem>
-                            ))}
-                        </Select>
+                            onChange={(_, newValue) => setHeaderFilters(p => ({ ...p, year: newValue || new Date().getFullYear() }))}
+                            renderInput={(params) => (
+                                <TextField {...params} className={classes.filterField} />
+                            )}
+                            disableClearable
+                            sx={{ width: 120 }}
+                        />
                         <Button
                             variant="outlined"
                             className={classes.importBtn}
@@ -279,8 +419,8 @@ export const AccidentReportPage = () => {
                                             <TableCell padding="checkbox" className={classes.headerCell}>
                                                 <Checkbox
                                                     size="small"
-                                                    indeterminate={selectedIds.length > 0 && selectedIds.length < data.length}
-                                                    checked={data.length > 0 && selectedIds.length === data.length}
+                                                    indeterminate={selectedIds.length > 0 && selectedIds.length < data.filter((d: any) => d.status !== 'CHO_BAO_CAO' && d.status !== 'DANG_BAO_CAO').length}
+                                                    checked={data.filter((d: any) => d.status !== 'CHO_BAO_CAO' && d.status !== 'DANG_BAO_CAO').length > 0 && selectedIds.length === data.filter((d: any) => d.status !== 'CHO_BAO_CAO' && d.status !== 'DANG_BAO_CAO').length}
                                                     onChange={handleSelectAll}
                                                 />
                                             </TableCell>
@@ -315,33 +455,52 @@ export const AccidentReportPage = () => {
                                                 />
                                             </TableCell>
                                             <TableCell className={classes.filterCell}>
-                                                <Select
+                                                <Autocomplete
                                                     size="small"
-                                                    fullWidth
-                                                    displayEmpty
-                                                    className={classes.filterField}
-                                                    value={tableFilters.reportPeriod}
-                                                    onChange={(e) => handleTableFilterChange('reportPeriod', e.target.value)}
-                                                >
-                                                    <MenuItem value="">Tất cả</MenuItem>
-                                                    <MenuItem value="6_THANG">6 tháng</MenuItem>
-                                                    <MenuItem value="CA_NAM">Cả năm</MenuItem>
-                                                </Select>
+                                                    options={[
+                                                        { label: "6 tháng", value: "6_THANG" },
+                                                        { label: "Cả năm", value: "CA_NAM" }
+                                                    ]}
+                                                    getOptionLabel={(option) => option.label}
+                                                    value={[
+                                                        { label: "6 tháng", value: "6_THANG" },
+                                                        { label: "Cả năm", value: "CA_NAM" }
+                                                    ].find(item => item.value === tableFilters.reportPeriod) || null}
+                                                    onChange={(_, newValue) =>
+                                                        handleTableFilterChange('reportPeriod', newValue?.value || '')
+                                                    }
+                                                    renderInput={(params) => (
+                                                        <TextField {...params} placeholder="Tất cả" className={classes.filterField} />
+                                                    )}
+                                                />
                                             </TableCell>
                                             <TableCell className={classes.filterCell}>
-                                                <Select
+                                                <Autocomplete
                                                     size="small"
-                                                    fullWidth
-                                                    displayEmpty
-                                                    className={classes.filterField}
-                                                    value={tableFilters.status}
-                                                    onChange={(e) => handleTableFilterChange('status', e.target.value)}
-                                                >
-                                                    <MenuItem value="">Tất cả</MenuItem>
-                                                    <MenuItem value="CHO_BAO_CAO">Chờ báo cáo</MenuItem>
-                                                    <MenuItem value="DANG_BAO_CAO">Đang báo cáo</MenuItem>
-                                                    <MenuItem value="DA_TIEP_NHAN">Đã tiếp nhận</MenuItem>
-                                                </Select>
+                                                    options={[
+                                                        { label: "Chờ báo cáo", value: "CHO_BAO_CAO" },
+                                                        { label: "Đang báo cáo", value: "DANG_BAO_CAO" },
+                                                        { label: "Chờ xét duyệt", value: "CHO_XET_DUYET" },
+                                                        { label: "Đã tiếp nhận", value: "DA_TIEP_NHAN" },
+                                                        { label: "Hủy tiếp nhận", value: "HUY_TIEP_NHAN" },
+                                                        { label: "Hết hạn báo cáo", value: "HET_HAN" }
+                                                    ]}
+                                                    getOptionLabel={(option) => option.label}
+                                                    value={[
+                                                        { label: "Chờ báo cáo", value: "CHO_BAO_CAO" },
+                                                        { label: "Đang báo cáo", value: "DANG_BAO_CAO" },
+                                                        { label: "Chờ xét duyệt", value: "CHO_XET_DUYET" },
+                                                        { label: "Đã tiếp nhận", value: "DA_TIEP_NHAN" },
+                                                        { label: "Hủy tiếp nhận", value: "HUY_TIEP_NHAN" },
+                                                        { label: "Hết hạn báo cáo", value: "HET_HAN" }
+                                                    ].find(item => item.value === tableFilters.status) || null}
+                                                    onChange={(_, newValue) =>
+                                                        handleTableFilterChange('status', newValue?.value || '')
+                                                    }
+                                                    renderInput={(params) => (
+                                                        <TextField {...params} placeholder="Tất cả" className={classes.filterField} />
+                                                    )}
+                                                />
                                             </TableCell>
                                         </TableRow>
                                     </TableHead>
@@ -369,15 +528,16 @@ export const AccidentReportPage = () => {
                                                                 size="small"
                                                                 checked={isChecked}
                                                                 onChange={() => handleSelectOne(item.id)}
+                                                                disabled={item.status === 'CHO_BAO_CAO' || item.status === 'DANG_BAO_CAO' || item.status === 'HET_HAN'}
                                                             />
                                                         </TableCell>
                                                         <TableCell className={classes.bodyCell}>
                                                             <IconButton
-                                                                component={item.status === 'CHO_BAO_CAO' ? 'button' : Link}
-                                                                href={item.status === 'CHO_BAO_CAO' ? undefined : `/accident-reports/${item.id}`}
+                                                                component={(item.status === 'CHO_BAO_CAO' || item.status === 'HET_HAN') ? 'button' : Link}
+                                                                href={(item.status === 'CHO_BAO_CAO' || item.status === 'HET_HAN') ? undefined : `/accident-reports/${item.id}`}
                                                                 size="small"
                                                                 className={classes.actionIcon}
-                                                                disabled={item.status === 'CHO_BAO_CAO'}
+                                                                disabled={item.status === 'CHO_BAO_CAO' || item.status === 'HET_HAN'}
                                                             >
                                                                 <VisibilityIcon fontSize="small" />
                                                             </IconButton>
@@ -408,8 +568,168 @@ export const AccidentReportPage = () => {
                                 className={classes.pageInfo}
                             />
                         </Box>
-                    </Box>
                 </Box>
+            </Box>
+
+            {selectedIds.length > 0 && (
+                <Box
+                    sx={{
+                        position: 'fixed',
+                        bottom: 24,
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        bgcolor: '#fff',
+                        boxShadow: '0px 12px 32px rgba(0, 0, 0, 0.12), 0px 4px 16px rgba(0, 0, 0, 0.04)',
+                        borderRadius: '8px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        p: '6px 12px',
+                        gap: 1.5,
+                        zIndex: 1300,
+                        border: '1px solid #e0e0e0',
+                    }}
+                >
+                    <Box
+                        sx={{
+                            bgcolor: '#2f65f0',
+                            color: '#fff',
+                            minWidth: 32,
+                            height: 32,
+                            borderRadius: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 600,
+                            fontSize: '0.95rem',
+                            px: 1,
+                        }}
+                    >
+                        {selectedIds.length}
+                    </Box>
+                    <Typography sx={{ fontSize: '0.9rem', color: '#333', whiteSpace: 'nowrap' }}>
+                        báo cáo được chọn
+                    </Typography>
+                    {!hasHuyTiepNhan && (
+                        <Button
+                            variant="contained"
+                            size="small"
+                            onClick={() => handleConfirmAction('HUY_TIEP_NHAN')}
+                            sx={{
+                                textTransform: 'none',
+                                borderRadius: '6px',
+                                bgcolor: '#ff453a',
+                                '&:hover': { bgcolor: '#e63930', boxShadow: '0px 8px 20px rgba(255, 69, 58, 0.35)' },
+                                fontWeight: 600,
+                                px: 2,
+                                boxShadow: '0px 4px 12px rgba(255, 69, 58, 0.2)',
+                                transition: 'all 0.2s ease-in-out',
+                            }}
+                        >
+                            Hủy duyệt
+                        </Button>
+                    )}
+                    {!hasDaTiepNhan && (
+                        <Button
+                            variant="contained"
+                            size="small"
+                            onClick={() => handleConfirmAction('DA_TIEP_NHAN')}
+                            sx={{
+                                textTransform: 'none',
+                                borderRadius: '6px',
+                                bgcolor: '#2f65f0',
+                                '&:hover': { bgcolor: '#2551c0', boxShadow: '0px 8px 20px rgba(47, 101, 240, 0.35)' },
+                                fontWeight: 600,
+                                px: 2,
+                                boxShadow: '0px 4px 12px rgba(47, 101, 240, 0.2)',
+                                transition: 'all 0.2s ease-in-out',
+                            }}
+                        >
+                            Duyệt
+                        </Button>
+                    )}
+                    <IconButton size="small" onClick={() => setSelectedIds([])} sx={{ color: '#999' }}>
+                        <CloseIcon fontSize="small" />
+                    </IconButton>
+                </Box>
+            )}
+
+            <ConfirmDialog
+                open={confirmOpen}
+                title="Xác nhận duyệt"
+                message={`Bạn có chắc chắn muốn duyệt và tiếp nhận ${selectedIds.length} báo cáo đã chọn? Sau khi tiếp nhận, doanh nghiệp sẽ không thể chỉnh sửa báo cáo.`}
+                onConfirm={handleExecuteAction}
+                onCancel={() => setConfirmOpen(false)}
+                confirmText="Duyệt"
+                isDestructive={false}
+            />
+
+            <Dialog
+                open={cancelDialogOpen}
+                onClose={() => setCancelDialogOpen(false)}
+                maxWidth="xs"
+                fullWidth
+            >
+                <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#ff453a', fontWeight: 600 }}>
+                    Lý do hủy tiếp nhận
+                </DialogTitle>
+                <DialogContent>
+                    <Typography variant="body2" sx={{ color: '#555', mb: 2 }}>
+                        Bạn có chắc chắn muốn hủy tiếp nhận {selectedIds.length} báo cáo đã chọn? Doanh nghiệp có thể chỉnh sửa và nộp lại báo cáo sau khi bị hủy tiếp nhận.
+                    </Typography>
+                    <TextField
+                        autoFocus
+                        fullWidth
+                        multiline
+                        rows={3}
+                        variant="outlined"
+                        placeholder="Nhập lý do hủy tiếp nhận..."
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                        slotProps={{
+                            input: {
+                                style: { fontSize: '0.875rem' }
+                            }
+                        }}
+                    />
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button
+                        onClick={() => setCancelDialogOpen(false)}
+                        disableRipple
+                        sx={{
+                            textTransform: 'none',
+                            color: '#666',
+                            fontSize: '0.875rem',
+                            borderRadius: '6px',
+                            padding: '4.8px 18px',
+                            boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
+                            transition: 'all 0.2s ease-in-out',
+                            '&:hover': {
+                                backgroundColor: '#f5f5f7',
+                                color: '#333',
+                                boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)',
+                            },
+                        }}
+                    >
+                        Hủy
+                    </Button>
+                    <Button
+                        onClick={handleExecuteCancel}
+                        variant="contained"
+                        disabled={!rejectReason.trim()}
+                        sx={{
+                            textTransform: 'none',
+                            borderRadius: '6px',
+                            bgcolor: '#ff453a',
+                            '&:hover': { bgcolor: '#e63930' },
+                            fontWeight: 600,
+                            px: 3
+                        }}
+                    >
+                        Xác nhận hủy
+                    </Button>
+                </DialogActions>
+            </Dialog>
             </Box>
         </MainLayout>
     );

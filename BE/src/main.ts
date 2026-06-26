@@ -44,7 +44,7 @@ async function bootstrap() {
 
   const port = process.env.VNA_PORT || 3000;
   Logger.log(`==== ${port} ====`);
-  await app.listen(port, '0.0.0.0', () =>
+  await app.listen(port, () =>
     Logger.log(`==== BE listening on port ${port} ====`),
   );
 }

@@ -27,7 +27,7 @@ export const BulkSelectionBar = ({
         left: '50%',
         transform: 'translateX(-50%)',
         bgcolor: '#fff',
-        boxShadow: '0px 4px 20px rgba(0,0,0,0.15)',
+        boxShadow: '0px 12px 32px rgba(0, 0, 0, 0.12), 0px 4px 16px rgba(0, 0, 0, 0.04)',
         borderRadius: '8px',
         display: 'inline-flex',
         alignItems: 'center',
@@ -67,10 +67,11 @@ export const BulkSelectionBar = ({
           textTransform: 'none',
           borderRadius: '6px',
           bgcolor: '#ff453a',
-          '&:hover': { bgcolor: '#e63930' },
+          '&:hover': { bgcolor: '#e63930', boxShadow: '0px 8px 20px rgba(255, 69, 58, 0.35)' },
           fontWeight: 500,
           px: 2,
-          boxShadow: 'none',
+          boxShadow: '0px 4px 12px rgba(255, 69, 58, 0.2)',
+          transition: 'all 0.2s ease-in-out',
         }}
       >
         Xoá

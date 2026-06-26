@@ -1141,7 +1141,7 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
           py: 1.5,
           backgroundColor: '#fff',
           borderRadius: 1,
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          boxShadow: '0px 2px 12px rgba(0, 0, 0, 0.04)'
         }}>
           <Typography sx={{ 
             fontSize: '1.25rem', 
@@ -1160,14 +1160,16 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
                 textTransform: 'none',
                 color: '#666',
                 fontSize: '0.85rem',
-                borderRadius: 6,
+                borderRadius: '6px',
                 padding: '4px 16px',
                 minWidth: 'auto',
                 backgroundColor: 'transparent',
-                boxShadow: 'none',
+                boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
+                transition: 'all 0.2s ease-in-out',
                 '&:hover': {
                   backgroundColor: '#f5f5f7',
-                  color: '#333'
+                  color: '#333',
+                  boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)'
                 }
               }}
             >
@@ -1178,7 +1180,6 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
                 variant="contained"
                 onClick={handleNext}
                 disabled={submitting || (isEdit || isProfile ? !hasChanges() : false)}
-                disableElevation
                 sx={{
                   textTransform: 'none',
                   backgroundColor: '#2f65f0',
@@ -1186,13 +1187,17 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
                   py: 0.5,
                   fontSize: '0.85rem',
                   fontWeight: 600,
-                  borderRadius: 6,
+                  borderRadius: '6px',
+                  boxShadow: '0px 4px 12px rgba(47, 101, 240, 0.2)',
+                  transition: 'all 0.2s ease-in-out',
                   '&:hover': {
-                    backgroundColor: '#1e4fd1'
+                    backgroundColor: '#1e4fd1',
+                    boxShadow: '0px 8px 20px rgba(47, 101, 240, 0.35)'
                   },
                   ...(submitting || ((isEdit || isProfile) && !hasChanges()) ? {
                     backgroundColor: '#b0b0b0 !important',
-                    cursor: 'not-allowed'
+                    cursor: 'not-allowed',
+                    boxShadow: 'none !important'
                   } : {})
                 }}
               >
@@ -1204,7 +1209,6 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
                   variant="contained"
                   onClick={handleSubmit}
                   disabled={submitting || ((isEdit || isProfile) && !hasChanges())}
-                  disableElevation
                   sx={{
                     textTransform: 'none',
                     backgroundColor: '#2f65f0',
@@ -1212,13 +1216,17 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
                     py: 0.5,
                     fontSize: '0.85rem',
                     fontWeight: 600,
-                    borderRadius: 6,
+                    borderRadius: '6px',
+                    boxShadow: '0px 4px 12px rgba(47, 101, 240, 0.2)',
+                    transition: 'all 0.2s ease-in-out',
                     '&:hover': {
-                      backgroundColor: '#1e4fd1'
+                      backgroundColor: '#1e4fd1',
+                      boxShadow: '0px 8px 20px rgba(47, 101, 240, 0.35)'
                     },
                     ...(submitting || ((isEdit || isProfile) && !hasChanges()) ? {
                       backgroundColor: '#b0b0b0 !important',
-                      cursor: 'not-allowed'
+                      cursor: 'not-allowed',
+                      boxShadow: 'none !important'
                     } : {})
                   }}
                 >

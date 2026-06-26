@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, UseInterceptors, ClassSerializerInterceptor } from "@nestjs/common";
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, UseInterceptors, ClassSerializerInterceptor, Request } from "@nestjs/common";
 import { ApiTags, ApiOperation } from "@nestjs/swagger";
 import { AuthGuard } from "src/commons/guards/authGuard";
 import { ResponseInterceptor } from "src/commons";
@@ -15,6 +15,12 @@ export class ReportPeriodController {
   @ApiOperation({ summary: "Lấy danh sách kỳ báo cáo" })
   async getList(@Query() query: any) {
     return await this.reportPeriodService.findAll(query);
+  }
+
+  @Get("for-enterprise")
+  @ApiOperation({ summary: "Lấy danh sách kỳ báo cáo dành cho doanh nghiệp (có ràng buộc ngày đăng ký)" })
+  async getForEnterprise(@Query() query: any, @Request() req: any) {
+    return await this.reportPeriodService.findForEnterprise(req.user, query);
   }
 
   @Get(":id")

@@ -45,7 +45,24 @@ export const ConfirmDialog = ({
         </DialogContentText>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onCancel} variant="outlined" color="inherit" sx={{ textTransform: 'none', borderRadius: '6px' }}>
+        <Button
+          onClick={onCancel}
+          disableRipple
+          sx={{
+            textTransform: 'none',
+            color: '#666',
+            fontSize: '0.875rem',
+            borderRadius: '6px',
+            padding: '4.8px 18px',
+            boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
+            transition: 'all 0.2s ease-in-out',
+            '&:hover': {
+              backgroundColor: '#f5f5f7',
+              color: '#333',
+              boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)',
+            },
+          }}
+        >
           {cancelText}
         </Button>
         <Button 

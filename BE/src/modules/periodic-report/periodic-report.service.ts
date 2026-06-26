@@ -91,15 +91,29 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
       });
 
       for (const d of doets) {
+        const regDate = d.createdAt ? new Date(d.createdAt) : null;
+        if (regDate) {
+          regDate.setHours(0, 0, 0, 0);
+        }
         for (const config of activePeriods) {
           if (period && config.period !== period) continue;
+
+          if (regDate) {
+            const periodEnd = new Date(config.endDate);
+            periodEnd.setHours(0, 0, 0, 0);
+            if (regDate > periodEnd) {
+              continue;
+            }
+          }
+
           allPossibleReports.push({
             doetId: d.id,
             companyName: d.name,
             taxCode: d.taxCode,
             period: config.period,
             year: filterYear,
-            doet: d
+            doet: d,
+            config: config
           });
         }
       }
@@ -111,12 +125,22 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
 
       let finalItems = allPossibleReports.map(rep => {
         const match = existingReports.find(r => String(r.doetId) === String(rep.doetId) && r.period === rep.period);
+        
+        let finalStatus = match?.status || 'CHO_BAO_CAO';
+        if (!match && rep.config) {
+          const now = new Date();
+          const periodEnd = new Date(rep.config.endDate);
+          if (periodEnd < now) {
+            finalStatus = 'HET_HAN';
+          }
+        }
+
         return {
           id: match?.id || `virtual_${rep.doetId}_${rep.period}`,
           doetId: rep.doetId,
           year: rep.year,
           period: rep.period,
-          status: match?.status || 'CHO_BAO_CAO',
+          status: finalStatus,
           companyName: rep.companyName,
           taxCode: rep.taxCode,
           doet: rep.doet,
@@ -350,8 +374,8 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
       }
     }
 
-    const status = payload.status || 'DA_TIEP_NHAN';
-    if (status === 'DA_TIEP_NHAN') {
+    const status = payload.status || 'CHO_XET_DUYET';
+    if (status === 'DA_TIEP_NHAN' || status === 'CHO_XET_DUYET') {
       if (!payload.reportFileUrl) throw new BadRequestException("Vui lòng đính kèm báo cáo TNLĐ có dấu mộc công ty");
       if (payload.totalEmployees === undefined || payload.totalEmployees === null || payload.totalEmployees === '') throw new BadRequestException("Tổng số lao động là bắt buộc");
       if (payload.femaleEmployees === undefined || payload.femaleEmployees === null || payload.femaleEmployees === '') throw new BadRequestException("Tổng số lao động nữ là bắt buộc");
@@ -423,12 +447,29 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
       }
     }
 
-    const status = payload.status || 'DA_TIEP_NHAN';
+    const isSoUser = currentUser?.role?.type === 'SO';
+    let status = payload.status || 'CHO_XET_DUYET';
+
+    // Doanh nghiệp không được phép tự đặt trạng thái DA_TIEP_NHAN hoặc HUY_TIEP_NHAN
+    if (!isSoUser && (status === 'DA_TIEP_NHAN' || status === 'HUY_TIEP_NHAN')) {
+      status = 'CHO_XET_DUYET';
+    }
     const currentReport = await this.reportRepo.findOne({ where: { id } });
     if (!currentReport) throw new BadRequestException("Không tìm thấy báo cáo");
-    if (currentReport.status === 'DA_TIEP_NHAN') throw new BadRequestException("Báo cáo đã được tiếp nhận, không thể chỉnh sửa");
+    
+    if (!isSoUser && (currentReport.status === 'DA_TIEP_NHAN' || currentReport.status === 'CHO_XET_DUYET')) {
+      throw new BadRequestException("Báo cáo đang chờ xét duyệt hoặc đã được tiếp nhận, không thể chỉnh sửa");
+    }
 
-    if (status === 'DA_TIEP_NHAN') {
+    if (status === 'HUY_TIEP_NHAN') {
+      if (!payload.rejectReason || !payload.rejectReason.trim()) {
+        throw new BadRequestException("Vui lòng cung cấp lý do hủy tiếp nhận");
+      }
+    } else if (status === 'DA_TIEP_NHAN' || status === 'CHO_XET_DUYET') {
+      payload.rejectReason = null;
+    }
+
+    if (!isSoUser && (status === 'DA_TIEP_NHAN' || status === 'CHO_XET_DUYET')) {
       if (!payload.reportFileUrl) throw new BadRequestException("Vui lòng đính kèm báo cáo TNLĐ có dấu mộc công ty");
       
       const total = payload.totalEmployees !== undefined ? payload.totalEmployees : currentReport.totalEmployees;

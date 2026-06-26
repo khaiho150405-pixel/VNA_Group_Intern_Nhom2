@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { makeStyles } from "@mui/styles";
 import { Theme } from "@mui/material/styles";
 
@@ -13,7 +13,7 @@ export const useResetPasswordStyles = makeStyles((theme: Theme) => ({
     backgroundColor: "#ffffff",
     padding: theme.spacing(4, 4),
     borderRadius: 12,
-    boxShadow: "0px 8px 30px rgba(0, 0, 0, 0.06)", 
+    boxShadow: "0px 12px 32px rgba(0, 0, 0, 0.04), 0px 2px 8px rgba(0, 0, 0, 0.02)", 
     border: "1px solid #f5f5f5",
     boxSizing: "border-box",
   },
@@ -61,6 +61,8 @@ export const useResetPasswordStyles = makeStyles((theme: Theme) => ({
     borderRadius: 6,
     textTransform: "none",
     fontSize: "0.95rem",
-    "&:hover": { backgroundColor: "#1e4fd1" },
+    boxShadow: "0px 4px 12px rgba(47, 101, 240, 0.2)",
+    transition: "all 0.2s ease-in-out",
+    "&:hover": { backgroundColor: "#1e4fd1", boxShadow: "0px 8px 20px rgba(47, 101, 240, 0.35)" },
   },
 }));

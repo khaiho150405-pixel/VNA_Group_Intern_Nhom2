@@ -1012,7 +1012,7 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
 
         <DialogContent sx={{ p: 0, bgcolor: '#f4f6f8', minHeight: 400 }}>
           {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}><CircularProgress /></Box>
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}><CircularProgress /></Box>
           ) : (
             <Box className={classes.content}>
               {(step === 0 || step === 1) && renderStep1()}

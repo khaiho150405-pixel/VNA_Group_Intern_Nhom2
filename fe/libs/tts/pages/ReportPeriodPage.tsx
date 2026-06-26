@@ -23,12 +23,14 @@ import {
   DialogActions,
   Grid,
   Autocomplete,
+  InputAdornment,
 } from "@mui/material";
 import {
   Edit as EditIcon,
   Add as AddIcon,
   Close as CloseIcon,
   Save as SaveIcon,
+  Event as EventIcon,
 } from "@mui/icons-material";
 import { useSnackbar } from "notistack";
 import { makeStyles } from "@mui/styles";
@@ -36,6 +38,8 @@ import { Theme } from "@mui/material/styles";
 
 import { MainLayout } from "@core/layouts/MainLayout";
 import { reportPeriodService } from "@tts/services";
+import { CustomCalendar } from "@core/components/CustomCalendar";
+import { formatDateInput, formatDateDisplay } from "@core/utils/helper";
 
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
@@ -50,7 +54,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    boxShadow: "0px 4px 10px rgba(0,0,0,0.08)",
+    boxShadow: "0px 2px 12px rgba(0, 0, 0, 0.04)",
     zIndex: 1,
     minHeight: 64,
   },
@@ -74,10 +78,11 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontSize: "0.85rem",
     padding: theme.spacing(0.6, 2),
     borderRadius: 6,
-    boxShadow: "none",
+    boxShadow: "0px 4px 12px rgba(47, 101, 240, 0.2)",
+    transition: "all 0.2s ease-in-out",
     "&:hover": {
       backgroundColor: "#1e4fd1",
-      boxShadow: "none",
+      boxShadow: "0px 8px 20px rgba(47, 101, 240, 0.35)",
     },
   },
   mainContent: {
@@ -89,7 +94,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   card: {
     backgroundColor: "#fff",
     borderRadius: 8,
-    boxShadow: "0px 4px 20px rgba(0,0,0,0.08)",
+    boxShadow: "0px 8px 24px rgba(0, 0, 0, 0.04), 0px 2px 6px rgba(0, 0, 0, 0.02)",
     border: "1px solid #f0f0f0",
     overflow: "hidden",
     display: "flex",
@@ -187,7 +192,7 @@ export const ReportPeriodPage = () => {
   const years = useMemo(() => {
     const arr = [];
     const current = new Date().getFullYear();
-    for (let y = current + 5; y >= 2000; y--) {
+    for (let y = current; y >= 2000; y--) {
       arr.push(y);
     }
     return arr;
@@ -216,6 +221,132 @@ export const ReportPeriodPage = () => {
     endDate: "",
     status: "ACTIVE",
   });
+
+  const [filterStartAnchor, setFilterStartAnchor] = useState<null | HTMLElement>(null);
+  const [filterEndAnchor, setFilterEndAnchor] = useState<null | HTMLElement>(null);
+  const [filterStartInput, setFilterStartInput] = useState('');
+  const [filterEndInput, setFilterEndInput] = useState('');
+
+  const [formStartAnchor, setFormStartAnchor] = useState<null | HTMLElement>(null);
+  const [formEndAnchor, setFormEndAnchor] = useState<null | HTMLElement>(null);
+  const [formStartInput, setFormStartInput] = useState('');
+  const [formEndInput, setFormEndInput] = useState('');
+
+  useEffect(() => {
+    setFilterStartInput(formatDateDisplay(filters.startDate));
+  }, [filters.startDate]);
+
+  useEffect(() => {
+    setFilterEndInput(formatDateDisplay(filters.endDate));
+  }, [filters.endDate]);
+
+  useEffect(() => {
+    setFormStartInput(formatDateDisplay(form.startDate));
+  }, [form.startDate]);
+
+  useEffect(() => {
+    setFormEndInput(formatDateDisplay(form.endDate));
+  }, [form.endDate]);
+
+  const handleFilterStartInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    const filtered = val.replace(/[^0-9/]/g, '');
+    setFilterStartInput(filtered);
+
+    const reg = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+    const match = filtered.match(reg);
+    if (match) {
+      const d = parseInt(match[1], 10);
+      const m = parseInt(match[2], 10) - 1;
+      const y = parseInt(match[3], 10);
+      if (y > 1900 && y < 2100 && m >= 0 && m < 12 && d > 0 && d <= 31) {
+        const date = new Date(y, m, d);
+        if (!isNaN(date.getTime())) {
+          handleFilterChange("startDate", formatDateInput(date));
+        }
+      }
+    } else if (filtered === '') {
+      handleFilterChange("startDate", "");
+    }
+  };
+
+  const handleFilterEndInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    const filtered = val.replace(/[^0-9/]/g, '');
+    setFilterEndInput(filtered);
+
+    const reg = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+    const match = filtered.match(reg);
+    if (match) {
+      const d = parseInt(match[1], 10);
+      const m = parseInt(match[2], 10) - 1;
+      const y = parseInt(match[3], 10);
+      if (y > 1900 && y < 2100 && m >= 0 && m < 12 && d > 0 && d <= 31) {
+        const date = new Date(y, m, d);
+        if (!isNaN(date.getTime())) {
+          handleFilterChange("endDate", formatDateInput(date));
+        }
+      }
+    } else if (filtered === '') {
+      handleFilterChange("endDate", "");
+    }
+  };
+
+  const handleFormStartInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    const filtered = val.replace(/[^0-9/]/g, '');
+    setFormStartInput(filtered);
+
+    const reg = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+    const match = filtered.match(reg);
+    if (match) {
+      const d = parseInt(match[1], 10);
+      const m = parseInt(match[2], 10) - 1;
+      const y = parseInt(match[3], 10);
+      if (y > 1900 && y < 2100 && m >= 0 && m < 12 && d > 0 && d <= 31) {
+        const date = new Date(y, m, d);
+        if (!isNaN(date.getTime())) {
+          const dateStr = formatDateInput(date);
+          const updatedForm = { ...form, startDate: dateStr };
+          const yearMatch = dateStr.match(/^(\d{4})/);
+          if (yearMatch) {
+            updatedForm.year = yearMatch[1];
+          }
+          setForm(updatedForm);
+        }
+      }
+    } else if (filtered === '') {
+      setForm({ ...form, startDate: "" });
+    }
+  };
+
+  const handleFormEndInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    const filtered = val.replace(/[^0-9/]/g, '');
+    setFormEndInput(filtered);
+
+    const reg = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+    const match = filtered.match(reg);
+    if (match) {
+      const d = parseInt(match[1], 10);
+      const m = parseInt(match[2], 10) - 1;
+      const y = parseInt(match[3], 10);
+      if (y > 1900 && y < 2100 && m >= 0 && m < 12 && d > 0 && d <= 31) {
+        const date = new Date(y, m, d);
+        if (!isNaN(date.getTime())) {
+          const dateStr = formatDateInput(date);
+          const updatedForm = { ...form, endDate: dateStr };
+          const yearMatch = dateStr.match(/^(\d{4})/);
+          if (yearMatch) {
+            updatedForm.year = yearMatch[1];
+          }
+          setForm(updatedForm);
+        }
+      }
+    } else if (filtered === '') {
+      setForm({ ...form, endDate: "" });
+    }
+  };
 
   const fetchList = async () => {
     setLoading(true);
@@ -286,6 +417,37 @@ export const ReportPeriodPage = () => {
       enqueueSnackbar("Ngày kết thúc không được nhỏ hơn ngày bắt đầu", { variant: "warning" });
       return;
     }
+    const targetYear = parseInt(form.year);
+    const getYearFromDate = (dateStr: string): number => {
+      const match = dateStr.match(/^(\d{4})/);
+      if (match) return parseInt(match[1], 10);
+      return new Date(dateStr).getFullYear();
+    };
+
+    const startYear = getYearFromDate(form.startDate);
+    const endYear = getYearFromDate(form.endDate);
+
+    if (startYear !== targetYear) {
+      enqueueSnackbar(`Ngày bắt đầu phải nằm trong năm ${targetYear}`, { variant: "warning" });
+      return;
+    }
+    if (endYear !== targetYear) {
+      enqueueSnackbar(`Ngày kết thúc phải nằm trong năm ${targetYear}`, { variant: "warning" });
+      return;
+    }
+
+    // Kiểm tra trùng lặp kỳ báo cáo trong năm ở frontend
+    const duplicateLocal = data.find(
+      (item) => String(item.year) === form.year && item.period === form.period && item.id !== editId
+    );
+    if (duplicateLocal) {
+      enqueueSnackbar(
+        `Đã tồn tại cấu hình kỳ báo cáo ${form.period === "CA_NAM" ? "Cả năm" : "6 tháng"} cho năm ${form.year}`,
+        { variant: "warning" }
+      );
+      return;
+    }
+
     setLoading(true);
     try {
       if (editId) {
@@ -299,7 +461,20 @@ export const ReportPeriodPage = () => {
       fetchList();
     } catch (err: any) {
       console.error("Error saving period config", err);
-      enqueueSnackbar(err?.response?.data?.message || err?.message || "Lỗi khi lưu cấu hình", { variant: "error" });
+      const getErrorMessage = (e: any, defaultMsg: string) => {
+        if (e?.response?.data) {
+          const resData = e.response.data;
+          if (resData.errors) {
+            if (typeof resData.errors === "string") return resData.errors;
+            if (typeof resData.errors === "object" && resData.errors.message) return resData.errors.message;
+          }
+          if (resData.message) {
+            return Array.isArray(resData.message) ? resData.message[0] : resData.message;
+          }
+        }
+        return e?.message || defaultMsg;
+      };
+      enqueueSnackbar(getErrorMessage(err, "Lỗi khi lưu cấu hình"), { variant: "error" });
     } finally {
       setLoading(false);
     }
@@ -311,9 +486,22 @@ export const ReportPeriodPage = () => {
       await reportPeriodService.update(item.id, { status: nextStatus });
       enqueueSnackbar("Cập nhật trạng thái kỳ báo cáo thành công", { variant: "success" });
       fetchList();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error updating status config", err);
-      enqueueSnackbar("Lỗi khi cập nhật trạng thái", { variant: "error" });
+      const getErrorMessage = (e: any, defaultMsg: string) => {
+        if (e?.response?.data) {
+          const resData = e.response.data;
+          if (resData.errors) {
+            if (typeof resData.errors === "string") return resData.errors;
+            if (typeof resData.errors === "object" && resData.errors.message) return resData.errors.message;
+          }
+          if (resData.message) {
+            return Array.isArray(resData.message) ? resData.message[0] : resData.message;
+          }
+        }
+        return e?.message || defaultMsg;
+      };
+      enqueueSnackbar(getErrorMessage(err, "Lỗi khi cập nhật trạng thái"), { variant: "error" });
     }
   };
 
@@ -390,75 +578,146 @@ export const ReportPeriodPage = () => {
                         className={classes.filterField}
                         size="small"
                         fullWidth
+                        placeholder="Tìm kiếm..."
                         value={filters.year}
                         onChange={(e) => handleFilterChange("year", e.target.value.replace(/[^0-9]/g, ""))}
                       />
                     </TableCell>
                     <TableCell className={classes.filterCell}>
-                      <Select
-                        className={classes.filterField}
+                      <Autocomplete
                         size="small"
-                        fullWidth
-                        displayEmpty
-                        value={filters.reportName}
-                        onChange={(e) => handleFilterChange("reportName", e.target.value)}
-                        sx={{ height: 32 }}
-                      >
-                        <MenuItem value="">-- Tất cả --</MenuItem>
-                        <MenuItem value="Báo cáo tai nạn lao động">Báo cáo tai nạn lao động</MenuItem>
-                      </Select>
-                    </TableCell>
-                    <TableCell className={classes.filterCell}>
-                      <Select
-                        className={classes.filterField}
-                        size="small"
-                        fullWidth
-                        displayEmpty
-                        value={filters.period}
-                        onChange={(e) => handleFilterChange("period", e.target.value)}
-                        sx={{ height: 32 }}
-                      >
-                        <MenuItem value="">-- Tất cả --</MenuItem>
-                        <MenuItem value="CA_NAM">Cả năm</MenuItem>
-                        <MenuItem value="6_THANG">6 tháng</MenuItem>
-                      </Select>
-                    </TableCell>
-                    <TableCell className={classes.filterCell}>
-                      <TextField
-                        className={classes.filterField}
-                        size="small"
-                        fullWidth
-                        type="date"
-                        slotProps={{ inputLabel: { shrink: true } }}
-                        value={filters.startDate}
-                        onChange={(e) => handleFilterChange("startDate", e.target.value)}
+                        options={[
+                          { label: "Báo cáo tai nạn lao động", value: "Báo cáo tai nạn lao động" }
+                        ]}
+                        getOptionLabel={(option) => option.label}
+                        value={[
+                          { label: "Báo cáo tai nạn lao động", value: "Báo cáo tai nạn lao động" }
+                        ].find(o => o.value === filters.reportName) || null}
+                        onChange={(_, newValue) => handleFilterChange("reportName", newValue?.value || "")}
+                        renderInput={(params) => (
+                          <TextField {...params} placeholder="Tất cả" className={classes.filterField} />
+                        )}
                       />
                     </TableCell>
                     <TableCell className={classes.filterCell}>
-                      <TextField
-                        className={classes.filterField}
+                      <Autocomplete
                         size="small"
-                        fullWidth
-                        type="date"
-                        slotProps={{ inputLabel: { shrink: true } }}
-                        value={filters.endDate}
-                        onChange={(e) => handleFilterChange("endDate", e.target.value)}
+                        options={[
+                          { label: "Cả năm", value: "CA_NAM" },
+                          { label: "6 tháng", value: "6_THANG" }
+                        ]}
+                        getOptionLabel={(option) => option.label}
+                        value={[
+                          { label: "Cả năm", value: "CA_NAM" },
+                          { label: "6 tháng", value: "6_THANG" }
+                        ].find(o => o.value === filters.period) || null}
+                        onChange={(_, newValue) => handleFilterChange("period", newValue?.value || "")}
+                        renderInput={(params) => (
+                          <TextField {...params} placeholder="Tất cả" className={classes.filterField} />
+                        )}
                       />
                     </TableCell>
                     <TableCell className={classes.filterCell}>
-                      <Select
-                        className={classes.filterField}
+                      <Box sx={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+                        <TextField
+                          className={classes.filterField}
+                          size="small"
+                          fullWidth
+                          value={filterStartInput}
+                          onChange={handleFilterStartInputChange}
+                          autoComplete="off"
+                          placeholder="DD/MM/YYYY"
+                          onClick={(e) => setFilterStartAnchor(e.currentTarget)}
+                          slotProps={{
+                            input: {
+                              endAdornment: (
+                                <InputAdornment position="end">
+                                  <IconButton
+                                    size="small"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setFilterStartAnchor(e.currentTarget);
+                                    }}
+                                    sx={{ padding: '4px' }}
+                                  >
+                                    <EventIcon fontSize="small" style={{ color: '#999' }} />
+                                  </IconButton>
+                                </InputAdornment>
+                              ),
+                            }
+                          }}
+                        />
+                        <CustomCalendar
+                          open={Boolean(filterStartAnchor)}
+                          anchorEl={filterStartAnchor}
+                          value={filters.startDate ? formatDateInput(filters.startDate) : ''}
+                          onChange={(val) => {
+                            handleFilterChange("startDate", val ? formatDateInput(val) : "");
+                            setFilterStartAnchor(null);
+                          }}
+                          onClose={() => setFilterStartAnchor(null)}
+                        />
+                      </Box>
+                    </TableCell>
+                    <TableCell className={classes.filterCell}>
+                      <Box sx={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+                        <TextField
+                          className={classes.filterField}
+                          size="small"
+                          fullWidth
+                          value={filterEndInput}
+                          onChange={handleFilterEndInputChange}
+                          autoComplete="off"
+                          placeholder="DD/MM/YYYY"
+                          onClick={(e) => setFilterEndAnchor(e.currentTarget)}
+                          slotProps={{
+                            input: {
+                              endAdornment: (
+                                <InputAdornment position="end">
+                                  <IconButton
+                                    size="small"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setFilterEndAnchor(e.currentTarget);
+                                    }}
+                                    sx={{ padding: '4px' }}
+                                  >
+                                    <EventIcon fontSize="small" style={{ color: '#999' }} />
+                                  </IconButton>
+                                </InputAdornment>
+                              ),
+                            }
+                          }}
+                        />
+                        <CustomCalendar
+                          open={Boolean(filterEndAnchor)}
+                          anchorEl={filterEndAnchor}
+                          value={filters.endDate ? formatDateInput(filters.endDate) : ''}
+                          onChange={(val) => {
+                            handleFilterChange("endDate", val ? formatDateInput(val) : "");
+                            setFilterEndAnchor(null);
+                          }}
+                          onClose={() => setFilterEndAnchor(null)}
+                        />
+                      </Box>
+                    </TableCell>
+                    <TableCell className={classes.filterCell}>
+                      <Autocomplete
                         size="small"
-                        fullWidth
-                        displayEmpty
-                        value={filters.status}
-                        onChange={(e) => handleFilterChange("status", e.target.value)}
-                        sx={{ height: 32 }}
-                      >
-                        <MenuItem value="">-- Tất cả --</MenuItem>
-                        <MenuItem value="ACTIVE">Hoạt động</MenuItem>
-                        <MenuItem value="INACTIVE">Ngừng hoạt động</MenuItem>
-                      </Select>
+                        options={[
+                          { label: "Hoạt động", value: "ACTIVE" },
+                          { label: "Ngừng hoạt động", value: "INACTIVE" }
+                        ]}
+                        getOptionLabel={(option) => option.label}
+                        value={[
+                          { label: "Hoạt động", value: "ACTIVE" },
+                          { label: "Ngừng hoạt động", value: "INACTIVE" }
+                        ].find(o => o.value === filters.status) || null}
+                        onChange={(_, newValue) => handleFilterChange("status", newValue?.value || "")}
+                        renderInput={(params) => (
+                          <TextField {...params} placeholder="Tất cả" className={classes.filterField} />
+                        )}
+                      />
                     </TableCell>
                   </TableRow>
                 </TableHead>
@@ -622,47 +881,105 @@ export const ReportPeriodPage = () => {
               </Grid>
 
               <Grid size={{ xs: 6 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  label="Ngày bắt đầu *"
-                  slotProps={{ inputLabel: { shrink: true } }}
-                  value={form.startDate}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    const updatedForm = { ...form, startDate: val };
-                    if (val) {
-                      const yearMatch = val.match(/^(\d{4})/);
-                      if (yearMatch) {
-                        updatedForm.year = yearMatch[1];
+                <Box sx={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Ngày bắt đầu *"
+                    value={formStartInput}
+                    onChange={handleFormStartInputChange}
+                    autoComplete="off"
+                    placeholder="DD/MM/YYYY"
+                    onClick={(e) => setFormStartAnchor(e.currentTarget)}
+                    slotProps={{
+                      input: {
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFormStartAnchor(e.currentTarget);
+                              }}
+                              sx={{ padding: '4px' }}
+                            >
+                              <EventIcon fontSize="small" style={{ color: '#999' }} />
+                            </IconButton>
+                          </InputAdornment>
+                        ),
                       }
-                    }
-                    setForm(updatedForm);
-                  }}
-                />
+                    }}
+                  />
+                  <CustomCalendar
+                    open={Boolean(formStartAnchor)}
+                    anchorEl={formStartAnchor}
+                    value={form.startDate ? formatDateInput(form.startDate) : ''}
+                    onChange={(val) => {
+                      const dateStr = val ? formatDateInput(val) : "";
+                      const updatedForm = { ...form, startDate: dateStr };
+                      if (dateStr) {
+                        const yearMatch = dateStr.match(/^(\d{4})/);
+                        if (yearMatch) {
+                          updatedForm.year = yearMatch[1];
+                        }
+                      }
+                      setForm(updatedForm);
+                      setFormStartAnchor(null);
+                    }}
+                    onClose={() => setFormStartAnchor(null)}
+                  />
+                </Box>
               </Grid>
 
               <Grid size={{ xs: 6 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  label="Ngày kết thúc *"
-                  slotProps={{ inputLabel: { shrink: true } }}
-                  value={form.endDate}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    const updatedForm = { ...form, endDate: val };
-                    if (val) {
-                      const yearMatch = val.match(/^(\d{4})/);
-                      if (yearMatch) {
-                        updatedForm.year = yearMatch[1];
+                <Box sx={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Ngày kết thúc *"
+                    value={formEndInput}
+                    onChange={handleFormEndInputChange}
+                    autoComplete="off"
+                    placeholder="DD/MM/YYYY"
+                    onClick={(e) => setFormEndAnchor(e.currentTarget)}
+                    slotProps={{
+                      input: {
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFormEndAnchor(e.currentTarget);
+                              }}
+                              sx={{ padding: '4px' }}
+                            >
+                              <EventIcon fontSize="small" style={{ color: '#999' }} />
+                            </IconButton>
+                          </InputAdornment>
+                        ),
                       }
-                    }
-                    setForm(updatedForm);
-                  }}
-                />
+                    }}
+                  />
+                  <CustomCalendar
+                    open={Boolean(formEndAnchor)}
+                    anchorEl={formEndAnchor}
+                    value={form.endDate ? formatDateInput(form.endDate) : ''}
+                    onChange={(val) => {
+                      const dateStr = val ? formatDateInput(val) : "";
+                      const updatedForm = { ...form, endDate: dateStr };
+                      if (dateStr) {
+                        const yearMatch = dateStr.match(/^(\d{4})/);
+                        if (yearMatch) {
+                          updatedForm.year = yearMatch[1];
+                        }
+                      }
+                      setForm(updatedForm);
+                      setFormEndAnchor(null);
+                    }}
+                    onClose={() => setFormEndAnchor(null)}
+                  />
+                </Box>
               </Grid>
 
               <Grid size={{ xs: 12 }}>

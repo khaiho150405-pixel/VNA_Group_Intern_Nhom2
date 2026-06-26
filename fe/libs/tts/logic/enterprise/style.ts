@@ -15,7 +15,7 @@ export const useEnterpriseListStyles = makeStyles((theme: Theme) => ({
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    boxShadow: '0px 4px 10px rgba(0,0,0,0.08)',
+    boxShadow: '0px 2px 12px rgba(0, 0, 0, 0.04)',
     zIndex: 1,
     minHeight: 64,
   },
@@ -40,10 +40,12 @@ export const useEnterpriseListStyles = makeStyles((theme: Theme) => ({
     fontSize: '0.85rem',
     borderRadius: 6,
     padding: theme.spacing(0.6, 2),
-    boxShadow: 'none',
+    boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.04)',
+    transition: 'all 0.2s ease-in-out',
     '&:hover': {
       backgroundColor: '#f5f8ff',
       borderColor: '#b9c6ec',
+      boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.08)',
     },
   },
   addBtn: {
@@ -54,10 +56,11 @@ export const useEnterpriseListStyles = makeStyles((theme: Theme) => ({
     fontSize: '0.85rem',
     padding: theme.spacing(0.6, 2),
     borderRadius: 6,
-    boxShadow: 'none',
+    boxShadow: '0px 4px 12px rgba(47, 101, 240, 0.2)',
+    transition: 'all 0.2s ease-in-out',
     '&:hover': {
       backgroundColor: '#1e4fd1',
-      boxShadow: 'none',
+      boxShadow: '0px 8px 20px rgba(47, 101, 240, 0.35)',
     },
   },
   mainContent: {
@@ -69,7 +72,7 @@ export const useEnterpriseListStyles = makeStyles((theme: Theme) => ({
   card: {
     backgroundColor: '#fff',
     borderRadius: 8,
-    boxShadow: '0px 4px 20px rgba(0,0,0,0.08)',
+    boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.04), 0px 2px 6px rgba(0, 0, 0, 0.02)',
     border: '1px solid #f0f0f0',
     overflow: 'hidden',
     display: 'flex',

@@ -70,7 +70,7 @@ export const ResetPasswordModal = ({
       onClose={onClose}
       maxWidth="xs"
       fullWidth
-      slotProps={{ paper: { sx: { borderRadius: 2, overflow: 'hidden' } } }}
+      slotProps={{ paper: { sx: { borderRadius: 2, overflow: 'hidden', boxShadow: '0px 24px 64px rgba(0, 0, 0, 0.12), 0px 4px 16px rgba(0, 0, 0, 0.04)' } } }}
     >
       <Box
         sx={{
@@ -129,8 +129,9 @@ export const ResetPasswordModal = ({
             sx={{
               bgcolor: VNA_COLORS.primary,
               textTransform: 'none',
-              boxShadow: 'none',
-              '&:hover': { bgcolor: VNA_COLORS.primaryHover },
+              boxShadow: '0px 4px 12px rgba(47, 101, 240, 0.2)',
+              transition: 'all 0.2s ease-in-out',
+              '&:hover': { bgcolor: VNA_COLORS.primaryHover, boxShadow: '0px 8px 20px rgba(47, 101, 240, 0.35)' },
               fontWeight: 500,
               px: 2,
             }}

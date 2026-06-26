@@ -7,7 +7,7 @@ import {
   Select, MenuItem, CircularProgress, Grid, Paper, Tabs, Tab,
   Dialog, DialogTitle, DialogContent, DialogActions,
   Link as MuiLink, Accordion, AccordionSummary, AccordionDetails,
-  FormControl, InputLabel, Autocomplete
+  FormControl, InputLabel, Autocomplete, Tooltip, Alert
 } from '@mui/material';
 
 const RequiredLabel = ({ text, required = true }: { text: string; required?: boolean }) => (
@@ -21,7 +21,8 @@ import {
   ChevronRight as ChevronRightIcon,
   ChevronLeft as ChevronLeftIcon,
   Save as SaveIcon,
-  FileDownload as FileDownloadIcon
+  FileDownload as FileDownloadIcon,
+  InfoOutlined as InfoOutlinedIcon
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
 import { useReactToPrint } from 'react-to-print';
@@ -188,6 +189,8 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
   const [accidentDetails, setAccidentDetails] = useState<any[]>([]);
   const [reportFileUrl, setReportFileUrl] = useState<string>('');
   const [reportFileName, setReportFileName] = useState<string>('');
+  const [currentRejectReason, setCurrentRejectReason] = useState<string>('');
+  const [rejectReasonDialogOpen, setRejectReasonDialogOpen] = useState<boolean>(false);
 
   // Dropdown options loaded from DB
   const [injuryFactors, setInjuryFactors] = useState<any[]>([]);
@@ -650,11 +653,15 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
   const years = useMemo(() => {
     const arr = [];
     const current = new Date().getFullYear();
-    for (let y = current; y >= 1980; y--) {
+    const startYear = myCompany?.createdAt ? new Date(myCompany.createdAt).getFullYear() : 2022;
+    for (let y = current; y >= startYear; y--) {
       arr.push(y);
     }
+    if (arr.length === 0) {
+      arr.push(current);
+    }
     return arr;
-  }, []);
+  }, [myCompany]);
 
   // On mount: fetch company details and dropdown values
   useEffect(() => {
@@ -701,7 +708,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
   // Fetch active report periods configured by DOET for the selected year
   const fetchActivePeriods = async () => {
     try {
-      const res: any = await reportPeriodService.getAll({ year: selectedYear, status: 'ACTIVE' });
+      const res: any = await reportPeriodService.getForEnterprise({ year: selectedYear, status: 'ACTIVE' });
       const items = res?.data?.items || res?.items || [];
       setActivePeriods(items);
     } catch (err) {
@@ -735,16 +742,26 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
       const report = existingReports.find(r => r.period === row.period);
       let status = 'CHO_BAO_CAO';
       let statusLabel = 'Chờ báo cáo';
-      let statusColor = '#e2e8f0';
+      let statusColor = '#94a3b8'; // Grey
 
-      if (report) {
+      if (row.displayStatus === 'HET_HAN' && !report) {
+        status = 'HET_HAN';
+        statusLabel = 'Hết hạn báo cáo';
+        statusColor = '#cbd5e1'; // Faded grey
+      } else if (report) {
         status = report.status;
         if (status === 'DANG_BAO_CAO') {
           statusLabel = 'Đang báo cáo';
-          statusColor = '#94a3b8';
+          statusColor = '#1b3b87'; // Dark blue
+        } else if (status === 'CHO_XET_DUYET') {
+          statusLabel = 'Chờ xét duyệt';
+          statusColor = '#f59e0b'; // Yellow
         } else if (status === 'DA_TIEP_NHAN') {
           statusLabel = 'Đã tiếp nhận';
-          statusColor = '#3b82f6';
+          statusColor = '#2e7d32'; // Green
+        } else if (status === 'HUY_TIEP_NHAN') {
+          statusLabel = 'Hủy tiếp nhận';
+          statusColor = '#ef4444'; // Red
         }
       }
 
@@ -764,6 +781,14 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
 
   // Enter edit mode
   const handleStartEdit = async (row: any) => {
+    if (row.status === 'HET_HAN') {
+      enqueueSnackbar("Kỳ báo cáo này đã hết hạn, không thể khai báo hoặc chỉnh sửa.", { variant: 'error' });
+      return;
+    }
+    if (row.status === 'DA_TIEP_NHAN' || row.status === 'CHO_XET_DUYET') {
+      enqueueSnackbar("Báo cáo đang chờ xét duyệt hoặc đã được tiếp nhận, không thể chỉnh sửa.", { variant: 'error' });
+      return;
+    }
     setPeriod(row.period);
     setStep(0);
     setTabIndex(0);
@@ -782,6 +807,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
         setTotalSalaryFund(formatNumberWithDots(report.totalSalaryFund));
         setReportFileUrl(report.reportFileUrl || '');
         setReportFileName(report.reportFileName || '');
+        setCurrentRejectReason(report.rejectReason || '');
 
         setTnldSummary(convertStatsToStrings({
           ...(report.tnldSummary || {}),
@@ -819,6 +845,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
       setAccidentDetails([]);
       setReportFileUrl('');
       setReportFileName('');
+      setCurrentRejectReason('');
       setMode('edit');
     }
   };
@@ -1134,7 +1161,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
   };
 
   // Build the complete payload for saving
-  const buildPayload = (statusVal: 'DANG_BAO_CAO' | 'DA_TIEP_NHAN') => {
+  const buildPayload = (statusVal: 'DANG_BAO_CAO' | 'CHO_XET_DUYET') => {
     // Strip formatting dots before mapping stats values
     const cleanStats = (s: any, isDetail = false) => {
       const femaleNum = Number(s.tongLaoDongNuBiNan ?? s.tongSoNuBiNan ?? 0);
@@ -1239,7 +1266,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
 
     setLoading(true);
     try {
-      const payload = buildPayload('DA_TIEP_NHAN');
+      const payload = buildPayload('CHO_XET_DUYET');
       if (activeReportId) {
         await periodicReportService.update(activeReportId, payload);
       } else {
@@ -1510,7 +1537,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         <TableRow key={row.period} hover>
                           <TableCell className={classes.bodyCell} align="center">
                             <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                              {(row.status === 'DANG_BAO_CAO' || row.status === 'DA_TIEP_NHAN') && (
+                              {row.reportId && (
                                 <IconButton
                                   size="small"
                                   className={classes.actionIcon}
@@ -1519,7 +1546,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                                   <VisibilityIcon fontSize="small" />
                                 </IconButton>
                               )}
-                              {row.status !== 'DA_TIEP_NHAN' && (
+                              {row.status !== 'DA_TIEP_NHAN' && row.status !== 'CHO_XET_DUYET' && row.status !== 'HET_HAN' && (
                                 <IconButton
                                   size="small"
                                   className={classes.actionIcon}
@@ -1542,9 +1569,23 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                           <TableCell className={classes.bodyCell}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                               <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: row.statusColor }} />
-                              <Typography variant="body2" sx={{ fontWeight: row.status === 'DA_TIEP_NHAN' ? 600 : 500, color: row.status === 'DA_TIEP_NHAN' ? 'primary.main' : 'text.secondary' }}>
+                              <Typography variant="body2" sx={{ fontWeight: 600, color: row.statusColor }}>
                                 {row.statusLabel}
                               </Typography>
+                              {row.status === 'HUY_TIEP_NHAN' && row.reportData?.rejectReason && (
+                                <Tooltip title="Xem lý do hủy" arrow>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => {
+                                      setCurrentRejectReason(row.reportData.rejectReason);
+                                      setRejectReasonDialogOpen(true);
+                                    }}
+                                    sx={{ color: '#ef4444', p: 0.3 }}
+                                  >
+                                    <InfoOutlinedIcon sx={{ fontSize: 18 }} />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
                             </Box>
                           </TableCell>
                         </TableRow>
@@ -1642,6 +1683,16 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
 
           <Box className={classes.mainContent}>
             <Box className={classes.card} sx={{ p: 3 }}>
+              {currentRejectReason && (
+                <Alert severity="warning" sx={{ mb: 3, borderRadius: 1.5 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                    Báo cáo này đã bị hủy tiếp nhận với lý do:
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 0.5 }}>
+                    {currentRejectReason}
+                  </Typography>
+                </Alert>
+              )}
               {/* Dropdown synchronize step selection */}
               <Autocomplete
                 size="small"
@@ -3296,6 +3347,37 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
           </Box>
         </>
       )}
+
+      {/* Dialog showing rejection reason */}
+      <Dialog
+        open={rejectReasonDialogOpen}
+        onClose={() => setRejectReasonDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ bgcolor: '#ef4444', color: '#fff', fontWeight: 'bold', py: 1.5 }}>
+          Lý do hủy tiếp nhận
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          <Typography>{currentRejectReason || 'Không có lý do cụ thể.'}</Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button
+            onClick={() => setRejectReasonDialogOpen(false)}
+            variant="contained"
+            sx={{
+              backgroundColor: '#ef4444',
+              color: '#fff',
+              textTransform: 'none',
+              '&:hover': {
+                backgroundColor: '#dc2626'
+              }
+            }}
+          >
+            Đóng
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

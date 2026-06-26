@@ -520,6 +520,12 @@ export class UserService extends BaseService<User> implements OnApplicationBoots
         if (itemDto.roleId && !adminRoleIds.includes(+itemDto.roleId)) {
           throw Response.errorBad("testuser là tài khoản quản trị viên mặc định, không được phép thay đổi vai trò.");
         }
+        if (Object.prototype.hasOwnProperty.call(itemDto, 'status')) {
+          const nextDbStatus = !(itemDto.status === true || itemDto.status === "true");
+          if (nextDbStatus === true) {
+            throw Response.errorBad("Tài khoản admin testuser là tài khoản mặc định, không thể bị tắt trạng thái hoạt động.");
+          }
+        }
       }
 
       if (itemDto.roleId && adminRoleIds.includes(+itemDto.roleId)) {
@@ -793,8 +799,12 @@ export class UserService extends BaseService<User> implements OnApplicationBoots
 
       // Explicitly update status if provided and allowed
       if (Object.prototype.hasOwnProperty.call(updateData, 'status')) {
+        const newDbStatus = !(updateData.status === true || updateData.status === "true");
+        if (usernameLower === 'testuser' && newDbStatus === true) {
+          throw Response.errorBad("Tài khoản admin testuser là tài khoản mặc định, không thể bị tắt trạng thái hoạt động.");
+        }
         // Frontend true (Active) -> DB false, Frontend false (Inactive) -> DB true
-        user.status = !(updateData.status === true || updateData.status === "true");
+        user.status = newDbStatus;
         delete updateData.status;
       }
 

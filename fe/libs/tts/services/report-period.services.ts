@@ -4,6 +4,9 @@ export const reportPeriodService = {
   getAll: async (params?: any) => {
     return await axiosClient.get('/report-periods', { params });
   },
+  getForEnterprise: async (params?: any) => {
+    return await axiosClient.get('/report-periods/for-enterprise', { params });
+  },
   getById: async (id: number | string) => {
     return await axiosClient.get(`/report-periods/${id}`);
   },

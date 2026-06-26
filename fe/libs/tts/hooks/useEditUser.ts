@@ -132,6 +132,12 @@ export const useEditUser = () => {
             return;
         }
 
+        // Guard: testuser không được tắt trạng thái hoạt động
+        if (state.username?.trim().toLowerCase() === 'testuser' && state.active === false) {
+            notifyError('Tài khoản admin testuser là tài khoản mặc định, không thể bị tắt trạng thái hoạt động.');
+            return;
+        }
+
         if (state.birthday) {
             const birthDay = new Date(state.birthday);
             const today = new Date();
