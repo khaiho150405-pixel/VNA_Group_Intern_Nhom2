@@ -867,13 +867,58 @@ export class UserService extends BaseService<User> implements OnApplicationBoots
               const allowedIds = Array.isArray(user.allowedRoles)
                 ? user.allowedRoles.map(String)
                 : String(user.allowedRoles).split(',').filter(Boolean);
-              if (allowedIds.includes(String(nextRoleId))) {
+              const allowedIdsNormalized = allowedIds.map(id => id.toLowerCase().trim());
+              if (
+                allowedIds.includes(String(nextRoleId)) ||
+                (assignedRole && (
+                  allowedIdsNormalized.includes(String(assignedRole.role).toLowerCase().trim()) ||
+                  allowedIdsNormalized.includes(String(assignedRole.name).toLowerCase().trim()) ||
+                  allowedIdsNormalized.includes(String(assignedRole.id).toLowerCase().trim())
+                ))
+              ) {
                 selfAllowed = true;
               }
             }
 
             if (!isTestUser && !hasUserUpdatePermission && !selfAllowed) {
               throw Response.errorForBidden("Bạn không có quyền gán hoặc sửa đổi vai trò Sở.");
+            }
+
+            // Perform Role Swapping in allowedRoles!
+            const oldRoleKey = user.role?.role;
+            const newRoleKey = assignedRole.role;
+
+            let allowed: string[] = [];
+            const rawAllowed = Object.prototype.hasOwnProperty.call(updateData, 'allowedRoles')
+              ? updateData.allowedRoles
+              : user.allowedRoles;
+
+            if (Array.isArray(rawAllowed)) {
+              allowed = [...rawAllowed.map(String)];
+            } else if (typeof rawAllowed === 'string') {
+              allowed = String(rawAllowed).split(',').map(s => s.trim()).filter(Boolean);
+            }
+
+            // 1. Add old role key to allowedRoles
+            if (oldRoleKey && !allowed.includes(oldRoleKey)) {
+              allowed.push(oldRoleKey);
+            }
+
+            // 2. Remove new role key/id/name from allowedRoles
+            if (newRoleKey) {
+              allowed = allowed.filter(r => {
+                const rLower = String(r || '').toLowerCase().trim();
+                return rLower !== String(newRoleKey).toLowerCase().trim() &&
+                       rLower !== String(assignedRole.id).trim() &&
+                       rLower !== String(assignedRole.name).toLowerCase().trim();
+              });
+            }
+
+            // Set back to updateData or user
+            if (Object.prototype.hasOwnProperty.call(updateData, 'allowedRoles')) {
+              updateData.allowedRoles = allowed;
+            } else {
+              user.allowedRoles = allowed;
             }
           }
         }

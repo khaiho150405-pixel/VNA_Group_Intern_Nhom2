@@ -326,11 +326,13 @@ export const useAccountInfo = () => {
       return state.roles.filter((r: any) =>
         userAllowedRoles.includes(String(r.role)) ||
         userAllowedRoles.includes(String(r.id)) ||
-        userAllowedRoles.includes(String(r.name))
+        userAllowedRoles.includes(String(r.name)) ||
+        String(r.role) === String(state.role) ||
+        String(r.id) === String(state.role)
       );
     }
     return [];
-  }, [isAdmin, userAllowedRoles, state.roles]);
+  }, [isAdmin, userAllowedRoles, state.roles, state.role]);
 
   return {
     state,
