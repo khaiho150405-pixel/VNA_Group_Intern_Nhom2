@@ -33,6 +33,8 @@ export const NAVIGATION_ITEMS: NavItem[] = [
       { id: 'company-mgmt', label: 'Quản lý doanh nghiệp', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO'], path: '/doets' },
       { id: 'my-company', label: 'Thông tin doanh nghiệp', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_DN'], path: '/enterprise-profile' },
       { id: 'report-period', label: 'Kỳ báo cáo', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO'], path: '/report-periods' },
+      { id: 'loai-hinh-kinh-doanh', label: 'Loại hình kinh doanh', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO'], path: '/loai-hinh-kinh-doanh' },
+      { id: 'nganh-nghe-kinh-doanh', label: 'Ngành nghề kinh doanh', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO'], path: '/nganh-nghe-kinh-doanh' },
     ]
   },
   {

@@ -15,4 +15,5 @@ export * from './EnterpriseAccidentReportPage';
 export * from './ReportPeriodPage';
 export * from './PermissionListPage';
 export * from './RoleManagementPage';
-
+export * from './LoaiHinhKinhDoanhPage';
+export * from './BusinessLinePage';

@@ -6,4 +6,5 @@ export * from './location.services';
 export * from './periodic-report.services';
 export * from './report-period.services';
 export * from './permission.services';
-
+export * from './loai-hinh-kinh-doanh.services';
+export * from './business-line.services';
