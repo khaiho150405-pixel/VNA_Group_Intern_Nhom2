@@ -3020,7 +3020,24 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
               <Button onClick={() => setCancelDialogOpen(false)} variant="text" sx={{ color: 'text.secondary', textTransform: 'none' }}>
                 Hủy bỏ
               </Button>
-              <Button onClick={() => { setCancelDialogOpen(false); setMode('list'); }} variant="contained" color="primary" sx={{ textTransform: 'none' }}>
+              <Button
+                onClick={() => { setCancelDialogOpen(false); setMode('list'); }}
+                variant="contained"
+                sx={{
+                  textTransform: 'none',
+                  borderRadius: '6px',
+                  bgcolor: '#2f65f0',
+                  color: '#fff',
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  boxShadow: '0px 4px 12px rgba(47, 101, 240, 0.2)',
+                  transition: 'all 0.2s ease-in-out',
+                  '&:hover': {
+                    bgcolor: '#1e4fd1',
+                    boxShadow: '0px 8px 20px rgba(47, 101, 240, 0.35)',
+                  }
+                }}
+              >
                 Đồng ý
               </Button>
             </DialogActions>
@@ -3037,9 +3054,23 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
             </Typography>
             <Box className={classes.actions}>
               <Button
-                variant="outlined"
-                className={classes.importBtn}
                 onClick={() => setMode('list')}
+                sx={{
+                  textTransform: 'none',
+                  color: '#666',
+                  bgcolor: '#fff',
+                  border: 'none',
+                  fontSize: '0.85rem',
+                  borderRadius: '6px',
+                  padding: '4.8px 18px',
+                  boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
+                  transition: 'all 0.2s ease-in-out',
+                  '&:hover': {
+                    backgroundColor: '#f5f5f7',
+                    color: '#333',
+                    boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)',
+                  },
+                }}
               >
                 Hủy bỏ
               </Button>
@@ -3369,8 +3400,14 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
               backgroundColor: '#ef4444',
               color: '#fff',
               textTransform: 'none',
+              borderRadius: '6px',
+              fontWeight: 600,
+              fontSize: '0.85rem',
+              boxShadow: '0px 4px 12px rgba(239, 68, 68, 0.2)',
+              transition: 'all 0.2s ease-in-out',
               '&:hover': {
-                backgroundColor: '#dc2626'
+                backgroundColor: '#dc2626',
+                boxShadow: '0px 8px 20px rgba(239, 68, 68, 0.35)'
               }
             }}
           >

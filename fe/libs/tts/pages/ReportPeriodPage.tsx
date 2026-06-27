@@ -1003,7 +1003,20 @@ export const ReportPeriodPage = () => {
               onClick={handleSave}
               variant="contained"
               startIcon={<SaveIcon />}
-              sx={{ backgroundColor: "#2f65f0", textTransform: "none", fontWeight: 600 }}
+              sx={{
+                bgcolor: '#2f65f0',
+                color: '#fff',
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '0.85rem',
+                borderRadius: '6px',
+                boxShadow: '0px 4px 12px rgba(47, 101, 240, 0.2)',
+                transition: 'all 0.2s ease-in-out',
+                '&:hover': {
+                  bgcolor: '#1e4fd1',
+                  boxShadow: '0px 8px 20px rgba(47, 101, 240, 0.35)',
+                }
+              }}
             >
               Lưu
             </Button>

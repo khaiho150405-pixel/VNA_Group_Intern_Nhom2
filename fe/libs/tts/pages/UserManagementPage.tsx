@@ -228,14 +228,20 @@ export const UserManagementPage = () => {
         setFilters((prev) => ({
             ...prev,
             [field]: value,
-            page: field === "page" || field === "limit" ? prev.page : 1,
+            page: field === "page" ? value : 1,
         }));
         if (field !== "page" && field !== "limit") setSelectedIds([]);
     };
 
-    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.checked) setSelectedIds(data.map((d) => d.id));
-        else setSelectedIds([]);
+    const handleSelectAll = () => {
+        const selectableUsers = data.filter((item: any) => item.username !== "testuser" && item.id !== user?.id);
+        const allSelectableChecked = selectableUsers.length > 0 && selectableUsers.every((item: any) => selectedIds.includes(item.id));
+
+        if (allSelectableChecked || selectedIds.length > 0) {
+            setSelectedIds([]);
+        } else {
+            setSelectedIds(selectableUsers.map((item: any) => item.id));
+        }
     };
 
     const handleSelectOne = (id: string) => {
@@ -546,8 +552,12 @@ export const UserManagementPage = () => {
         [filters, total],
     );
 
-    const isAllSelected = data.length > 0 && selectedIds.length === data.length;
-    const isIndeterminate = selectedIds.length > 0 && selectedIds.length < data.length;
+    const selectableUsers = useMemo(() => {
+        return data.filter((item: any) => item.username !== "testuser" && item.id !== user?.id);
+    }, [data, user?.id]);
+
+    const isAllSelected = selectableUsers.length > 0 && selectableUsers.every((item: any) => selectedIds.includes(item.id));
+    const isIndeterminate = !isAllSelected && selectableUsers.some((item: any) => selectedIds.includes(item.id));
 
     // Cấu hình các cột của bảng để dễ dàng chỉnh sửa độ rộng và thuộc tính
     const columns = [

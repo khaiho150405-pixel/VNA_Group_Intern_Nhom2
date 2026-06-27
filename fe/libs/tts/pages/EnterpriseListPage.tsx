@@ -164,14 +164,20 @@ export const EnterpriseListPage = () => {
     setFilters((prev) => ({
       ...prev,
       [field]: value,
-      page: field === "page" || field === "limit" ? prev.page : 1,
+      page: field === "page" ? value : 1,
     }));
     if (field !== "page" && field !== "limit") setSelectedIds([]);
   };
 
-  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.checked) setSelectedIds(data.map((d) => d.id!));
-    else setSelectedIds([]);
+  const handleSelectAll = () => {
+    const selectable = data.filter((d) => d.id !== undefined && d.id !== null);
+    const allChecked = selectable.length > 0 && selectable.every((d) => selectedIds.includes(d.id!));
+
+    if (allChecked || selectedIds.length > 0) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(selectable.map((d) => d.id!));
+    }
   };
 
   const handleSelectOne = (id: number) => {
@@ -269,10 +275,14 @@ export const EnterpriseListPage = () => {
     [filters, total],
   );
 
+  const selectable = useMemo(() => {
+    return data.filter((d) => d.id !== undefined && d.id !== null);
+  }, [data]);
+
   const isAllSelected =
-    data.length > 0 && selectedIds.length === data.length;
+    selectable.length > 0 && selectable.every((d) => selectedIds.includes(d.id!));
   const isIndeterminate =
-    selectedIds.length > 0 && selectedIds.length < data.length;
+    !isAllSelected && selectable.some((d) => selectedIds.includes(d.id!));
 
   // Cấu hình các cột của bảng để dễ dàng chỉnh sửa độ rộng và thuộc tính
   const columns = [

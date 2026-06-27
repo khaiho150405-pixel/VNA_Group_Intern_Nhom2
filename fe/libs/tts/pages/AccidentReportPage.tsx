@@ -244,12 +244,14 @@ export const AccidentReportPage = () => {
         setSelectedIds([]);
     };
 
-    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.checked) {
-            const selectable = data.filter((d: any) => d.status !== 'CHO_BAO_CAO' && d.status !== 'DANG_BAO_CAO');
-            setSelectedIds(selectable.map((d: any) => d.id));
-        } else {
+    const handleSelectAll = () => {
+        const selectable = data.filter((d: any) => d.status !== 'CHO_BAO_CAO' && d.status !== 'DANG_BAO_CAO');
+        const allChecked = selectable.length > 0 && selectable.every((d: any) => selectedIds.includes(d.id));
+
+        if (allChecked || selectedIds.length > 0) {
             setSelectedIds([]);
+        } else {
+            setSelectedIds(selectable.map((d: any) => d.id));
         }
     };
 
@@ -636,11 +638,11 @@ export const AccidentReportPage = () => {
                             sx={{
                                 textTransform: 'none',
                                 borderRadius: '6px',
-                                bgcolor: '#2f65f0',
-                                '&:hover': { bgcolor: '#2551c0', boxShadow: '0px 8px 20px rgba(47, 101, 240, 0.35)' },
+                                bgcolor: '#2e7d32',
+                                '&:hover': { bgcolor: '#1b5e20', boxShadow: '0px 8px 20px rgba(46, 125, 50, 0.35)' },
                                 fontWeight: 600,
                                 px: 2,
-                                boxShadow: '0px 4px 12px rgba(47, 101, 240, 0.2)',
+                                boxShadow: '0px 4px 12px rgba(46, 125, 50, 0.2)',
                                 transition: 'all 0.2s ease-in-out',
                             }}
                         >
@@ -713,7 +715,7 @@ export const AccidentReportPage = () => {
                     >
                         Hủy
                     </Button>
-                    <Button
+                     <Button
                         onClick={handleExecuteCancel}
                         variant="contained"
                         disabled={!rejectReason.trim()}
@@ -721,9 +723,14 @@ export const AccidentReportPage = () => {
                             textTransform: 'none',
                             borderRadius: '6px',
                             bgcolor: '#ff453a',
-                            '&:hover': { bgcolor: '#e63930' },
                             fontWeight: 600,
-                            px: 3
+                            px: 3,
+                            boxShadow: '0px 4px 12px rgba(255, 69, 58, 0.2)',
+                            transition: 'all 0.2s ease-in-out',
+                            '&:hover': { 
+                                bgcolor: '#e63930', 
+                                boxShadow: '0px 8px 20px rgba(255, 69, 58, 0.35)' 
+                            }
                         }}
                     >
                         Xác nhận hủy

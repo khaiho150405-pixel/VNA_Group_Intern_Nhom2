@@ -69,14 +69,18 @@ export const ConfirmDialog = ({
           onClick={onConfirm} 
           variant="contained" 
           autoFocus 
-          disableElevation
           sx={{ 
             textTransform: 'none', 
             borderRadius: '6px',
             bgcolor: isDestructive ? '#ff453a' : '#2f65f0',
-            '&:hover': { bgcolor: isDestructive ? '#e63930' : '#2551c0' },
             fontWeight: 600,
-            px: 3
+            px: 3,
+            boxShadow: isDestructive ? '0px 4px 12px rgba(255, 69, 58, 0.2)' : '0px 4px 12px rgba(47, 101, 240, 0.2)',
+            transition: 'all 0.2s ease-in-out',
+            '&:hover': { 
+              bgcolor: isDestructive ? '#e63930' : '#1e4fd1',
+              boxShadow: isDestructive ? '0px 8px 20px rgba(255, 69, 58, 0.35)' : '0px 8px 20px rgba(47, 101, 240, 0.35)',
+            }
           }}
         >
           {confirmText}
