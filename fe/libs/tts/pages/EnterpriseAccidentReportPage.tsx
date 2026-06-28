@@ -582,17 +582,26 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
         return { name, code: String(id), ...getStatCols(getDetailStats(matches), '') };
       });
 
+      const typeCode = String(myCompany?.loaiHinhKinhDoanh?.maloaihinh || "").padEnd(4, ' ');
+      const fieldCode = String(myCompany?.businessLine?.manganh || "").padEnd(4, ' ');
+
       // Prepare data
       const data = {
         ...causesData,
         factors,
         occupations,
         companyName: myCompany?.name || "",
-        period: period === 'CA_NAM' ? 'cả năm' : '6 tháng',
+        companyAddress: myCompany?.address || "",
+        periodName: period === 'CA_NAM' ? 'cả năm' : '6 tháng',
+        reportYear: String(selectedYear),
+        reportDate: new Date().toLocaleDateString('vi-VN'),
         totalEmployees: totalEmployees || "0",
         femaleEmployees: femaleEmployees || "0",
         totalSalary: totalSalaryFund || "0",
+        companyType: myCompany?.loaiHinhKinhDoanh?.tenloaihinh || "",
         companyField: myCompany?.businessLine?.tennganh || "",
+        tC1: typeCode[0], tC2: typeCode[1], tC3: typeCode[2], tC4: typeCode[3],
+        fC1: fieldCode[0], fC2: fieldCode[1], fC3: fieldCode[2], fC4: fieldCode[3],
 
         t1_c3: formatNumberWithDots(tnldSummary.tongSoVu || "0"),
         t1_c4: formatNumberWithDots(tnldSummary.tongSoVuNguoiChet || "0"),

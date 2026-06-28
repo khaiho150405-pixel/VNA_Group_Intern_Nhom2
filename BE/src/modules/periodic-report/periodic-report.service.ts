@@ -253,12 +253,23 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
 
     const reports = await qb.getMany();
 
+    const doetIds = [...new Set(reports.map(r => r.doetId).filter(id => id && !isNaN(+id)))].map(id => +id);
+    const doetsMap = new Map<number, any>();
+    if (doetIds.length > 0) {
+      const doets = await this.doetRepo.createQueryBuilder("d")
+        .leftJoinAndSelect("d.loaiHinhKinhDoanh", "lh")
+        .where("d.id IN (:...doetIds)", { doetIds })
+        .getMany();
+      doets.forEach(d => doetsMap.set(d.id, d));
+    }
+
     let totalEmployees = 0;
     let femaleEmployees = 0;
     let totalSalaryFund = 0;
 
     const aggregatedTnldSummary: any = {};
     const aggregatedTnldTroCapSummary: any = {};
+    const loaiHinhStatsMap = new Map<number, any>();
 
     const fields = [
       'tongSoVu', 'tongSoVuNguoiChet', 'tongSoVu2Nguoi', 'tongSoVu2NguoiTroLen',
@@ -300,6 +311,48 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
           const val = Number(r.tnldTroCapSummary[key] || 0);
           if (!isNaN(val)) {
             aggregatedTnldTroCapSummary[key] = (aggregatedTnldTroCapSummary[key] || 0) + val;
+          }
+        }
+      }
+
+      const doet = doetsMap.get(+(r.doetId || 0));
+      const lh = doet?.loaiHinhKinhDoanh;
+      if (lh) {
+        if (!loaiHinhStatsMap.has(lh.id)) {
+          loaiHinhStatsMap.set(lh.id, {
+            loaiHinh: lh,
+            reportCount: 0,
+            totalEmployees: 0,
+            femaleEmployees: 0,
+            tnldSummary: { ...aggregatedTnldSummary }, // just using keys from aggregatedTnldSummary to initialize 0
+            tnldTroCapSummary: { ...aggregatedTnldTroCapSummary }
+          });
+          // Reset initialized stats to 0
+          for (const key of Object.keys(loaiHinhStatsMap.get(lh.id).tnldSummary)) {
+            loaiHinhStatsMap.get(lh.id).tnldSummary[key] = 0;
+            loaiHinhStatsMap.get(lh.id).tnldTroCapSummary[key] = 0;
+          }
+        }
+
+        const stats = loaiHinhStatsMap.get(lh.id);
+        stats.reportCount += 1;
+        stats.totalEmployees += Number(r.totalEmployees || 0);
+        stats.femaleEmployees += Number(r.femaleEmployees || 0);
+        
+        if (r.tnldSummary) {
+          for (const key of Object.keys(r.tnldSummary)) {
+            const val = Number(r.tnldSummary[key] || 0);
+            if (!isNaN(val)) {
+              stats.tnldSummary[key] = (stats.tnldSummary[key] || 0) + val;
+            }
+          }
+        }
+        if (r.tnldTroCapSummary) {
+          for (const key of Object.keys(r.tnldTroCapSummary)) {
+            const val = Number(r.tnldTroCapSummary[key] || 0);
+            if (!isNaN(val)) {
+              stats.tnldTroCapSummary[key] = (stats.tnldTroCapSummary[key] || 0) + val;
+            }
           }
         }
       }
@@ -348,6 +401,7 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
       tnldSummary: aggregatedTnldSummary,
       tnldTroCapSummary: aggregatedTnldTroCapSummary,
       accidentDetails: accidentDetailsList,
+      loaiHinhStats: Array.from(loaiHinhStatsMap.values()),
       reportCount: reports.length
     });
   }
