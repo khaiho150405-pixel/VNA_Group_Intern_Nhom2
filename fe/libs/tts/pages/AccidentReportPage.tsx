@@ -109,21 +109,21 @@ export const AccidentReportPage = () => {
 
         try {
             await Promise.all(
-                selectedIds.map(id => 
+                selectedIds.map(id =>
                     periodicReportService.update(Number(id), { status: actionType })
                 )
             );
             enqueueSnackbar(
-                actionType === 'DA_TIEP_NHAN' 
-                    ? "Duyệt báo cáo thành công" 
-                    : "Hủy duyệt báo cáo thành công", 
+                actionType === 'DA_TIEP_NHAN'
+                    ? "Duyệt báo cáo thành công"
+                    : "Hủy duyệt báo cáo thành công",
                 { variant: 'success' }
             );
             setSelectedIds([]);
             fetchData();
         } catch (error: any) {
             enqueueSnackbar(
-                error?.response?.data?.message || error?.message || "Đã xảy ra lỗi khi thực hiện thao tác", 
+                error?.response?.data?.message || error?.message || "Đã xảy ra lỗi khi thực hiện thao tác",
                 { variant: 'error' }
             );
             fetchData(); // Rollback bằng cách tải lại dữ liệu đúng từ server
@@ -314,8 +314,8 @@ export const AccidentReportPage = () => {
         }
         return (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#2e7d32' }} />
-                <Typography variant="body2" sx={{ color: '#2e7d32', fontWeight: 600 }}>
+                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#2f65f0' }} />
+                <Typography variant="body2" sx={{ color: '#2f65f0', fontWeight: 600 }}>
                     Đã tiếp nhận
                 </Typography>
             </Box>
@@ -570,173 +570,173 @@ export const AccidentReportPage = () => {
                                 className={classes.pageInfo}
                             />
                         </Box>
+                    </Box>
                 </Box>
-            </Box>
 
-            {selectedIds.length > 0 && (
-                <Box
-                    sx={{
-                        position: 'fixed',
-                        bottom: 24,
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                        bgcolor: '#fff',
-                        boxShadow: '0px 12px 32px rgba(0, 0, 0, 0.12), 0px 4px 16px rgba(0, 0, 0, 0.04)',
-                        borderRadius: '8px',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        p: '6px 12px',
-                        gap: 1.5,
-                        zIndex: 1300,
-                        border: '1px solid #e0e0e0',
-                    }}
-                >
+                {selectedIds.length > 0 && (
                     <Box
                         sx={{
-                            bgcolor: '#2f65f0',
-                            color: '#fff',
-                            minWidth: 32,
-                            height: 32,
-                            borderRadius: '6px',
-                            display: 'flex',
+                            position: 'fixed',
+                            bottom: 24,
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            bgcolor: '#fff',
+                            boxShadow: '0px 12px 32px rgba(0, 0, 0, 0.12), 0px 4px 16px rgba(0, 0, 0, 0.04)',
+                            borderRadius: '8px',
+                            display: 'inline-flex',
                             alignItems: 'center',
-                            justifyContent: 'center',
-                            fontWeight: 600,
-                            fontSize: '0.95rem',
-                            px: 1,
+                            p: '6px 12px',
+                            gap: 1.5,
+                            zIndex: 1300,
+                            border: '1px solid #e0e0e0',
                         }}
                     >
-                        {selectedIds.length}
+                        <Box
+                            sx={{
+                                bgcolor: '#2f65f0',
+                                color: '#fff',
+                                minWidth: 32,
+                                height: 32,
+                                borderRadius: '6px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontWeight: 600,
+                                fontSize: '0.95rem',
+                                px: 1,
+                            }}
+                        >
+                            {selectedIds.length}
+                        </Box>
+                        <Typography sx={{ fontSize: '0.9rem', color: '#333', whiteSpace: 'nowrap' }}>
+                            báo cáo được chọn
+                        </Typography>
+                        {!hasHuyTiepNhan && (
+                            <Button
+                                variant="contained"
+                                size="small"
+                                onClick={() => handleConfirmAction('HUY_TIEP_NHAN')}
+                                sx={{
+                                    textTransform: 'none',
+                                    borderRadius: '6px',
+                                    bgcolor: '#ff453a',
+                                    '&:hover': { bgcolor: '#e63930', boxShadow: '0px 8px 20px rgba(255, 69, 58, 0.35)' },
+                                    fontWeight: 600,
+                                    px: 2,
+                                    boxShadow: '0px 4px 12px rgba(255, 69, 58, 0.2)',
+                                    transition: 'all 0.2s ease-in-out',
+                                }}
+                            >
+                                Hủy duyệt
+                            </Button>
+                        )}
+                        {!hasDaTiepNhan && (
+                            <Button
+                                variant="contained"
+                                size="small"
+                                onClick={() => handleConfirmAction('DA_TIEP_NHAN')}
+                                sx={{
+                                    textTransform: 'none',
+                                    borderRadius: '6px',
+                                    bgcolor: '#2e7d32',
+                                    '&:hover': { bgcolor: '#1b5e20', boxShadow: '0px 8px 20px rgba(46, 125, 50, 0.35)' },
+                                    fontWeight: 600,
+                                    px: 2,
+                                    boxShadow: '0px 4px 12px rgba(46, 125, 50, 0.2)',
+                                    transition: 'all 0.2s ease-in-out',
+                                }}
+                            >
+                                Duyệt
+                            </Button>
+                        )}
+                        <IconButton size="small" onClick={() => setSelectedIds([])} sx={{ color: '#999' }}>
+                            <CloseIcon fontSize="small" />
+                        </IconButton>
                     </Box>
-                    <Typography sx={{ fontSize: '0.9rem', color: '#333', whiteSpace: 'nowrap' }}>
-                        báo cáo được chọn
-                    </Typography>
-                    {!hasHuyTiepNhan && (
+                )}
+
+                <ConfirmDialog
+                    open={confirmOpen}
+                    title="Xác nhận duyệt"
+                    message={`Bạn có chắc chắn muốn duyệt và tiếp nhận ${selectedIds.length} báo cáo đã chọn? Sau khi tiếp nhận, doanh nghiệp sẽ không thể chỉnh sửa báo cáo.`}
+                    onConfirm={handleExecuteAction}
+                    onCancel={() => setConfirmOpen(false)}
+                    confirmText="Duyệt"
+                    isDestructive={false}
+                />
+
+                <Dialog
+                    open={cancelDialogOpen}
+                    onClose={() => setCancelDialogOpen(false)}
+                    maxWidth="xs"
+                    fullWidth
+                >
+                    <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#ff453a', fontWeight: 600 }}>
+                        Lý do hủy tiếp nhận
+                    </DialogTitle>
+                    <DialogContent>
+                        <Typography variant="body2" sx={{ color: '#555', mb: 2 }}>
+                            Bạn có chắc chắn muốn hủy tiếp nhận {selectedIds.length} báo cáo đã chọn? Doanh nghiệp có thể chỉnh sửa và nộp lại báo cáo sau khi bị hủy tiếp nhận.
+                        </Typography>
+                        <TextField
+                            autoFocus
+                            fullWidth
+                            multiline
+                            rows={3}
+                            variant="outlined"
+                            placeholder="Nhập lý do hủy tiếp nhận..."
+                            value={rejectReason}
+                            onChange={(e) => setRejectReason(e.target.value)}
+                            slotProps={{
+                                input: {
+                                    style: { fontSize: '0.875rem' }
+                                }
+                            }}
+                        />
+                    </DialogContent>
+                    <DialogActions sx={{ px: 3, pb: 2 }}>
                         <Button
+                            onClick={() => setCancelDialogOpen(false)}
+                            disableRipple
+                            sx={{
+                                textTransform: 'none',
+                                color: '#666',
+                                fontSize: '0.875rem',
+                                borderRadius: '6px',
+                                padding: '4.8px 18px',
+                                boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
+                                transition: 'all 0.2s ease-in-out',
+                                '&:hover': {
+                                    backgroundColor: '#f5f5f7',
+                                    color: '#333',
+                                    boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)',
+                                },
+                            }}
+                        >
+                            Hủy
+                        </Button>
+                        <Button
+                            onClick={handleExecuteCancel}
                             variant="contained"
-                            size="small"
-                            onClick={() => handleConfirmAction('HUY_TIEP_NHAN')}
+                            disabled={!rejectReason.trim()}
                             sx={{
                                 textTransform: 'none',
                                 borderRadius: '6px',
                                 bgcolor: '#ff453a',
-                                '&:hover': { bgcolor: '#e63930', boxShadow: '0px 8px 20px rgba(255, 69, 58, 0.35)' },
                                 fontWeight: 600,
-                                px: 2,
+                                px: 3,
                                 boxShadow: '0px 4px 12px rgba(255, 69, 58, 0.2)',
                                 transition: 'all 0.2s ease-in-out',
+                                '&:hover': {
+                                    bgcolor: '#e63930',
+                                    boxShadow: '0px 8px 20px rgba(255, 69, 58, 0.35)'
+                                }
                             }}
                         >
-                            Hủy duyệt
+                            Xác nhận hủy
                         </Button>
-                    )}
-                    {!hasDaTiepNhan && (
-                        <Button
-                            variant="contained"
-                            size="small"
-                            onClick={() => handleConfirmAction('DA_TIEP_NHAN')}
-                            sx={{
-                                textTransform: 'none',
-                                borderRadius: '6px',
-                                bgcolor: '#2e7d32',
-                                '&:hover': { bgcolor: '#1b5e20', boxShadow: '0px 8px 20px rgba(46, 125, 50, 0.35)' },
-                                fontWeight: 600,
-                                px: 2,
-                                boxShadow: '0px 4px 12px rgba(46, 125, 50, 0.2)',
-                                transition: 'all 0.2s ease-in-out',
-                            }}
-                        >
-                            Duyệt
-                        </Button>
-                    )}
-                    <IconButton size="small" onClick={() => setSelectedIds([])} sx={{ color: '#999' }}>
-                        <CloseIcon fontSize="small" />
-                    </IconButton>
-                </Box>
-            )}
-
-            <ConfirmDialog
-                open={confirmOpen}
-                title="Xác nhận duyệt"
-                message={`Bạn có chắc chắn muốn duyệt và tiếp nhận ${selectedIds.length} báo cáo đã chọn? Sau khi tiếp nhận, doanh nghiệp sẽ không thể chỉnh sửa báo cáo.`}
-                onConfirm={handleExecuteAction}
-                onCancel={() => setConfirmOpen(false)}
-                confirmText="Duyệt"
-                isDestructive={false}
-            />
-
-            <Dialog
-                open={cancelDialogOpen}
-                onClose={() => setCancelDialogOpen(false)}
-                maxWidth="xs"
-                fullWidth
-            >
-                <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#ff453a', fontWeight: 600 }}>
-                    Lý do hủy tiếp nhận
-                </DialogTitle>
-                <DialogContent>
-                    <Typography variant="body2" sx={{ color: '#555', mb: 2 }}>
-                        Bạn có chắc chắn muốn hủy tiếp nhận {selectedIds.length} báo cáo đã chọn? Doanh nghiệp có thể chỉnh sửa và nộp lại báo cáo sau khi bị hủy tiếp nhận.
-                    </Typography>
-                    <TextField
-                        autoFocus
-                        fullWidth
-                        multiline
-                        rows={3}
-                        variant="outlined"
-                        placeholder="Nhập lý do hủy tiếp nhận..."
-                        value={rejectReason}
-                        onChange={(e) => setRejectReason(e.target.value)}
-                        slotProps={{
-                            input: {
-                                style: { fontSize: '0.875rem' }
-                            }
-                        }}
-                    />
-                </DialogContent>
-                <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <Button
-                        onClick={() => setCancelDialogOpen(false)}
-                        disableRipple
-                        sx={{
-                            textTransform: 'none',
-                            color: '#666',
-                            fontSize: '0.875rem',
-                            borderRadius: '6px',
-                            padding: '4.8px 18px',
-                            boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
-                            transition: 'all 0.2s ease-in-out',
-                            '&:hover': {
-                                backgroundColor: '#f5f5f7',
-                                color: '#333',
-                                boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)',
-                            },
-                        }}
-                    >
-                        Hủy
-                    </Button>
-                     <Button
-                        onClick={handleExecuteCancel}
-                        variant="contained"
-                        disabled={!rejectReason.trim()}
-                        sx={{
-                            textTransform: 'none',
-                            borderRadius: '6px',
-                            bgcolor: '#ff453a',
-                            fontWeight: 600,
-                            px: 3,
-                            boxShadow: '0px 4px 12px rgba(255, 69, 58, 0.2)',
-                            transition: 'all 0.2s ease-in-out',
-                            '&:hover': { 
-                                bgcolor: '#e63930', 
-                                boxShadow: '0px 8px 20px rgba(255, 69, 58, 0.35)' 
-                            }
-                        }}
-                    >
-                        Xác nhận hủy
-                    </Button>
-                </DialogActions>
-            </Dialog>
+                    </DialogActions>
+                </Dialog>
             </Box>
         </MainLayout>
     );

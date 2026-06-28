@@ -130,127 +130,101 @@ add_lh_row(table1, "Khác", 10)
 
 doc.add_paragraph("\nII. Phân loại TNLĐ").bold = True
 
-table2 = doc.add_table(rows=4, cols=16)
+table2 = doc.add_table(rows=4, cols=15)
 table2.style = 'Table Grid'
 table2.alignment = WD_TABLE_ALIGNMENT.CENTER
 
 # Header structure for Table 2
 table2.cell(0,0).merge(table2.cell(2,0))
-set_cell_text(table2.cell(0,0), "Nhóm phân loại", bold=True)
+set_cell_text(table2.cell(0,0), "Tên chỉ tiêu thống kê", bold=True)
 
 table2.cell(0,1).merge(table2.cell(2,1))
-set_cell_text(table2.cell(0,1), "Tên chỉ tiêu thống kê", bold=True)
+set_cell_text(table2.cell(0,1), "Mã số", bold=True)
 
-table2.cell(0,2).merge(table2.cell(2,2))
-set_cell_text(table2.cell(0,2), "Mã số", bold=True)
+table2.cell(0,2).merge(table2.cell(0,8))
+set_cell_text(table2.cell(0,2), "Phân loại TNLĐ theo mức độ thương tật", bold=True)
 
-table2.cell(0,3).merge(table2.cell(0,9))
-set_cell_text(table2.cell(0,3), "Phân loại TNLĐ theo mức độ thương tật", bold=True)
-
-table2.cell(0,10).merge(table2.cell(0,15))
-set_cell_text(table2.cell(0,10), "Thiệt hại do TNLĐ", bold=True)
+table2.cell(0,9).merge(table2.cell(0,14))
+set_cell_text(table2.cell(0,9), "Thiệt hại do TNLĐ", bold=True)
 
 # Row 1 merges
-table2.cell(1,3).merge(table2.cell(1,5))
-set_cell_text(table2.cell(1,3), "Số vụ TNLĐ", bold=True)
+table2.cell(1,2).merge(table2.cell(1,4))
+set_cell_text(table2.cell(1,2), "Số vụ TNLĐ", bold=True)
 
-table2.cell(1,6).merge(table2.cell(1,9))
-set_cell_text(table2.cell(1,6), "Số người bị nạn (Người)", bold=True)
+table2.cell(1,5).merge(table2.cell(1,8))
+set_cell_text(table2.cell(1,5), "Số người bị nạn (Người)", bold=True)
+
+table2.cell(1,9).merge(table2.cell(2,9))
+set_cell_text(table2.cell(1,9), "Tổng số ngày nghỉ vì TNLĐ", bold=True)
 
 table2.cell(1,10).merge(table2.cell(2,10))
-set_cell_text(table2.cell(1,10), "Tổng số ngày nghỉ vì TNLĐ", bold=True)
+set_cell_text(table2.cell(1,10), "Tổng số tiền (1.000 đ)", bold=True)
 
-table2.cell(1,11).merge(table2.cell(2,11))
-set_cell_text(table2.cell(1,11), "Tổng số tiền (1.000 đ)", bold=True)
+table2.cell(1,11).merge(table2.cell(1,13))
+set_cell_text(table2.cell(1,11), "Chi tiết", bold=True)
 
-table2.cell(1,12).merge(table2.cell(1,14))
-set_cell_text(table2.cell(1,12), "Chi tiết", bold=True)
-
-table2.cell(1,15).merge(table2.cell(2,15))
-set_cell_text(table2.cell(1,15), "Thiệt hại tài sản", bold=True)
+table2.cell(1,14).merge(table2.cell(2,14))
+set_cell_text(table2.cell(1,14), "Thiệt hại tài sản", bold=True)
 
 # Row 2 merges
-set_cell_text(table2.cell(2,3), "Tổng số", bold=True)
-set_cell_text(table2.cell(2,4), "Số vụ có người chết", bold=True)
-set_cell_text(table2.cell(2,5), "Số vụ có từ 2 người bị nạn trở lên", bold=True)
+set_cell_text(table2.cell(2,2), "Tổng số", bold=True)
+set_cell_text(table2.cell(2,3), "Số vụ có người chết", bold=True)
+set_cell_text(table2.cell(2,4), "Số vụ có từ 2 người bị nạn trở lên", bold=True)
 
-set_cell_text(table2.cell(2,6), "Tổng số", bold=True)
-set_cell_text(table2.cell(2,7), "Số LĐ nữ", bold=True)
-set_cell_text(table2.cell(2,8), "Số người bị chết", bold=True)
-set_cell_text(table2.cell(2,9), "Số người bị thương nặng", bold=True)
+set_cell_text(table2.cell(2,5), "Tổng số", bold=True)
+set_cell_text(table2.cell(2,6), "Số LĐ nữ", bold=True)
+set_cell_text(table2.cell(2,7), "Số người chết", bold=True)
+set_cell_text(table2.cell(2,8), "Số người bị thương nặng", bold=True)
 
-set_cell_text(table2.cell(2,12), "Y Tế", bold=True)
-set_cell_text(table2.cell(2,13), "Trả lương", bold=True)
-set_cell_text(table2.cell(2,14), "Bồi thường", bold=True)
+set_cell_text(table2.cell(2,11), "Y Tế", bold=True)
+set_cell_text(table2.cell(2,12), "Trả lương", bold=True)
+set_cell_text(table2.cell(2,13), "Bồi thường", bold=True)
 
 # Row 3 (Tổng số TNLĐ)
 row = table2.rows[3]
-set_cell_text(row.cells[0], "")
-set_cell_text(row.cells[1], "Tổng số", bold=True)
-set_cell_text(row.cells[2], "")
-for c in range(3, 16):
-    set_cell_text(row.cells[c], "{t2_c" + str(c) + "}")
+set_cell_text(row.cells[0], "Tổng số", bold=True)
+set_cell_text(row.cells[1], "")
+for c in range(2, 15):
+    set_cell_text(row.cells[c], "{t2_c" + str(c+1) + "}")
 
 def add_t2_row(table, title, code, prefix):
     row = table.add_row()
-    set_cell_text(row.cells[0], "")
-    set_cell_text(row.cells[1], title)
-    set_cell_text(row.cells[2], code)
-    for c in range(3, 16):
-        set_cell_text(row.cells[c], "{" + prefix + "_c" + str(c) + "}")
+    set_cell_text(row.cells[0], title)
+    set_cell_text(row.cells[1], code)
+    for c in range(2, 15):
+        set_cell_text(row.cells[c], "{" + prefix + "_c" + str(c+1) + "}")
+    return row
 
-table2.add_row()
-set_cell_text(table2.rows[len(table2.rows)-1].cells[0], "1. Tai nạn lao động", bold=True)
+start_r = len(table2.rows)
+add_t2_row(table2, "Phân theo nguyên nhân", "1", "r8")
+add_t2_row(table2, "Phân theo nguyên nhân", "2", "r9")
+add_t2_row(table2, "Phân theo nguyên nhân", "3", "r10")
+add_t2_row(table2, "Phân theo nguyên nhân", "4", "r11")
+add_t2_row(table2, "Phân theo nguyên nhân", "5", "r12")
+add_t2_row(table2, "Phân theo nguyên nhân", "6", "r13")
+add_t2_row(table2, "Phân theo nguyên nhân", "7", "r15")
+add_t2_row(table2, "Phân theo nguyên nhân", "8", "r16")
+add_t2_row(table2, "Phân theo nguyên nhân", "9", "r17")
+table2.cell(start_r, 0).merge(table2.cell(start_r + 8, 0))
 
-table2.add_row()
-set_cell_text(table2.rows[len(table2.rows)-1].cells[0], "1.1 Theo nguyên nhân", bold=True)
-
-table2.add_row()
-set_cell_text(table2.rows[len(table2.rows)-1].cells[0], "a. Do người sử dụng lao động", bold=True)
-add_t2_row(table2, "- Do tổ chức điều kiện LĐ", "1", "r8")
-add_t2_row(table2, "- Do thiếu sót thiết bị", "2", "r9")
-add_t2_row(table2, "- Không huấn luyện an toàn", "3", "r10")
-
-table2.add_row()
-set_cell_text(table2.rows[len(table2.rows)-1].cells[0], "b. Do người lao động", bold=True)
-add_t2_row(table2, "- Vi phạm quy trình", "4", "r11")
-add_t2_row(table2, "- Không sử dụng thiết bị", "5", "r12")
-
-table2.add_row()
-set_cell_text(table2.rows[len(table2.rows)-1].cells[0], "c. Do nguyên nhân khác", bold=True)
-add_t2_row(table2, "- TN giao thông", "6", "r13")
-add_t2_row(table2, "- Khách quan", "7", "r15")
-add_t2_row(table2, "- Chữa cháy, cứu hộ", "8", "r16")
-add_t2_row(table2, "- Khác", "9", "r17")
-
-table2.add_row()
-set_cell_text(table2.rows[len(table2.rows)-1].cells[1], "1.2 Theo yếu tố chấn thương", bold=True)
+# Factors
 row = table2.add_row()
-set_cell_text(row.cells[0], "{#factors}")
-set_cell_text(row.cells[1], "- {name}")
-set_cell_text(row.cells[2], "{code}")
-for c in range(3, 16):
-    set_cell_text(row.cells[c], "{c" + str(c) + "}")
-set_cell_text(row.cells[15], "{c15}\n{/factors}")
+set_cell_text(row.cells[0], "{#factors}Phân theo yếu tố chấn thương")
+set_cell_text(row.cells[1], "{code}")
+for c in range(2, 15):
+    set_cell_text(row.cells[c], "{c" + str(c+1) + "}")
+set_cell_text(row.cells[14], "{c15}\n{/factors}")
 
-table2.add_row()
-set_cell_text(table2.rows[len(table2.rows)-1].cells[1], "1.3 Theo nghề nghiệp", bold=True)
+# Occupations
 row = table2.add_row()
-set_cell_text(row.cells[0], "{#occupations}")
-set_cell_text(row.cells[1], "- {name}")
-set_cell_text(row.cells[2], "{code}")
-for c in range(3, 16):
-    set_cell_text(row.cells[c], "{c" + str(c) + "}")
-set_cell_text(row.cells[15], "{c15}\n{/occupations}")
+set_cell_text(row.cells[0], "{#occupations}Phân theo ngành nghề")
+set_cell_text(row.cells[1], "{code}")
+for c in range(2, 15):
+    set_cell_text(row.cells[c], "{c" + str(c+1) + "}")
+set_cell_text(row.cells[14], "{c15}\n{/occupations}")
 
-
-table2.add_row()
-set_cell_text(table2.rows[len(table2.rows)-1].cells[1], "2. TNLĐ được hưởng chế độ", bold=True)
-add_t2_row(table2, "- TNLĐ được hưởng chế độ", "201", "t2_201")
-
-table2.add_row()
-set_cell_text(table2.rows[len(table2.rows)-1].cells[1], "3. Tổng số (3=1+2)", bold=True)
-add_t2_row(table2, "- Tổng số", "301", "t2_301")
+add_t2_row(table2, "TNLĐ được hưởng chế độ", "201", "t2_201")
+add_t2_row(table2, "Tổng số (3=1+2)", "301", "t2_301")
 
 
 doc.add_paragraph("\nĐẠI DIỆN NGƯỜI SỬ DỤNG LAO ĐỘNG").alignment = WD_ALIGN_PARAGRAPH.RIGHT

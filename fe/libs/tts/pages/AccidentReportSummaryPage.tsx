@@ -402,15 +402,15 @@ export function AccidentReportSummaryPage() {
               sx={{ color: '#64748b', borderColor: '#cbd5e1', '&:hover': { borderColor: '#94a3b8', backgroundColor: '#f8fafc' } }}
               onClick={() => router.push('/accident-reports')}
             >
-              Huỷ bỏ
+              Hủy bỏ
             </Button>
             <Button
               variant="outlined"
               startIcon={<FileDownloadIcon />}
-              sx={{ color: '#059669', borderColor: '#a7f3d0' }}
+              sx={{ color: '#2f65f0', borderColor: '#2f65f0' }}
               onClick={() => handleExportWord()}
             >
-              Xuất báo cáo
+              In báo cáo
             </Button>
           </Box>
         </Box>
@@ -493,8 +493,7 @@ export function AccidentReportSummaryPage() {
 
                 <TableHead>
                   <TableRow>
-                    <TableCell rowSpan={3} align="center" sx={{ ...headStyle, width: 120 }}>Nhóm phân loại</TableCell>
-                    <TableCell rowSpan={3} align="center" sx={{ ...headStyle, width: 150 }}>Tên chỉ tiêu thống kê</TableCell>
+                    <TableCell rowSpan={3} align="center" sx={{ ...headStyle, width: 250 }}>Tên chỉ tiêu thống kê</TableCell>
                     <TableCell rowSpan={3} align="center" sx={{ ...headStyle, width: 60 }}>Mã số</TableCell>
                     <TableCell colSpan={7} align="center" sx={headStyle}>Phân loại TNLĐ theo mức độ thương tật</TableCell>
                     <TableCell colSpan={6} align="center" sx={headStyle}>Thiệt hại do TNLĐ</TableCell>
@@ -525,7 +524,7 @@ export function AccidentReportSummaryPage() {
 
                 <TableBody>
                   <TableRow hover sx={{ backgroundColor: '#f8fafc', fontWeight: 'bold' }}>
-                    <TableCell sx={{ ...cellStyle, fontWeight: 'bold' }} colSpan={3}>Tổng số</TableCell>
+                    <TableCell sx={{ ...cellStyle, fontWeight: 'bold' }} colSpan={2}>Tổng số</TableCell>
                     <TableCell align="center" sx={cellStyle}>{renderDataValue(rawReport?.tnldSummary?.tongSoVu)}</TableCell>
                     <TableCell align="center" sx={cellStyle}>{renderDataValue(rawReport?.tnldSummary?.tongSoVuNguoiChet)}</TableCell>
                     <TableCell align="center" sx={cellStyle}>{renderDataValue(rawReport?.tnldSummary?.tongSoVu2NguoiTroLen || rawReport?.tnldSummary?.tongSoVu2Nguoi)}</TableCell>
@@ -549,7 +548,6 @@ export function AccidentReportSummaryPage() {
                               {group.groupName}
                             </TableCell>
                           )}
-                          <TableCell sx={cellStyle}>{row.name}</TableCell>
                           <TableCell align="center" sx={cellStyle}>{row.code}</TableCell>
                           <TableCell align="center" sx={cellStyle}>{renderDataValue(row.data?.tongSoVu)}</TableCell>
                           <TableCell align="center" sx={cellStyle}>{renderDataValue(row.data?.soVuChet)}</TableCell>

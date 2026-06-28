@@ -263,7 +263,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
         } else if (field === 'tongSoVu2Nguoi' && tongSoVu2Nguoi > tongSoVu) {
           errMsg = "Số vụ có 2 người bị nạn trở lên không được lớn hơn Tổng số vụ";
         }
-        
+
         // 3. Ràng buộc cấp độ "Người bị nạn" (Victims)
         else if (field === 'tongLaoDongNuBiNan' && tongLaoDongNuBiNan > tongSoNguoiBiNan) {
           errMsg = "Lao động nữ bị nạn không được lớn hơn Tổng số người bị nạn";
@@ -274,7 +274,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
         } else if (['tongSoNguoiChet', 'tongSoThuongNang', 'tongSoNguoiBiNan'].includes(field) && tongSoNguoiChet + tongSoThuongNang > tongSoNguoiBiNan) {
           errMsg = "Tổng số người chết và thương nặng không được vượt quá Tổng số người bị nạn";
         }
-        
+
         // Ràng buộc không quản lý (khongQl...)
         else if (field === 'khongQlNuBiNan' && khongQlNuBiNan > khongQlNguoiBiNan) {
           errMsg = "Lao động nữ bị nạn không QL không được lớn hơn Số người bị nạn không QL";
@@ -285,7 +285,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
         } else if (['khongQlNguoiChet', 'khongQlThuongNang', 'khongQlNguoiBiNan'].includes(field) && khongQlNguoiChet + khongQlThuongNang > khongQlNguoiBiNan) {
           errMsg = "Tổng số người chết và thương nặng không QL không được vượt quá Số người bị nạn không QL";
         }
-        
+
         // Chi phí
         else if (['chiPhiYTe', 'chiPhiTraLuong', 'chiPhiBoiThuong', 'tongChiPhi'].includes(field)) {
           const sum = chiPhiYTe + chiPhiTraLuong + chiPhiBoiThuong;
@@ -319,7 +319,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
             } else if (tongSoVu2Nguoi === 0 && tongSoVu > 0 && tongSoNguoiBiNan !== tongSoVu) {
               victimErr = `Khi không có vụ nào có từ 2 người bị nạn trở lên, tổng số người bị nạn phải bằng tổng số vụ (${tongSoVu})`;
             }
-            
+
             currentErrors[`${isTroCap ? 'tnldTroCapSummary_' : 'tnldSummary_'}tongSoVu`] = victimErr;
             currentErrors[`${isTroCap ? 'tnldTroCapSummary_' : 'tnldSummary_'}tongSoVu2Nguoi`] = victimErr;
             currentErrors[`${isTroCap ? 'tnldTroCapSummary_' : 'tnldSummary_'}tongSoNguoiBiNan`] = victimErr;
@@ -376,7 +376,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
           } else if (field === 'tongSoVu2Nguoi' && tongSoVu2Nguoi > tongSoVu) {
             errMsg = "Số vụ có 2 người bị nạn trở lên không được lớn hơn Số vụ";
           }
-          
+
           // 3. Ràng buộc cấp độ "Người bị nạn" (Victims)
           else if (field === 'tongLaoDongNuBiNan' && tongLaoDongNuBiNan > tongSoNguoiBiNan) {
             errMsg = "Lao động nữ bị nạn không được lớn hơn Số người bị nạn";
@@ -387,7 +387,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
           } else if (['tongSoNguoiChet', 'tongSoThuongNang', 'tongSoNguoiBiNan'].includes(field) && tongSoNguoiChet + tongSoThuongNang > tongSoNguoiBiNan) {
             errMsg = "Tổng số người chết và thương nặng không được vượt quá Số người bị nạn";
           }
-          
+
           // Ràng buộc không quản lý (khongQl...)
           else if (field === 'khongQlNuBiNan' && khongQlNuBiNan > khongQlNguoiBiNan) {
             errMsg = "Lao động nữ bị nạn không QL không được lớn hơn Số người bị nạn không QL";
@@ -398,7 +398,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
           } else if (['khongQlNguoiChet', 'khongQlThuongNang', 'khongQlNguoiBiNan'].includes(field) && khongQlNguoiChet + khongQlThuongNang > khongQlNguoiBiNan) {
             errMsg = "Tổng số người chết và thương nặng không QL không được vượt quá Số người bị nạn không QL";
           }
-          
+
           // Chi phí
           else if (['chiPhiYTe', 'chiPhiTraLuong', 'chiPhiBoiThuong', 'tongChiPhi'].includes(field)) {
             const sum = chiPhiYTe + chiPhiTraLuong + chiPhiBoiThuong;
@@ -582,6 +582,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
         return { name, code: String(id), ...getStatCols(getDetailStats(matches), '') };
       });
 
+      const wardCodeStr = String(myCompany?.ward?.ma_phuong || myCompany?.ward?.code || myCompany?.ward?.key || "").padEnd(5, ' ');
       const typeCode = String(myCompany?.loaiHinhKinhDoanh?.maloaihinh || "").padEnd(4, ' ');
       const fieldCode = String(myCompany?.businessLine?.manganh || "").padEnd(4, ' ');
 
@@ -591,7 +592,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
         occupations,
         companyName: myCompany?.name || "",
         companyAddress: myCompany?.address || "",
-        wardCode: myCompany?.ward?.key || "",
+        wC1: wardCodeStr[0], wC2: wardCodeStr[1], wC3: wardCodeStr[2], wC4: wardCodeStr[3], wC5: wardCodeStr[4],
         periodName: period === 'CA_NAM' ? 'cả năm' : '6 tháng',
         reportYear: String(selectedYear),
         reportDate: new Date().toLocaleDateString('vi-VN'),
@@ -767,7 +768,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
           statusColor = '#f59e0b'; // Yellow
         } else if (status === 'DA_TIEP_NHAN') {
           statusLabel = 'Đã tiếp nhận';
-          statusColor = '#2e7d32'; // Green
+          statusColor = '#2f65f0'; // Blue
         } else if (status === 'HUY_TIEP_NHAN') {
           statusLabel = 'Hủy tiếp nhận';
           statusColor = '#ef4444'; // Red
@@ -1174,7 +1175,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
     // Strip formatting dots before mapping stats values
     const cleanStats = (s: any, isDetail = false) => {
       const femaleNum = Number(s.tongLaoDongNuBiNan ?? s.tongSoNuBiNan ?? 0);
-      
+
       let tongSoVu = Number(s.tongSoVu || 0);
       let tongSoVuNguoiChet = Number(s.tongSoVuNguoiChet || 0);
       let tongSoVu2Nguoi = Number(s.tongSoVu2Nguoi || 0);
@@ -1675,7 +1676,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                   onClick={handleExportWord}
                   disabled={loading}
                 >
-                  Xuất Word
+                  In báo cáo
                 </Button>
               )}
               <Button
@@ -3086,8 +3087,8 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
               <Button
                 variant="outlined"
                 sx={{ color: '#2f65f0', borderColor: '#cfd9f3', borderRadius: 1.5, textTransform: 'none', fontWeight: 600 }}
-                startIcon={<PrintIcon />}
-                onClick={triggerPrint}
+                startIcon={<FileDownloadIcon />}
+                onClick={handleExportWord}
               >
                 In báo cáo
               </Button>

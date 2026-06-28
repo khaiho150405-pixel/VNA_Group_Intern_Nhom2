@@ -170,6 +170,7 @@ export function AccidentReportDetailPage() {
         return { name, code: String(id), ...getStatCols(getDetailStats(matches), '') };
       });
 
+      const wardCodeStr = String(rawReport.company?.ward?.ma_phuong || rawReport.company?.ward?.code || rawReport.company?.ward?.key || rawReport.doet?.ward?.code || rawReport.doet?.ward?.key || "").padEnd(5, ' ');
       const typeCodeStr = String(rawReport.company?.loaiHinhKinhDoanh?.maloaihinh || rawReport.company?.loaiHinhKinhDoanh?.id || rawReport.doet?.loaiHinhKinhDoanh?.id || "").padEnd(4, ' ');
       const fieldCodeStr = String(rawReport.company?.businessLine?.manganh || rawReport.company?.businessLine?.code || rawReport.doet?.businessLine?.manganh || rawReport.doet?.businessLine?.code || "").padEnd(4, ' ');
 
@@ -186,7 +187,7 @@ export function AccidentReportDetailPage() {
         femaleEmployees: rawReport.femaleEmployees || "0",
         totalSalary: rawReport.totalSalaryFund || "0",
         companyAddress: rawReport.company?.address || rawReport.doet?.address || "",
-        wardCode: rawReport.company?.ward?.key || rawReport.doet?.ward?.key || "",
+        wC1: wardCodeStr[0], wC2: wardCodeStr[1], wC3: wardCodeStr[2], wC4: wardCodeStr[3], wC5: wardCodeStr[4],
         companyType: rawReport.company?.loaiHinhKinhDoanh?.tenloaihinh || rawReport.company?.loaiHinhKinhDoanh?.name || rawReport.doet?.loaiHinhKinhDoanh?.name || "",
         companyField: rawReport.company?.businessLine?.tennganh || rawReport.company?.businessLine?.name || rawReport.doet?.businessLine?.tennganh || rawReport.doet?.businessLine?.name || "",
         headOfEnterprise: rawReport.company?.headOfEnterprise || rawReport.doet?.headOfEnterprise || "",
@@ -455,10 +456,10 @@ export function AccidentReportDetailPage() {
             <Button
               variant="outlined"
               startIcon={<FileDownloadIcon />}
-              sx={{ color: '#059669', borderColor: '#a7f3d0' }}
+              sx={{ color: '#2f65f0', borderColor: '#2f65f0' }}
               onClick={() => handleExportWord()}
             >
-              Xuất báo cáo
+              In báo cáo
             </Button>
           </Box>
         </Box>
