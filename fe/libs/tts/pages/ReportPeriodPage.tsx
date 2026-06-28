@@ -36,7 +36,7 @@ import { useSnackbar } from "notistack";
 import { makeStyles } from "@mui/styles";
 import { Theme } from "@mui/material/styles";
 
-import { MainLayout } from "@core/layouts/MainLayout";
+
 import { reportPeriodService } from "@tts/services";
 import { CustomCalendar } from "@core/components/CustomCalendar";
 import { formatDateInput, formatDateDisplay } from "@core/utils/helper";
@@ -118,9 +118,9 @@ const useStyles = makeStyles((theme: Theme) => ({
     backgroundColor: "#f8fafc",
     borderBottom: "1px solid #eef0f4",
     padding: "8px 12px",
-    position: "sticky",
-    top: 45,
-    zIndex: 2,
+    position: "sticky !important" as any,
+    top: "45px !important",
+    zIndex: "3 !important" as any,
   },
   bodyCell: {
     padding: "12px 16px",
@@ -536,8 +536,7 @@ export const ReportPeriodPage = () => {
   }, [filters.page, filters.limit, total]);
 
   return (
-    <MainLayout>
-      <Box className={classes.root}>
+    <Box className={classes.root}>
         {/* Header */}
         <Box className={classes.pageHeader}>
           <Typography className={classes.headerTitle}>Danh sách cấu hình báo cáo</Typography>
@@ -1023,6 +1022,5 @@ export const ReportPeriodPage = () => {
           </DialogActions>
         </Dialog>
       </Box>
-    </MainLayout>
   );
 };

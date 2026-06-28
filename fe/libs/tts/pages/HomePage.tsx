@@ -2,15 +2,14 @@
 
 import React from 'react';
 import { Box, Typography, Paper } from '@mui/material';
-import { MainLayout } from '@core/layouts/MainLayout';
+
 import { useAuth } from '@core/contexts/AuthProvider';
 
 export const HomePage = () => {
   const { user } = useAuth();
 
   return (
-    <MainLayout>
-      <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 3 }}>
         <Typography variant="h5" style={{ fontWeight: 700, marginBottom: 24 }}>
           Trang chủ
         </Typography>
@@ -29,6 +28,5 @@ export const HomePage = () => {
           </Box>
         </Paper>
       </Box>
-    </MainLayout>
   );
 };

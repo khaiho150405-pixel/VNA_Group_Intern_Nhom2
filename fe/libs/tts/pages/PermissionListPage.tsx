@@ -25,7 +25,7 @@ import {
   KeyboardArrowUp as KeyboardArrowUpIcon,
   Security as SecurityIcon
 } from '@mui/icons-material';
-import { MainLayout } from '@core/layouts/MainLayout';
+
 import { useAuth } from '@core/contexts/AuthProvider';
 import { permissionService } from '@tts/services/permission.services';
 import { useSnackbar } from 'notistack';
@@ -159,8 +159,7 @@ export const PermissionListPage = () => {
   // Deny access for users other than testuser (placed below all hooks)
   if (!isTestUser) {
     return (
-      <MainLayout>
-        <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+      <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
           <Box sx={{ bgcolor: '#fee2e2', p: 3, borderRadius: '50%', mb: 3 }}>
             <Typography color="error" variant="h3" component="div" sx={{ display: 'flex' }}>
               🔒
@@ -173,13 +172,11 @@ export const PermissionListPage = () => {
             Chỉ tài khoản quản trị hệ thống mặc định (<strong>testuser</strong>) mới được phép truy cập và xem chi tiết cấu hình quyền hạn này.
           </Typography>
         </Box>
-      </MainLayout>
     );
   }
 
   return (
-    <MainLayout>
-      <Box className={classes.root}>
+    <Box className={classes.root}>
         <Box className={classes.pageHeader}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Box>
@@ -353,6 +350,5 @@ export const PermissionListPage = () => {
         </Box>
       </Box>
     </Box>
-  </MainLayout>
   );
 };

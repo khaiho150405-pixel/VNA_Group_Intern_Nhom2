@@ -17,7 +17,7 @@ import {
 import { PhotoCamera, Save, Event, Delete } from '@mui/icons-material';
 import { ChangeEmailModal } from '@core/components/ChangeEmailModal';
 import { RequiredLabel } from '@core/components/RequiredLabel';
-import { MainLayout } from '@core/layouts/MainLayout';
+
 import { useAccountInfoStyles } from '../logic/account-info/style';
 import { useEditUser } from '@tts/hooks/useEditUser';
 import { CustomCalendar } from '@core/components/CustomCalendar';
@@ -239,8 +239,7 @@ export const UserEditPage = () => {
 
     if (state.roles && state.roles.length > 0 && !canView) {
         return (
-            <MainLayout>
-                <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+            <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
                     <Box sx={{ bgcolor: '#fee2e2', p: 3, borderRadius: '50%', mb: 3 }}>
                         <Typography color="error" variant="h3" component="div" sx={{ display: 'flex' }}>
                             🔒
@@ -253,13 +252,11 @@ export const UserEditPage = () => {
                         Tài khoản của bạn không được cấp quyền xem thông tin người dùng này. Vui lòng liên hệ quản trị viên.
                     </Typography>
                 </Box>
-            </MainLayout>
         );
     }
 
     return (
-        <MainLayout>
-            <Box className={classes.root}>
+        <Box className={classes.root}>
                 <Box className={classes.pageHeader}>
                     <Typography className={classes.headerTitle}>
                         {canEdit ? 'Chỉnh sửa người dùng' : 'Chi tiết người dùng'}
@@ -531,6 +528,5 @@ export const UserEditPage = () => {
 
                 <ChangeEmailModal open={showEmailModal} onClose={() => dispatch({ type: 'toggleEmailModal', value: false })} />
             </Box>
-        </MainLayout>
     );
 };

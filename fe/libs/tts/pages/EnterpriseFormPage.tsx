@@ -29,7 +29,7 @@ import {
 import { useRouter, useParams } from 'next/navigation';
 import { useSnackbar } from 'notistack';
 
-import { MainLayout } from '@core/layouts/MainLayout';
+
 import { CustomCalendar } from '@core/components/CustomCalendar';
 import { ChangeEmailModal } from '@core/components/ChangeEmailModal';
 import { DoetService } from '@tts/services';
@@ -1128,8 +1128,7 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
   };
 
   return (
-    <MainLayout>
-      <Box className={classes.root}>
+    <Box className={classes.root}>
         {isProfile && (<>
         {/* Page Header */}
         <Box sx={{ 
@@ -1322,6 +1321,5 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
           onEmailChanged={(newEmail) => setField('email', newEmail)}
         />
       </Box>
-    </MainLayout>
   );
 };

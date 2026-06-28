@@ -32,7 +32,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useSnackbar } from "notistack";
 
-import { MainLayout } from "@core/layouts/MainLayout";
+
 import { BulkSelectionBar } from "@core/components/BulkSelectionBar";
 import { DoetService } from "@tts/services";
 import { ResetPasswordModal } from "@tts/components/ResetPasswordModal";
@@ -295,8 +295,7 @@ export const EnterpriseListPage = () => {
   ];
 
   return (
-    <MainLayout>
-      <Box className={classes.root}>
+    <Box className={classes.root}>
         <input
           type="file"
           hidden
@@ -606,6 +605,5 @@ export const EnterpriseListPage = () => {
           enterpriseName={resetModal.name}
         />
       </Box>
-    </MainLayout>
   );
 };

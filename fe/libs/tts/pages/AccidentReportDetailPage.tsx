@@ -20,7 +20,7 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
 import { saveAs } from 'file-saver';
-import { MainLayout } from '@core/layouts/MainLayout';
+
 
 export interface ReportData {
   tongSoVu: number;
@@ -430,8 +430,7 @@ export function AccidentReportDetailPage() {
   const headStyle = { ...cellStyle, fontWeight: 'bold', backgroundColor: '#f8fafc', color: '#475569' };
 
   return (
-    <MainLayout>
-      <Box sx={{ backgroundColor: '#f4f6f8', minHeight: '100vh' }}>
+    <Box sx={{ backgroundColor: '#f4f6f8', minHeight: '100vh' }}>
 
         <Box sx={{
           display: 'flex',
@@ -628,6 +627,5 @@ export function AccidentReportDetailPage() {
           </Box>
         </Box>
       </Box>
-    </MainLayout>
   );
 }

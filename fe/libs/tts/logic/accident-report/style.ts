@@ -96,9 +96,9 @@ export const useAccidentReportStyles = makeStyles((theme: Theme) => ({
     backgroundColor: '#f8fafc',
     borderBottom: '1px solid #eef0f4',
     padding: '8px 12px',
-    position: 'sticky',
-    top: 45,
-    zIndex: 2,
+    position: 'sticky !important' as any,
+    top: '45px !important',
+    zIndex: '3 !important' as any,
   },
   bodyCell: {
     padding: '12px 16px',

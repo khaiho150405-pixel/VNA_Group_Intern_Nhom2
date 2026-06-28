@@ -41,7 +41,7 @@ import {
   AdminPanelSettings as RoleIcon,
   Search as SearchIcon
 } from '@mui/icons-material';
-import { MainLayout } from '@core/layouts/MainLayout';
+
 import { useAuth } from '@core/contexts/AuthProvider';
 import { roleService } from '@tts/services/role.services';
 import { permissionService } from '@tts/services/permission.services';
@@ -762,21 +762,19 @@ export const RoleManagementPage = () => {
   // Deny access for users other than testuser (placed below all hooks)
   if (!isTestUser) {
     return (
-      <MainLayout>
-        <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-          <Box sx={{ bgcolor: '#fee2e2', p: 3, borderRadius: '50%', mb: 3 }}>
-            <Typography color="error" variant="h3" component="div" sx={{ display: 'flex' }}>
-              🔒
-            </Typography>
-          </Box>
-          <Typography variant="h5" sx={{ fontWeight: 700, mb: 1, color: '#1e293b' }}>
-            Quyền truy cập bị từ chối
-          </Typography>
-          <Typography variant="body1" sx={{ color: '#64748b', mb: 3, textAlign: 'center', maxWidth: 450 }}>
-            Chỉ tài khoản quản trị hệ thống mặc định (<strong>testuser</strong>) mới được phép thay đổi, chỉnh sửa hoặc gán vai trò người dùng.
+      <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+        <Box sx={{ bgcolor: '#fee2e2', p: 3, borderRadius: '50%', mb: 3 }}>
+          <Typography color="error" variant="h3" component="div" sx={{ display: 'flex' }}>
+            🔒
           </Typography>
         </Box>
-      </MainLayout>
+        <Typography variant="h5" sx={{ fontWeight: 700, mb: 1, color: '#1e293b' }}>
+          Quyền truy cập bị từ chối
+        </Typography>
+        <Typography variant="body1" sx={{ color: '#64748b', mb: 3, textAlign: 'center', maxWidth: 450 }}>
+          Chỉ tài khoản quản trị hệ thống mặc định (<strong>testuser</strong>) mới được phép thay đổi, chỉnh sửa hoặc gán vai trò người dùng.
+        </Typography>
+      </Box>
     );
   }
 
@@ -788,7 +786,7 @@ export const RoleManagementPage = () => {
   const isIndeterminate = !isAllSelected && paginatedSelectableRoles.some(r => selectedIds.includes(String(r.id)));
 
   return (
-    <MainLayout>
+    <>
       <Box className={classes.root}>
         <Box className={classes.pageHeader}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -936,16 +934,16 @@ export const RoleManagementPage = () => {
         </Box>
       </Box>
 
-      {/* Floating Batch Selection Bar */}
-      {selectedIds.length > 0 && (
-        <BulkSelectionBar
-          count={selectedIds.length}
-          onDelete={() => setConfirmBulkDeleteOpen(true)}
-          onClose={() => setSelectedIds([])}
-        />
-      )}
+      {
+        selectedIds.length > 0 && (
+          <BulkSelectionBar
+            count={selectedIds.length}
+            onDelete={() => setConfirmBulkDeleteOpen(true)}
+            onClose={() => setSelectedIds([])}
+          />
+        )
+      }
 
-      {/* Bulk Delete Confirm dialog */}
       <ConfirmDialog
         open={confirmBulkDeleteOpen}
         title="Xác nhận xóa"
@@ -1297,6 +1295,6 @@ export const RoleManagementPage = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </MainLayout>
+    </>
   );
 };

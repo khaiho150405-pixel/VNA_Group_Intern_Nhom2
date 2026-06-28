@@ -16,7 +16,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useSnackbar } from 'notistack';
 
-import { MainLayout } from '@core/layouts/MainLayout';
+
 import { useAccidentReportStyles } from '../logic/accident-report/style';
 import { DoetService, periodicReportService } from '@tts/services';
 import { useAuth } from '@core/contexts/AuthProvider';
@@ -324,9 +324,7 @@ export const AccidentReportPage = () => {
 
     if (!isSo) {
         return (
-            <MainLayout>
-                <EnterpriseAccidentReportPage user={user} />
-            </MainLayout>
+            <EnterpriseAccidentReportPage user={user} />
         );
     }
 
@@ -335,8 +333,7 @@ export const AccidentReportPage = () => {
     const hasHuyTiepNhan = selectedItems.some((item: any) => item.status === 'HUY_TIEP_NHAN');
 
     return (
-        <MainLayout>
-            <Box className={classes.root}>
+        <Box className={classes.root}>
                 <Box className={classes.pageHeader}>
                     <Typography className={classes.headerTitle}>
                         Báo cáo định kỳ Tai nạn lao động
@@ -415,7 +412,7 @@ export const AccidentReportPage = () => {
                         <Box className={classes.tableScroll}>
 
                             <TableContainer sx={{ maxHeight: 'calc(100vh - 280px)' }}>
-                                <Table stickyHeader size="medium">
+                                <Table stickyHeader size="small">
                                     <TableHead>
                                         <TableRow>
                                             <TableCell padding="checkbox" className={classes.headerCell}>
@@ -738,6 +735,5 @@ export const AccidentReportPage = () => {
                     </DialogActions>
                 </Dialog>
             </Box>
-        </MainLayout>
     );
 }

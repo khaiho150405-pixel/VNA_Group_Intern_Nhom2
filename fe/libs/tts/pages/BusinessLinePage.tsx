@@ -28,7 +28,7 @@ import {
   Edit as EditIcon,
   Add as AddIcon,
   Close as CloseIcon,
-  UploadFile as UploadFileIcon,
+  FileUpload as UploadIcon,
 } from "@mui/icons-material";
 import { useSnackbar } from "notistack";
 import { makeStyles } from "@mui/styles";
@@ -36,7 +36,7 @@ import { Theme } from "@mui/material/styles";
 
 import { ConfirmDialog } from "@core/components/ConfirmDialog";
 import { BulkSelectionBar } from "@core/components/BulkSelectionBar";
-import { MainLayout } from "@core/layouts/MainLayout";
+
 import { businessLineService } from "@tts/services";
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -130,9 +130,9 @@ const useStyles = makeStyles((theme: Theme) => ({
     backgroundColor: "#f8fafc",
     borderBottom: "1px solid #eef0f4",
     padding: "8px 12px",
-    position: "sticky",
-    top: 45,
-    zIndex: 2,
+    position: "sticky !important" as any,
+    top: "45px !important",
+    zIndex: "3 !important" as any,
   },
   bodyCell: {
     padding: "12px 16px",
@@ -341,12 +341,12 @@ export const BusinessLinePage = () => {
     } else if (form.cap < 1 || form.cap > 4) {
       errors.cap = "Cấp phải từ 1 tới 4";
     }
-    
+
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
       return;
     }
-    
+
     setLoading(true);
     try {
       // Check for duplicate manganh
@@ -432,369 +432,367 @@ export const BusinessLinePage = () => {
   }, [filters.page, filters.limit, total]);
 
   return (
-    <MainLayout>
-      <Box className={classes.root}>
-        {/* Header */}
-        <Box className={classes.pageHeader}>
-          <Typography className={classes.headerTitle}>Danh sách ngành nghề kinh doanh</Typography>
-          <Box className={classes.actions}>
-            <Button
-              className={classes.importBtn}
-              variant="outlined"
-              startIcon={<UploadFileIcon />}
-              onClick={() => enqueueSnackbar("Chức năng đang được phát triển", { variant: "info" })}
-            >
-              Thêm từ file
-            </Button>
-            <Button
-              className={classes.addBtn}
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={handleOpenAdd}
-            >
-              Thêm mới
-            </Button>
-          </Box>
+    <Box className={classes.root}>
+      {/* Header */}
+      <Box className={classes.pageHeader}>
+        <Typography className={classes.headerTitle}>Danh sách ngành nghề kinh doanh</Typography>
+        <Box className={classes.actions}>
+          <Button
+            className={classes.importBtn}
+            variant="outlined"
+            startIcon={<UploadIcon />}
+            onClick={() => enqueueSnackbar("Chức năng đang được phát triển", { variant: "info" })}
+          >
+            Thêm từ file
+          </Button>
+          <Button
+            className={classes.addBtn}
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleOpenAdd}
+          >
+            Thêm mới
+          </Button>
         </Box>
+      </Box>
 
-        {/* Content */}
-        <Box className={classes.mainContent}>
-          <Box className={classes.card}>
-            <TableContainer className={classes.tableScroll}>
-              <Table stickyHeader size="small">
-                <TableHead>
-                  {/* Table Header Row */}
-                  <TableRow>
-                    <TableCell padding="checkbox" className={classes.headerCell} width={50}>
-                      <Checkbox
-                        size="small"
-                        checked={isAllSelected}
-                        indeterminate={isIndeterminate}
-                        onChange={handleSelectAll}
-                      />
-                    </TableCell>
-                    <TableCell className={classes.headerCell} width={80} align="center">Thao tác</TableCell>
-                    <TableCell className={classes.headerCell} width={150}>Mã ngành</TableCell>
-                    <TableCell className={classes.headerCell}>Tên ngành nghề</TableCell>
-                    <TableCell className={classes.headerCell} width={150}>Cấp</TableCell>
-                    <TableCell className={classes.headerCell} width={180}>Trạng thái</TableCell>
-                  </TableRow>
-                  
-                  {/* Filter Inline Row - matching screenshot empty look */}
-                  <TableRow>
-                    <TableCell className={classes.filterCell}></TableCell>
-                    <TableCell className={classes.filterCell}></TableCell>
-                    <TableCell className={classes.filterCell}>
-                      <TextField
-                        className={classes.filterField}
-                        size="small"
-                        fullWidth
-                        placeholder="Mã ngành"
-                        value={filters.manganh}
-                        onChange={(e) => handleFilterChange("manganh", e.target.value)}
-                      />
-                    </TableCell>
-                    <TableCell className={classes.filterCell}>
-                      <TextField
-                        className={classes.filterField}
-                        size="small"
-                        fullWidth
-                        placeholder="Tên ngành nghề"
-                        value={filters.tennganh}
-                        onChange={(e) => handleFilterChange("tennganh", e.target.value)}
-                      />
-                    </TableCell>
-                    <TableCell className={classes.filterCell}>
-                      <TextField
-                        className={classes.filterField}
-                        size="small"
-                        fullWidth
-                        placeholder="Cấp"
-                        value={filters.cap}
-                        onChange={(e) => handleFilterChange("cap", e.target.value)}
-                      />
-                    </TableCell>
-                    <TableCell className={classes.filterCell}>
-                      <Autocomplete
-                        size="small"
-                        options={[
-                          { label: 'Hoạt động', value: 'ACTIVE' },
-                          { label: 'Ngưng hoạt động', value: 'INACTIVE' }
-                        ]}
-                        getOptionLabel={(option) => option.label || ""}
-                        value={[
-                          { label: 'Hoạt động', value: 'ACTIVE' },
-                          { label: 'Ngưng hoạt động', value: 'INACTIVE' }
-                        ].find((o) => o.value === filters.trangthai) || null}
-                        onChange={(_, newValue) => handleFilterChange("trangthai", newValue?.value || "")}
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            placeholder="Tất cả"
-                            className={classes.filterField}
-                          />
-                        )}
-                      />
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
+      {/* Content */}
+      <Box className={classes.mainContent}>
+        <Box className={classes.card}>
+          <TableContainer className={classes.tableScroll}>
+            <Table stickyHeader size="small">
+              <TableHead>
+                {/* Table Header Row */}
+                <TableRow>
+                  <TableCell padding="checkbox" className={classes.headerCell} width={50}>
+                    <Checkbox
+                      size="small"
+                      checked={isAllSelected}
+                      indeterminate={isIndeterminate}
+                      onChange={handleSelectAll}
+                    />
+                  </TableCell>
+                  <TableCell className={classes.headerCell} width={80} align="center">Thao tác</TableCell>
+                  <TableCell className={classes.headerCell} width={150}>Mã ngành</TableCell>
+                  <TableCell className={classes.headerCell}>Tên ngành nghề</TableCell>
+                  <TableCell className={classes.headerCell} width={150}>Cấp</TableCell>
+                  <TableCell className={classes.headerCell} width={180}>Trạng thái</TableCell>
+                </TableRow>
 
-                <TableBody>
-                  {data.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} align="center" sx={{ py: 3, color: "#94a3b8" }}>
-                        Không có dữ liệu
+                {/* Filter Inline Row - matching screenshot empty look */}
+                <TableRow>
+                  <TableCell className={classes.filterCell}></TableCell>
+                  <TableCell className={classes.filterCell}></TableCell>
+                  <TableCell className={classes.filterCell}>
+                    <TextField
+                      className={classes.filterField}
+                      size="small"
+                      fullWidth
+                      placeholder="Mã ngành"
+                      value={filters.manganh}
+                      onChange={(e) => handleFilterChange("manganh", e.target.value)}
+                    />
+                  </TableCell>
+                  <TableCell className={classes.filterCell}>
+                    <TextField
+                      className={classes.filterField}
+                      size="small"
+                      fullWidth
+                      placeholder="Tên ngành nghề"
+                      value={filters.tennganh}
+                      onChange={(e) => handleFilterChange("tennganh", e.target.value)}
+                    />
+                  </TableCell>
+                  <TableCell className={classes.filterCell}>
+                    <TextField
+                      className={classes.filterField}
+                      size="small"
+                      fullWidth
+                      placeholder="Cấp"
+                      value={filters.cap}
+                      onChange={(e) => handleFilterChange("cap", e.target.value)}
+                    />
+                  </TableCell>
+                  <TableCell className={classes.filterCell}>
+                    <Autocomplete
+                      size="small"
+                      options={[
+                        { label: 'Hoạt động', value: 'ACTIVE' },
+                        { label: 'Ngưng hoạt động', value: 'INACTIVE' }
+                      ]}
+                      getOptionLabel={(option) => option.label || ""}
+                      value={[
+                        { label: 'Hoạt động', value: 'ACTIVE' },
+                        { label: 'Ngưng hoạt động', value: 'INACTIVE' }
+                      ].find((o) => o.value === filters.trangthai) || null}
+                      onChange={(_, newValue) => handleFilterChange("trangthai", newValue?.value || "")}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          placeholder="Tất cả"
+                          className={classes.filterField}
+                        />
+                      )}
+                    />
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+
+              <TableBody>
+                {data.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center" sx={{ py: 3, color: "#94a3b8" }}>
+                      Không có dữ liệu
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  data.map((item) => (
+                    <TableRow key={item.id} hover selected={selectedIds.includes(String(item.id))}>
+                      <TableCell padding="checkbox" className={classes.bodyCell}>
+                        <Checkbox
+                          size="small"
+                          checked={selectedIds.includes(String(item.id))}
+                          onChange={() => handleSelectOne(String(item.id))}
+                        />
+                      </TableCell>
+                      <TableCell className={classes.bodyCell} align="center">
+                        <IconButton
+                          className={classes.actionIcon}
+                          onClick={() => handleOpenEdit(item)}
+                          size="small"
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                      <TableCell className={classes.bodyCell}>{item.manganh}</TableCell>
+                      <TableCell className={classes.bodyCell}>{item.tennganh}</TableCell>
+                      <TableCell className={classes.bodyCell}>Cấp {item.cap}</TableCell>
+                      <TableCell className={classes.bodyCell}>
+                        <Switch
+                          size="small"
+                          checked={item.trangthai === "ACTIVE"}
+                          onChange={() => handleStatusToggle(item)}
+                          color="primary"
+                        />
                       </TableCell>
                     </TableRow>
-                  ) : (
-                    data.map((item) => (
-                      <TableRow key={item.id} hover selected={selectedIds.includes(String(item.id))}>
-                        <TableCell padding="checkbox" className={classes.bodyCell}>
-                          <Checkbox 
-                            size="small" 
-                            checked={selectedIds.includes(String(item.id))}
-                            onChange={() => handleSelectOne(String(item.id))}
-                          />
-                        </TableCell>
-                        <TableCell className={classes.bodyCell} align="center">
-                          <IconButton
-                            className={classes.actionIcon}
-                            onClick={() => handleOpenEdit(item)}
-                            size="small"
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                        <TableCell className={classes.bodyCell}>{item.manganh}</TableCell>
-                        <TableCell className={classes.bodyCell}>{item.tennganh}</TableCell>
-                        <TableCell className={classes.bodyCell}>Cấp {item.cap}</TableCell>
-                        <TableCell className={classes.bodyCell}>
-                          <Switch
-                            size="small"
-                            checked={item.trangthai === "ACTIVE"}
-                            onChange={() => handleStatusToggle(item)}
-                            color="primary"
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
 
-            {/* Pagination Footer */}
-            <Box className={classes.footer}>
-              <Select
-                size="small"
-                value={filters.limit}
-                onChange={(e) => handleFilterChange("limit", Number(e.target.value))}
-                className={classes.pageSizeSelect}
-              >
-                <MenuItem value={10}>10</MenuItem>
-                <MenuItem value={20}>20</MenuItem>
-                <MenuItem value={50}>50</MenuItem>
-              </Select>
-              <Typography className={classes.pageInfo}>
-                {startIndex} - {endIndex} of {total}
-              </Typography>
-              <Pagination
-                count={Math.max(1, Math.ceil(total / filters.limit))}
-                page={filters.page}
-                onChange={(_, p) => handleFilterChange("page", p)}
-                shape="rounded"
-                size="small"
-                siblingCount={0}
-                boundaryCount={1}
-              />
-            </Box>
+          {/* Pagination Footer */}
+          <Box className={classes.footer}>
+            <Select
+              size="small"
+              value={filters.limit}
+              onChange={(e) => handleFilterChange("limit", Number(e.target.value))}
+              className={classes.pageSizeSelect}
+            >
+              <MenuItem value={10}>10</MenuItem>
+              <MenuItem value={20}>20</MenuItem>
+              <MenuItem value={50}>50</MenuItem>
+            </Select>
+            <Typography className={classes.pageInfo}>
+              {startIndex} - {endIndex} of {total}
+            </Typography>
+            <Pagination
+              count={Math.max(1, Math.ceil(total / filters.limit))}
+              page={filters.page}
+              onChange={(_, p) => handleFilterChange("page", p)}
+              shape="rounded"
+              size="small"
+              siblingCount={0}
+              boundaryCount={1}
+            />
           </Box>
         </Box>
+      </Box>
 
-        {/* Bulk Selection Actions */}
-        {selectedIds.length > 0 && (
-          <BulkSelectionBar
-            count={selectedIds.length}
-            onDelete={() => setConfirmBulkDeleteOpen(true)}
-            onClose={() => setSelectedIds([])}
-          />
-        )}
-
-        <ConfirmDialog
-          open={confirmBulkDeleteOpen}
-          title="Xác nhận xóa"
-          message={`Bạn có chắc chắn muốn xóa vĩnh viễn ${selectedIds.length} ngành nghề kinh doanh đã chọn?`}
-          onCancel={() => setConfirmBulkDeleteOpen(false)}
-          onConfirm={handleDeleteMany}
-          confirmText="Xóa"
+      {/* Bulk Selection Actions */}
+      {selectedIds.length > 0 && (
+        <BulkSelectionBar
+          count={selectedIds.length}
+          onDelete={() => setConfirmBulkDeleteOpen(true)}
+          onClose={() => setSelectedIds([])}
         />
+      )}
 
-        {/* Create/Edit Modal Dialog */}
-        <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="xs" fullWidth>
-          <DialogTitle
+      <ConfirmDialog
+        open={confirmBulkDeleteOpen}
+        title="Xác nhận xóa"
+        message={`Bạn có chắc chắn muốn xóa vĩnh viễn ${selectedIds.length} ngành nghề kinh doanh đã chọn?`}
+        onCancel={() => setConfirmBulkDeleteOpen(false)}
+        onConfirm={handleDeleteMany}
+        confirmText="Xóa"
+      />
+
+      {/* Create/Edit Modal Dialog */}
+      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="xs" fullWidth>
+        <DialogTitle
+          sx={{
+            m: 0,
+            p: 2,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            fontSize: "1.1rem",
+            fontWeight: 600,
+            color: "#fff",
+            backgroundColor: "#2f65f0",
+          }}
+        >
+          {editId ? "Cập nhật ngành nghề kinh doanh" : "Thêm mới ngành nghề kinh doanh"}
+          <IconButton
+            aria-label="close"
+            onClick={handleCloseDialog}
             sx={{
-              m: 0,
-              p: 2,
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              fontSize: "1.1rem",
-              fontWeight: 600,
               color: "#fff",
-              backgroundColor: "#2f65f0",
+              "&:hover": { color: "#e2e8f0", backgroundColor: "rgba(255,255,255,0.1)" },
             }}
           >
-            {editId ? "Cập nhật ngành nghề kinh doanh" : "Thêm mới ngành nghề kinh doanh"}
-            <IconButton
-              aria-label="close"
-              onClick={handleCloseDialog}
-              sx={{
-                color: "#fff",
-                "&:hover": { color: "#e2e8f0", backgroundColor: "rgba(255,255,255,0.1)" },
-              }}
-            >
-              <CloseIcon />
-            </IconButton>
-          </DialogTitle>
-          <DialogContent dividers sx={{ p: 3, borderColor: "#eef0f4" }}>
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
-              <Box>
-                <Typography sx={{ fontSize: "0.85rem", fontWeight: 500, color: "#333", mb: 0.5 }}>
-                  Mã ngành <span style={{ color: "red" }}>*</span>
-                </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  placeholder="Nhập mã ngành"
-                  value={form.manganh}
-                  onChange={(e) => {
-                    setForm({ ...form, manganh: e.target.value });
-                    if (formErrors.manganh) setFormErrors({ ...formErrors, manganh: "" });
-                  }}
-                  error={!!formErrors.manganh}
-                  helperText={formErrors.manganh}
-                  sx={{
-                    "& .MuiOutlinedInput-root": {
-                      borderRadius: 1,
-                      "& fieldset": { borderColor: "#dfe3eb" },
-                      "&:hover fieldset": { borderColor: "#bcc4d3" },
-                      "&.Mui-focused fieldset": { borderColor: "#2f65f0" },
-                    },
-                  }}
-                />
-              </Box>
-
-              <Box>
-                <Typography sx={{ fontSize: "0.85rem", fontWeight: 500, color: "#333", mb: 0.5 }}>
-                  Tên ngành nghề <span style={{ color: "red" }}>*</span>
-                </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  placeholder="Nhập tên ngành nghề"
-                  value={form.tennganh}
-                  onChange={(e) => {
-                    setForm({ ...form, tennganh: e.target.value });
-                    if (formErrors.tennganh) setFormErrors({ ...formErrors, tennganh: "" });
-                  }}
-                  error={!!formErrors.tennganh}
-                  helperText={formErrors.tennganh}
-                  sx={{
-                    "& .MuiOutlinedInput-root": {
-                      borderRadius: 1,
-                      "& fieldset": { borderColor: "#dfe3eb" },
-                      "&:hover fieldset": { borderColor: "#bcc4d3" },
-                      "&.Mui-focused fieldset": { borderColor: "#2f65f0" },
-                    },
-                  }}
-                />
-              </Box>
-
-              <Box>
-                <Typography sx={{ fontSize: "0.85rem", fontWeight: 500, color: "#333", mb: 0.5 }}>
-                  Cấp <span style={{ color: "red" }}>*</span>
-                </Typography>
-                <TextField
-                  fullWidth
-                  type="number"
-                  size="small"
-                  placeholder="Nhập cấp"
-                  value={form.cap}
-                  onChange={(e) => {
-                    const parsed = Number(e.target.value);
-                    setForm({ ...form, cap: isNaN(parsed) ? 0 : parsed });
-                    if (formErrors.cap) setFormErrors({ ...formErrors, cap: "" });
-                  }}
-                  error={!!formErrors.cap}
-                  helperText={formErrors.cap}
-                  sx={{
-                    "& .MuiOutlinedInput-root": {
-                      borderRadius: 1,
-                      "& fieldset": { borderColor: "#dfe3eb" },
-                      "&:hover fieldset": { borderColor: "#bcc4d3" },
-                      "&.Mui-focused fieldset": { borderColor: "#2f65f0" },
-                    },
-                  }}
-                />
-              </Box>
-
-              <Box>
-                <Typography sx={{ fontSize: "0.85rem", fontWeight: 500, color: "#333", mb: 0.5 }}>
-                  Trạng thái <span style={{ color: "red" }}>*</span>
-                </Typography>
-                <Select
-                  fullWidth
-                  size="small"
-                  value={form.trangthai}
-                  onChange={(e) => setForm({ ...form, trangthai: e.target.value })}
-                  sx={{
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 3, borderColor: "#eef0f4" }}>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
+            <Box>
+              <Typography sx={{ fontSize: "0.85rem", fontWeight: 500, color: "#333", mb: 0.5 }}>
+                Mã ngành <span style={{ color: "red" }}>*</span>
+              </Typography>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Nhập mã ngành"
+                value={form.manganh}
+                onChange={(e) => {
+                  setForm({ ...form, manganh: e.target.value });
+                  if (formErrors.manganh) setFormErrors({ ...formErrors, manganh: "" });
+                }}
+                error={!!formErrors.manganh}
+                helperText={formErrors.manganh}
+                sx={{
+                  "& .MuiOutlinedInput-root": {
                     borderRadius: 1,
                     "& fieldset": { borderColor: "#dfe3eb" },
                     "&:hover fieldset": { borderColor: "#bcc4d3" },
                     "&.Mui-focused fieldset": { borderColor: "#2f65f0" },
-                  }}
-                >
-                  <MenuItem value="ACTIVE">Hoạt động</MenuItem>
-                  <MenuItem value="INACTIVE">Ngưng hoạt động</MenuItem>
-                </Select>
-              </Box>
+                  },
+                }}
+              />
             </Box>
-          </DialogContent>
-          <DialogActions sx={{ p: 2, px: 3, pt: 2, pb: 2.5 }}>
-            <Button
-              onClick={handleCloseDialog}
-              sx={{
-                color: "#5a6478",
-                textTransform: "none",
-                fontWeight: 500,
-                "&:hover": { backgroundColor: "#f3f5f9" },
-              }}
-            >
-              Hủy
-            </Button>
-            <Button
-              onClick={handleSave}
-              disabled={loading}
-              variant="contained"
-              sx={{
-                backgroundColor: "#2f65f0",
-                color: "#fff",
-                textTransform: "none",
-                fontWeight: 600,
-                px: 3,
-                borderRadius: 1,
-                boxShadow: "0px 4px 10px rgba(47, 101, 240, 0.2)",
-                "&:hover": {
-                  backgroundColor: "#1e4fd1",
-                  boxShadow: "0px 6px 14px rgba(47, 101, 240, 0.3)",
-                },
-              }}
-            >
-              Lưu
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </Box>
-    </MainLayout>
+
+            <Box>
+              <Typography sx={{ fontSize: "0.85rem", fontWeight: 500, color: "#333", mb: 0.5 }}>
+                Tên ngành nghề <span style={{ color: "red" }}>*</span>
+              </Typography>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Nhập tên ngành nghề"
+                value={form.tennganh}
+                onChange={(e) => {
+                  setForm({ ...form, tennganh: e.target.value });
+                  if (formErrors.tennganh) setFormErrors({ ...formErrors, tennganh: "" });
+                }}
+                error={!!formErrors.tennganh}
+                helperText={formErrors.tennganh}
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: 1,
+                    "& fieldset": { borderColor: "#dfe3eb" },
+                    "&:hover fieldset": { borderColor: "#bcc4d3" },
+                    "&.Mui-focused fieldset": { borderColor: "#2f65f0" },
+                  },
+                }}
+              />
+            </Box>
+
+            <Box>
+              <Typography sx={{ fontSize: "0.85rem", fontWeight: 500, color: "#333", mb: 0.5 }}>
+                Cấp <span style={{ color: "red" }}>*</span>
+              </Typography>
+              <TextField
+                fullWidth
+                type="number"
+                size="small"
+                placeholder="Nhập cấp"
+                value={form.cap}
+                onChange={(e) => {
+                  const parsed = Number(e.target.value);
+                  setForm({ ...form, cap: isNaN(parsed) ? 0 : parsed });
+                  if (formErrors.cap) setFormErrors({ ...formErrors, cap: "" });
+                }}
+                error={!!formErrors.cap}
+                helperText={formErrors.cap}
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: 1,
+                    "& fieldset": { borderColor: "#dfe3eb" },
+                    "&:hover fieldset": { borderColor: "#bcc4d3" },
+                    "&.Mui-focused fieldset": { borderColor: "#2f65f0" },
+                  },
+                }}
+              />
+            </Box>
+
+            <Box>
+              <Typography sx={{ fontSize: "0.85rem", fontWeight: 500, color: "#333", mb: 0.5 }}>
+                Trạng thái <span style={{ color: "red" }}>*</span>
+              </Typography>
+              <Select
+                fullWidth
+                size="small"
+                value={form.trangthai}
+                onChange={(e) => setForm({ ...form, trangthai: e.target.value })}
+                sx={{
+                  borderRadius: 1,
+                  "& fieldset": { borderColor: "#dfe3eb" },
+                  "&:hover fieldset": { borderColor: "#bcc4d3" },
+                  "&.Mui-focused fieldset": { borderColor: "#2f65f0" },
+                }}
+              >
+                <MenuItem value="ACTIVE">Hoạt động</MenuItem>
+                <MenuItem value="INACTIVE">Ngưng hoạt động</MenuItem>
+              </Select>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, px: 3, pt: 2, pb: 2.5 }}>
+          <Button
+            onClick={handleCloseDialog}
+            sx={{
+              color: "#5a6478",
+              textTransform: "none",
+              fontWeight: 500,
+              "&:hover": { backgroundColor: "#f3f5f9" },
+            }}
+          >
+            Hủy
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={loading}
+            variant="contained"
+            sx={{
+              backgroundColor: "#2f65f0",
+              color: "#fff",
+              textTransform: "none",
+              fontWeight: 600,
+              px: 3,
+              borderRadius: 1,
+              boxShadow: "0px 4px 10px rgba(47, 101, 240, 0.2)",
+              "&:hover": {
+                backgroundColor: "#1e4fd1",
+                boxShadow: "0px 6px 14px rgba(47, 101, 240, 0.3)",
+              },
+            }}
+          >
+            Lưu
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 };

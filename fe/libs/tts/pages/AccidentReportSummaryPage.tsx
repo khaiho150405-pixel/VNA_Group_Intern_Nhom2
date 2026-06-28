@@ -18,7 +18,6 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
 import { saveAs } from 'file-saver';
-import { MainLayout } from '@core/layouts/MainLayout';
 
 interface ReportData {
   tongSoVu: number;
@@ -381,8 +380,7 @@ export function AccidentReportSummaryPage() {
   };
 
   return (
-    <MainLayout>
-      <Box sx={{ backgroundColor: '#f4f6f8', minHeight: '100vh' }}>
+    <Box sx={{ backgroundColor: '#f4f6f8', minHeight: '100vh' }}>
 
         <Box sx={{
           display: 'flex',
@@ -573,6 +571,5 @@ export function AccidentReportSummaryPage() {
           </Box>
         </Box>
       </Box>
-    </MainLayout>
   );
 }

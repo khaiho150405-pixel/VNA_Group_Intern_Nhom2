@@ -17,7 +17,7 @@ import {
 import { PhotoCamera, Save, Event, Delete, Visibility, VisibilityOff } from '@mui/icons-material';
 import { ChangeEmailModal } from '@core/components/ChangeEmailModal';
 import { RequiredLabel } from '@core/components/RequiredLabel';
-import { MainLayout } from '@core/layouts/MainLayout';
+
 import { useAccountInfoStyles } from '../logic/account-info/style';
 import { useCreateUser } from '@tts/hooks/useCreateUser';
 import { CustomCalendar } from '@core/components/CustomCalendar';
@@ -143,8 +143,7 @@ export const UserCreatePage = () => {
 
     if (state.roles && state.roles.length > 0 && !canCreate) {
         return (
-            <MainLayout>
-                <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+            <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
                     <Box sx={{ bgcolor: '#fee2e2', p: 3, borderRadius: '50%', mb: 3 }}>
                         <Typography color="error" variant="h3" component="div" sx={{ display: 'flex' }}>
                             🔒
@@ -157,13 +156,11 @@ export const UserCreatePage = () => {
                         Tài khoản của bạn không được cấp quyền tạo người dùng mới. Vui lòng liên hệ quản trị viên.
                     </Typography>
                 </Box>
-            </MainLayout>
         );
     }
 
     return (
-        <MainLayout>
-            <Box className={classes.root}>
+        <Box className={classes.root}>
                 <Box className={classes.pageHeader}>
                     <Typography className={classes.headerTitle}>Chi tiết người dùng</Typography>
                     <Box className={classes.actions}>
@@ -434,6 +431,5 @@ export const UserCreatePage = () => {
 
                 <ChangeEmailModal open={showEmailModal} onClose={() => dispatch({ type: 'toggleEmailModal', value: false })} />
             </Box>
-        </MainLayout>
     );
 };
