@@ -585,13 +585,13 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
       const typeCode = String(myCompany?.loaiHinhKinhDoanh?.maloaihinh || "").padEnd(4, ' ');
       const fieldCode = String(myCompany?.businessLine?.manganh || "").padEnd(4, ' ');
 
-      // Prepare data
       const data = {
         ...causesData,
         factors,
         occupations,
         companyName: myCompany?.name || "",
         companyAddress: myCompany?.address || "",
+        wardCode: myCompany?.ward?.key || "",
         periodName: period === 'CA_NAM' ? 'cả năm' : '6 tháng',
         reportYear: String(selectedYear),
         reportDate: new Date().toLocaleDateString('vi-VN'),

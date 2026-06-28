@@ -412,6 +412,18 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
       relations: ["accidentDetails"]
     });
     if (!report) throw Response.errorNotFound("Không tìm thấy báo cáo");
+
+    if (report.doetId) {
+      const doet = await this.doetRepo.findOne({
+        where: { id: report.doetId as any },
+        relations: ["loaiHinhKinhDoanh", "businessLine"]
+      });
+      if (doet) {
+        (report as any).doet = doet;
+        (report as any).company = doet;
+      }
+    }
+
     return Response.get(report);
   }
 

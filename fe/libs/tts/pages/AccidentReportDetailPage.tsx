@@ -170,25 +170,28 @@ export function AccidentReportDetailPage() {
         return { name, code: String(id), ...getStatCols(getDetailStats(matches), '') };
       });
 
+      const typeCodeStr = String(rawReport.company?.loaiHinhKinhDoanh?.maloaihinh || rawReport.company?.loaiHinhKinhDoanh?.id || rawReport.doet?.loaiHinhKinhDoanh?.id || "").padEnd(4, ' ');
+      const fieldCodeStr = String(rawReport.company?.businessLine?.manganh || rawReport.company?.businessLine?.code || rawReport.doet?.businessLine?.manganh || rawReport.doet?.businessLine?.code || "").padEnd(4, ' ');
+
       // Prepare data
       const data = {
         ...causesData,
         factors,
         occupations,
-        companyName: rawReport.doet?.name || "",
+        companyName: rawReport.doet?.name || rawReport.company?.name || "",
         periodName: rawReport.period === 'CA_NAM' ? 'cả năm' : '6 tháng',
         reportYear: rawReport.year || "",
         reportDate: new Date().toLocaleDateString('vi-VN'),
         totalEmployees: rawReport.totalEmployees || "0",
         femaleEmployees: rawReport.femaleEmployees || "0",
         totalSalary: rawReport.totalSalaryFund || "0",
-        companyAddress: rawReport.company?.address || "",
-        addressCode: rawReport.company?.ward?.key || rawReport.company?.province?.key || "",
-        companyType: rawReport.company?.loaiHinhKinhDoanh?.name || rawReport.doet?.loaiHinhKinhDoanh?.name || "",
-        typeCode: rawReport.company?.loaiHinhKinhDoanh?.id || rawReport.doet?.loaiHinhKinhDoanh?.id || "",
-        companyField: rawReport.company?.businessLine?.name || rawReport.company?.businessLine?.tennganh || rawReport.doet?.businessLine?.name || rawReport.doet?.businessLine?.tennganh || "",
-        fieldCode: rawReport.company?.businessLine?.code || rawReport.company?.businessLine?.manganh || rawReport.doet?.businessLine?.code || rawReport.doet?.businessLine?.manganh || "",
+        companyAddress: rawReport.company?.address || rawReport.doet?.address || "",
+        wardCode: rawReport.company?.ward?.key || rawReport.doet?.ward?.key || "",
+        companyType: rawReport.company?.loaiHinhKinhDoanh?.tenloaihinh || rawReport.company?.loaiHinhKinhDoanh?.name || rawReport.doet?.loaiHinhKinhDoanh?.name || "",
+        companyField: rawReport.company?.businessLine?.tennganh || rawReport.company?.businessLine?.name || rawReport.doet?.businessLine?.tennganh || rawReport.doet?.businessLine?.name || "",
         headOfEnterprise: rawReport.company?.headOfEnterprise || rawReport.doet?.headOfEnterprise || "",
+        tC1: typeCodeStr[0], tC2: typeCodeStr[1], tC3: typeCodeStr[2], tC4: typeCodeStr[3],
+        fC1: fieldCodeStr[0], fC2: fieldCodeStr[1], fC3: fieldCodeStr[2], fC4: fieldCodeStr[3],
 
         t1_c3: formatNumberWithDots(tnldSummary.tongSoVu || "0"),
         t1_c4: formatNumberWithDots(tnldSummary.tongSoVuNguoiChet || "0"),

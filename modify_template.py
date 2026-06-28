@@ -16,10 +16,12 @@ doc.paragraphs[5].runs[3].text = '{femaleEmployees} '
 doc.paragraphs[6].runs[1].text = '{totalSalary} '
 
 t0 = doc.tables[0]
-t0.cell(0, 0).paragraphs[0].runs[0].text = 'Địa chỉ: {companyAddress}'
-t0.cell(0, 1).text = ''
-for i in range(2, 6):
-    t0.cell(0, i).text = ''
+if len(t0.row_cells(0)) > 1:
+    t0.cell(0, 0).paragraphs[0].runs[0].text = 'Địa chỉ: {companyAddress}          Mã phường xã: {wardCode}'
+    for i in range(1, len(t0.row_cells(0))):
+        t0.cell(0, i).text = ''
+else:
+    t0.cell(0, 0).paragraphs[0].runs[0].text = 'Địa chỉ: {companyAddress}          Mã phường xã: {wardCode}'
 
 t1 = doc.tables[1]
 t1.cell(0, 0).paragraphs[0].runs[3].text = '{companyType}    '
