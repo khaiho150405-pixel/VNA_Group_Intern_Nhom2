@@ -8,3 +8,5 @@ export * from './report-period.services';
 export * from './permission.services';
 export * from './loai-hinh-kinh-doanh.services';
 export * from './business-line.services';
+export * from './injury-factor.services';
+export * from './injury-type.services';
