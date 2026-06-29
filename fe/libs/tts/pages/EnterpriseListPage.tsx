@@ -626,11 +626,11 @@ export const EnterpriseListPage = () => {
               <Typography className={classes.pageInfo}>
                 {startIndex} - {endIndex} of {total}
               </Typography>
-              <CustomPagination
-                count={Math.max(1, Math.ceil(total / (filters.limit || 10)))}
-                page={filters.page}
-                onChange={(page) => handleFilterChange("page", page)}
-              />
+               <CustomPagination
+                 count={Math.max(1, Math.ceil(total / (filters.limit || 10)))}
+                 page={filters.page || 0}
+                 onChange={(page) => handleFilterChange("page", page)}
+               />
             </Box>
           </Box>
         </Box>

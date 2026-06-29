@@ -18,5 +18,11 @@ export const periodicReportService = {
   },
   delete: async (id: number | string) => {
     return await axiosClient.delete(`/periodic-reports/${id}`);
+  },
+  getHistory: async (id: number | string) => {
+    return await axiosClient.get(`/periodic-reports/${id}/history`);
+  },
+  getHistoryByYear: async (year: number | string) => {
+    return await axiosClient.get(`/periodic-reports/history/year/${year}`);
   }
 };

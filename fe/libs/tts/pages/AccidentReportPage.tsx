@@ -120,10 +120,31 @@ export const AccidentReportPage = () => {
     const [total, setTotal] = useState(0);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
+    // History states
+    const [historyDialogOpen, setHistoryDialogOpen] = useState<boolean>(false);
+    const [historyLoading, setHistoryLoading] = useState<boolean>(false);
+    const [historyItems, setHistoryItems] = useState<any[]>([]);
+
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
     const [rejectReason, setRejectReason] = useState('');
     const [actionType, setActionType] = useState<'DA_TIEP_NHAN' | 'HUY_TIEP_NHAN' | null>(null);
+
+    const handleOpenHistory = async () => {
+        const year = headerFilters.year || new Date().getFullYear();
+        setHistoryDialogOpen(true);
+        setHistoryLoading(true);
+        setHistoryItems([]);
+        try {
+            const res = await periodicReportService.getHistoryByYear(year);
+            setHistoryItems(res?.data || res || []);
+        } catch (err) {
+            console.error("Error loading report history", err);
+            enqueueSnackbar("Lỗi khi tải lịch sử duyệt báo cáo", { variant: 'error' });
+        } finally {
+            setHistoryLoading(false);
+        }
+    };
 
     const handleConfirmAction = (type: 'DA_TIEP_NHAN' | 'HUY_TIEP_NHAN') => {
         setActionType(type);
@@ -434,7 +455,7 @@ export const AccidentReportPage = () => {
                     <Typography className={classes.headerTitle}>
                         Báo cáo định kỳ Tai nạn lao động
                     </Typography>
-                    <Box className={classes.actions}>
+                    <Box className={classes.actions} sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
                         <Autocomplete
                             size="small"
                             options={years}
@@ -447,6 +468,30 @@ export const AccidentReportPage = () => {
                             disableClearable
                             sx={{ width: 120 }}
                         />
+
+                        <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={handleOpenHistory}
+                            sx={{
+                                textTransform: 'none',
+                                borderColor: '#dfe3eb',
+                                color: '#475569',
+                                fontWeight: 500,
+                                fontSize: '0.85rem',
+                                height: 32,
+                                borderRadius: 1,
+                                px: 2,
+                                backgroundColor: '#fff',
+                                '&:hover': {
+                                    borderColor: '#2f65f0',
+                                    color: '#2f65f0',
+                                    backgroundColor: '#f5f8ff'
+                                }
+                            }}
+                        >
+                            Lịch sử duyệt/từ chối
+                        </Button>
                         <Button
                             variant="outlined"
                             className={classes.importBtn}
@@ -833,6 +878,124 @@ export const AccidentReportPage = () => {
                             }}
                         >
                             Xác nhận hủy
+                        </Button>
+                    </DialogActions>
+                </Dialog>
+
+                {/* Dialog Lịch sử duyệt/từ chối */}
+                <Dialog
+                    open={historyDialogOpen}
+                    onClose={() => setHistoryDialogOpen(false)}
+                    maxWidth="xs"
+                    fullWidth
+                >
+                    <DialogTitle
+                        sx={{
+                            backgroundColor: '#2f65f0',
+                            color: '#ffffff',
+                            textAlign: 'center',
+                            fontWeight: 700,
+                            fontSize: '1.25rem',
+                            py: 1.5
+                        }}
+                    >
+                        Tiến độ xử lý
+                    </DialogTitle>
+                    <DialogContent sx={{ py: 3, px: 4 }}>
+                        {historyLoading ? (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                                <CircularProgress size={24} />
+                            </Box>
+                        ) : historyItems.length === 0 ? (
+                            <Typography variant="body2" sx={{ color: '#64748b', textAlign: 'center', py: 4 }}>
+                                Không có dữ liệu lịch sử duyệt cho báo cáo này.
+                            </Typography>
+                        ) : (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0, maxHeight: 380, overflowY: 'auto', pr: 1 }}>
+                                {historyItems.map((item, index) => {
+                                    const formatDate = (dateString: string) => {
+                                        if (!dateString) return '';
+                                        const d = new Date(dateString);
+                                        if (isNaN(d.getTime())) return dateString;
+                                        const day = String(d.getDate()).padStart(2, '0');
+                                        const month = String(d.getMonth() + 1).padStart(2, '0');
+                                        const year = d.getFullYear();
+                                        const hours = String(d.getHours()).padStart(2, '0');
+                                        const minutes = String(d.getMinutes()).padStart(2, '0');
+                                        return `${day}/${month}/${year} ${hours}:${minutes}`;
+                                    };
+
+                                    return (
+                                        <Box key={item.id} sx={{ display: 'flex', gap: 2 }}>
+                                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                                <Box
+                                                    sx={{
+                                                        width: 12,
+                                                        height: 12,
+                                                        borderRadius: '50%',
+                                                        border: '2px solid #a4b2cd',
+                                                        backgroundColor: '#fff',
+                                                        zIndex: 1,
+                                                        mt: 0.5
+                                                    }}
+                                                />
+                                                {index < historyItems.length - 1 && (
+                                                    <Box
+                                                        sx={{
+                                                            width: '2px',
+                                                            backgroundColor: '#cbd5e1',
+                                                            flexGrow: 1,
+                                                            my: 0.5,
+                                                            minHeight: 40
+                                                        }}
+                                                    />
+                                                )}
+                                            </Box>
+
+                                            <Box sx={{ pb: index < historyItems.length - 1 ? 3 : 1 }}>
+                                                <Typography variant="caption" sx={{ color: '#778293', display: 'block', mb: 0.25, fontWeight: 500 }}>
+                                                    {formatDate(item.createdAt)}
+                                                </Typography>
+                                                <Typography variant="body2" sx={{ color: '#111827', fontWeight: 500 }}>
+                                                    <strong>{item.userName}</strong>{' '}
+                                                    <span style={{ color: '#5b6982', fontWeight: 400 }}>
+                                                        {item.status === 'CHO_XET_DUYET' && `đã gửi báo cáo (${item.report?.companyName || 'Doanh nghiệp'})`}
+                                                        {item.status === 'DA_TIEP_NHAN' && `đã duyệt báo cáo của ${item.report?.companyName || 'Doanh nghiệp'}`}
+                                                        {item.status === 'HUY_TIEP_NHAN' && `từ chối báo cáo của ${item.report?.companyName || 'Doanh nghiệp'}`}
+                                                        {item.status === 'DANG_BAO_CAO' && `đang chỉnh sửa báo cáo (${item.report?.companyName || 'Doanh nghiệp'})`}
+                                                    </span>
+                                                </Typography>
+                                                {item.status === 'HUY_TIEP_NHAN' && item.rejectReason && (
+                                                    <Typography variant="body2" sx={{ color: '#ef4444', mt: 0.5, fontSize: '0.85rem' }}>
+                                                        <span style={{ fontWeight: 600 }}>Lý do:</span> {item.rejectReason}
+                                                    </Typography>
+                                                )}
+                                            </Box>
+                                        </Box>
+                                    );
+                                })}
+                            </Box>
+                        )}
+                    </DialogContent>
+                    <DialogActions sx={{ p: 2, justifyContent: 'center' }}>
+                        <Button
+                            onClick={() => setHistoryDialogOpen(false)}
+                            variant="contained"
+                            sx={{
+                                backgroundColor: '#2f65f0',
+                                color: '#fff',
+                                textTransform: 'none',
+                                borderRadius: '6px',
+                                fontWeight: 600,
+                                fontSize: '0.85rem',
+                                px: 3,
+                                boxShadow: '0px 4px 12px rgba(47, 101, 240, 0.2)',
+                                '&:hover': {
+                                    backgroundColor: '#1e4fd1'
+                                }
+                            }}
+                        >
+                            Đóng
                         </Button>
                     </DialogActions>
                 </Dialog>

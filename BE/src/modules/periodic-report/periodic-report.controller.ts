@@ -29,6 +29,18 @@ export class PeriodicReportController {
     return await this.reportService.findDetail(+id);
   }
 
+  @Get(":id/history")
+  @ApiOperation({ summary: "Lấy lịch sử duyệt/từ chối của báo cáo" })
+  async getHistory(@Param("id") id: string) {
+    return await this.reportService.getHistory(+id);
+  }
+
+  @Get("history/year/:year")
+  @ApiOperation({ summary: "Lấy lịch sử duyệt/từ chối của tất cả báo cáo trong năm" })
+  async getYearHistory(@Param("year") year: string) {
+    return await this.reportService.getYearHistory(+year);
+  }
+
   @Post()
   @ApiOperation({ summary: "Tạo báo cáo mới" })
   async create(@Body() payload: any, @Request() req: any) {
@@ -38,7 +50,7 @@ export class PeriodicReportController {
     } else {
       payload.doetId = 'testuser';
     }
-    return await this.reportService.createReport(payload);
+    return await this.reportService.createReport(req.user, payload);
   }
 
   @Put(":id")

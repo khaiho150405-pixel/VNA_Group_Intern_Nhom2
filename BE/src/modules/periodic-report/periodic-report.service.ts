@@ -4,6 +4,7 @@ import { Repository, getManager } from "typeorm";
 import { PeriodicReport } from "./periodic-report.entity";
 import { AccidentDetail } from "./accident-detail.entity";
 import { Doet } from "../doet/doet.entity";
+import { PeriodicReportHistory } from "./periodic-report-history.entity";
 import { ReportPeriod } from "../report-period/report-period.entity";
 import * as fs from "fs";
 import * as path from "path";
@@ -18,7 +19,9 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
     @InjectRepository(AccidentDetail)
     private readonly detailRepo: Repository<AccidentDetail>,
     @InjectRepository(Doet)
-    private readonly doetRepo: Repository<Doet>
+    private readonly doetRepo: Repository<Doet>,
+    @InjectRepository(PeriodicReportHistory)
+    private readonly historyRepo: Repository<PeriodicReportHistory>
   ) {
     super(reportRepo, (data) => Object.assign(new PeriodicReport(), data));
   }
@@ -427,7 +430,7 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
     return Response.get(report);
   }
 
-  async createReport(payload: any) {
+  async createReport(currentUser: any, payload: any) {
     if (payload.accidentDetails && Array.isArray(payload.accidentDetails)) {
       for (const detail of payload.accidentDetails) {
         if (detail.stats) {
@@ -497,6 +500,14 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
     payload.status = status;
     const report = this.reportRepo.create(payload);
     const saved = await this.reportRepo.save(report);
+
+    // Log initial history
+    try {
+      await this.saveHistory((saved as any).id, status, currentUser);
+    } catch (historyError) {
+      console.error("Lỗi khi lưu lịch sử báo cáo:", historyError);
+    }
+
     return Response.get(saved);
   }
 
@@ -591,6 +602,7 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
       }
     }
 
+    const oldStatus = currentReport.status;
     payload.status = status;
     const adminUser = currentUser ? {
       ...currentUser,
@@ -598,7 +610,18 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
     } : {
       realRole: 'ADMIN'
     };
-    return super.put(adminUser, id, payload);
+    
+    const response = await super.put(adminUser, id, payload);
+    
+    if (status !== oldStatus) {
+      try {
+        await this.saveHistory(Number(id), status, currentUser, payload.rejectReason);
+      } catch (historyError) {
+        console.error("Lỗi khi lưu lịch sử báo cáo:", historyError);
+      }
+    }
+    
+    return response;
   }
 
   private validateLogicalConstraints(stats: any, prefixMsg: string = '') {
@@ -779,5 +802,169 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
         if (sumTaiSan !== summaryTaiSan) throw new BadRequestException(`${prefixMsg}Chi tiết: Thiệt hại tài sản không khớp`);
       }
     }
+  }
+
+  async saveHistory(reportId: number, status: string, user: any, rejectReason?: string) {
+    const history = new PeriodicReportHistory();
+    history.reportId = reportId;
+    history.status = status;
+    history.userId = user?.id || null;
+    
+    let userRole = 'DN';
+    if (user?.role?.type) {
+      userRole = user.role.type;
+    } else if (user?.realRole === 'SO' || user?.role?.role === 'SO') {
+      userRole = 'SO';
+    }
+    history.userRole = userRole;
+    
+    if (userRole === 'SO') {
+      history.userName = user?.fullName || user?.username || 'Cán bộ Sở';
+    } else {
+      const report = await this.reportRepo.findOne({ where: { id: reportId } });
+      history.userName = report?.companyName || user?.fullName || user?.username || 'Doanh nghiệp';
+    }
+    
+    history.rejectReason = rejectReason || null;
+    history.createdAt = new Date();
+    await this.historyRepo.save(history);
+  }
+
+  async getHistory(reportId: number): Promise<any> {
+    const report = await this.reportRepo.findOne({ where: { id: reportId } });
+    if (!report) {
+      throw new BadRequestException("Không tìm thấy báo cáo");
+    }
+
+    let histories = await this.historyRepo.find({
+      where: { reportId },
+      order: { createdAt: 'ASC' }
+    });
+
+    if (histories.length === 0) {
+      const fallbackList = [];
+      
+      if (report.status !== 'DANG_BAO_CAO' && report.status !== 'CHO_BAO_CAO') {
+        fallbackList.push({
+          id: -1,
+          reportId: report.id,
+          status: 'CHO_XET_DUYET',
+          userId: null,
+          userName: report.companyName || 'Doanh nghiệp',
+          userRole: 'DN',
+          rejectReason: null,
+          createdAt: report.createdAt
+        });
+      }
+
+      if (report.status === 'DA_TIEP_NHAN') {
+        fallbackList.push({
+          id: -2,
+          reportId: report.id,
+          status: 'DA_TIEP_NHAN',
+          userId: null,
+          userName: 'Cán bộ Sở',
+          userRole: 'SO',
+          rejectReason: null,
+          createdAt: report.updatedAt
+        });
+      } else if (report.status === 'HUY_TIEP_NHAN') {
+        fallbackList.push({
+          id: -3,
+          reportId: report.id,
+          status: 'HUY_TIEP_NHAN',
+          userId: null,
+          userName: 'Cán bộ Sở',
+          userRole: 'SO',
+          rejectReason: report.rejectReason || 'Không có lý do cụ thể',
+          createdAt: report.updatedAt
+        });
+      } else if (report.status === 'DANG_BAO_CAO') {
+        fallbackList.push({
+          id: -4,
+          reportId: report.id,
+          status: 'DANG_BAO_CAO',
+          userId: null,
+          userName: report.companyName || 'Doanh nghiệp',
+          userRole: 'DN',
+          rejectReason: null,
+          createdAt: report.createdAt
+        });
+      }
+      
+      return Response.get(fallbackList);
+    }
+
+    return Response.get(histories);
+  }
+
+  async getYearHistory(year: number): Promise<any> {
+    const histories = await this.historyRepo.createQueryBuilder("history")
+      .leftJoinAndSelect("history.report", "report")
+      .where("report.year = :year", { year })
+      .orderBy("history.createdAt", "DESC")
+      .getMany();
+
+    if (histories.length === 0) {
+      const reports = await this.reportRepo.find({ where: { year } });
+      const fallbackList = [];
+      for (const report of reports) {
+        if (report.status !== 'DANG_BAO_CAO' && report.status !== 'CHO_BAO_CAO') {
+          fallbackList.push({
+            id: -1 - report.id * 10,
+            reportId: report.id,
+            status: 'CHO_XET_DUYET',
+            userId: null,
+            userName: report.companyName || 'Doanh nghiệp',
+            userRole: 'DN',
+            rejectReason: null,
+            createdAt: report.createdAt,
+            report: report
+          });
+        }
+
+        if (report.status === 'DA_TIEP_NHAN') {
+          fallbackList.push({
+            id: -2 - report.id * 10,
+            reportId: report.id,
+            status: 'DA_TIEP_NHAN',
+            userId: null,
+            userName: 'Cán bộ Sở',
+            userRole: 'SO',
+            rejectReason: null,
+            createdAt: report.updatedAt,
+            report: report
+          });
+        } else if (report.status === 'HUY_TIEP_NHAN') {
+          fallbackList.push({
+            id: -3 - report.id * 10,
+            reportId: report.id,
+            status: 'HUY_TIEP_NHAN',
+            userId: null,
+            userName: 'Cán bộ Sở',
+            userRole: 'SO',
+            rejectReason: report.rejectReason || 'Không có lý do cụ thể',
+            createdAt: report.updatedAt,
+            report: report
+          });
+        } else if (report.status === 'DANG_BAO_CAO') {
+          fallbackList.push({
+            id: -4 - report.id * 10,
+            reportId: report.id,
+            status: 'DANG_BAO_CAO',
+            userId: null,
+            userName: report.companyName || 'Doanh nghiệp',
+            userRole: 'DN',
+            rejectReason: null,
+            createdAt: report.createdAt,
+            report: report
+          });
+        }
+      }
+      fallbackList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      return Response.get(fallbackList);
+    }
+
+    return Response.get(histories);
   }
 }
