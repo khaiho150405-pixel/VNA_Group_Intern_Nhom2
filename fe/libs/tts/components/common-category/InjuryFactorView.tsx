@@ -291,103 +291,103 @@ export const InjuryFactorView = React.forwardRef((props, ref) => {
       <Box className={classes.tableScroll} sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
         <TableContainer sx={{ flex: 1, overflowY: 'auto' }}>
           <Table stickyHeader size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell padding="checkbox" className={classes.headerCell} width={50}>
-                <Checkbox
-                  size="small"
-                  checked={isAllSelected}
-                  indeterminate={isIndeterminate}
-                  onChange={handleSelectAll}
-                />
-              </TableCell>
-              <TableCell className={classes.headerCell} width={150}>Mã yếu tố</TableCell>
-              <TableCell className={classes.headerCell}>Yếu tố gây chấn thương</TableCell>
-              <TableCell className={classes.headerCell} width={150} align="center">Trạng thái</TableCell>
-            </TableRow>
-
-            <TableRow>
-              <TableCell className={classes.filterCell}></TableCell>
-              <TableCell className={classes.filterCell}>
-                <TextField
-                  className={classes.filterField}
-                  size="small"
-                  fullWidth
-                  placeholder="Mã yếu tố"
-                  value={filters.code}
-                  onChange={(e) => handleFilterChange("code", e.target.value)}
-                />
-              </TableCell>
-              <TableCell className={classes.filterCell}>
-                <TextField
-                  className={classes.filterField}
-                  size="small"
-                  fullWidth
-                  placeholder="Tên yếu tố chấn thương"
-                  value={filters.name}
-                  onChange={(e) => handleFilterChange("name", e.target.value)}
-                />
-              </TableCell>
-              <TableCell className={classes.filterCell}>
-                <Autocomplete
-                  size="small"
-                  options={[
-                    { label: 'Sử dụng', value: 'true' },
-                    { label: 'Không sử dụng', value: 'false' }
-                  ]}
-                  getOptionLabel={(option) => option.label || ""}
-                  value={[
-                    { label: 'Sử dụng', value: 'true' },
-                    { label: 'Không sử dụng', value: 'false' }
-                  ].find((o) => o.value === filters.status) || null}
-                  onChange={(_, newValue) => handleFilterChange("status", newValue?.value || "")}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      placeholder="Tất cả"
-                      className={classes.filterField}
-                    />
-                  )}
-                />
-              </TableCell>
-            </TableRow>
-          </TableHead>
-
-          <TableBody>
-            {data.length === 0 ? (
+            <TableHead>
               <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 3, color: "#94a3b8" }}>
-                  Không có dữ liệu
+                <TableCell padding="checkbox" className={classes.headerCell} width={50}>
+                  <Checkbox
+                    size="small"
+                    checked={isAllSelected}
+                    indeterminate={isIndeterminate}
+                    onChange={handleSelectAll}
+                  />
+                </TableCell>
+                <TableCell className={classes.headerCell} width={150}>Mã yếu tố</TableCell>
+                <TableCell className={classes.headerCell}>Yếu tố gây chấn thương</TableCell>
+                <TableCell className={classes.headerCell} width={150} align="center">Trạng thái</TableCell>
+              </TableRow>
+
+              <TableRow>
+                <TableCell className={classes.filterCell}></TableCell>
+                <TableCell className={classes.filterCell}>
+                  <TextField
+                    className={classes.filterField}
+                    size="small"
+                    fullWidth
+                    placeholder="Mã yếu tố"
+                    value={filters.code}
+                    onChange={(e) => handleFilterChange("code", e.target.value)}
+                  />
+                </TableCell>
+                <TableCell className={classes.filterCell}>
+                  <TextField
+                    className={classes.filterField}
+                    size="small"
+                    fullWidth
+                    placeholder="Tên yếu tố chấn thương"
+                    value={filters.name}
+                    onChange={(e) => handleFilterChange("name", e.target.value)}
+                  />
+                </TableCell>
+                <TableCell className={classes.filterCell}>
+                  <Autocomplete
+                    size="small"
+                    options={[
+                      { label: 'Sử dụng', value: 'true' },
+                      { label: 'Không sử dụng', value: 'false' }
+                    ]}
+                    getOptionLabel={(option) => option.label || ""}
+                    value={[
+                      { label: 'Sử dụng', value: 'true' },
+                      { label: 'Không sử dụng', value: 'false' }
+                    ].find((o) => o.value === filters.status) || null}
+                    onChange={(_, newValue) => handleFilterChange("status", newValue?.value || "")}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        placeholder="Tất cả"
+                        className={classes.filterField}
+                      />
+                    )}
+                  />
                 </TableCell>
               </TableRow>
-            ) : (
-              data.map((item) => (
-                <TableRow key={item.id} hover selected={selectedIds.includes(String(item.id))}>
-                  <TableCell padding="checkbox" className={classes.bodyCell}>
-                    <Checkbox
-                      size="small"
-                      checked={selectedIds.includes(String(item.id))}
-                      onChange={() => handleSelectOne(String(item.id))}
-                    />
-                  </TableCell>
-                  <TableCell className={classes.bodyCell} sx={{ color: '#333' }}>
-                    {item.code}
-                  </TableCell>
-                  <TableCell className={classes.bodyCell}>{item.name}</TableCell>
-                  <TableCell className={classes.bodyCell} align="center">
-                    <Switch
-                      size="small"
-                      checked={item.status}
-                      onChange={() => handleStatusToggle(item)}
-                      color="primary"
-                    />
+            </TableHead>
+
+            <TableBody>
+              {data.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} align="center" sx={{ py: 3, color: "#94a3b8" }}>
+                    Không có dữ liệu
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+              ) : (
+                data.map((item) => (
+                  <TableRow key={item.id} hover selected={selectedIds.includes(String(item.id))}>
+                    <TableCell padding="checkbox" className={classes.bodyCell}>
+                      <Checkbox
+                        size="small"
+                        checked={selectedIds.includes(String(item.id))}
+                        onChange={() => handleSelectOne(String(item.id))}
+                      />
+                    </TableCell>
+                    <TableCell className={classes.bodyCell} sx={{ color: '#333' }}>
+                      {item.code}
+                    </TableCell>
+                    <TableCell className={classes.bodyCell}>{item.name}</TableCell>
+                    <TableCell className={classes.bodyCell} align="center">
+                      <Switch
+                        size="small"
+                        checked={item.status}
+                        onChange={() => handleStatusToggle(item)}
+                        color="primary"
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Box>
 
       <Box className={classes.footer}>

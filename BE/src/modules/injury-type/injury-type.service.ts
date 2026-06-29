@@ -3,6 +3,8 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { InjuryType } from "./injury-type.entity";
 import Response from "../../commons/response";
+import * as path from "path";
+import * as fs from "fs";
 
 @Injectable()
 export class InjuryTypeService implements OnApplicationBootstrap {
@@ -16,29 +18,20 @@ export class InjuryTypeService implements OnApplicationBootstrap {
   }
 
   private async seedDefaults() {
+    const hasCorrectSeed = await this.injuryTypeRepo.findOne({ where: { code: '34' } });
     const count = await this.injuryTypeRepo.count();
-    if (count > 0) return; // Đã có dữ liệu, bỏ qua
+    if (hasCorrectSeed && count === 14) return; // Already seeded correctly
 
-    const seedData = [
-      { code: "LCT_01", name: "Chấn thương sọ não" },
-      { code: "LCT_02", name: "Gãy xương (tay, chân, sườn...)" },
-      { code: "LCT_03", name: "Cắt cụt / Mất bộ phận cơ thể" },
-      { code: "LCT_04", name: "Chấn thương cột sống" },
-      { code: "LCT_05", name: "Bỏng nhiệt / Bỏng hóa chất" },
-      { code: "LCT_06", name: "Tổn thương mắt / Mất thị lực" },
-      { code: "LCT_07", name: "Ngạt thở / Ngộ độc khí" },
-      { code: "LCT_08", name: "Tổn thương phần mềm (Rách da, bầm dập)" },
-      { code: "LCT_09", name: "Chấn thương cơ quan nội tạng" },
-      { code: "LCT_10", name: "Điện giật" },
-      { code: "LCT_99", name: "Loại chấn thương khác" },
-    ];
-
-    for (const item of seedData) {
-      const entity = this.injuryTypeRepo.create({ ...item, status: true });
-      await this.injuryTypeRepo.save(entity);
+    try {
+      const sqlPath = path.resolve(process.cwd(), 'src/sql/injury-types.sql');
+      if (fs.existsSync(sqlPath)) {
+        const sql = fs.readFileSync(sqlPath, 'utf8');
+        await this.injuryTypeRepo.query(sql);
+        console.log("== [Seed] injury_types: Đã chạy file SQL ==");
+      }
+    } catch (error) {
+      console.error("== [Seed] Lỗi khi chạy injury-types.sql ==", error);
     }
-
-    console.log("== [Seed] injury_types: 11 bản ghi đã được khởi tạo ==");
   }
 
   /**

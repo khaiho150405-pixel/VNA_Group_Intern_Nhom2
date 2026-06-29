@@ -36,7 +36,7 @@ import { useStyles } from "@tts/logic/common-category/style";
 import { ConfirmDialog } from "@core/components/ConfirmDialog";
 import { BulkSelectionBar } from "@core/components/BulkSelectionBar";
 
-import { injuryTypeService } from "@tts/services";
+import { occupationService } from "@tts/services";
 
 interface CustomPaginationProps {
   page: number;
@@ -81,18 +81,18 @@ const CustomPagination = ({ page, count, onChange }: CustomPaginationProps) => {
   );
 };
 
-interface InjuryType {
+interface Occupation {
   id: number;
-  code: string;
-  name: string;
-  level: number;
-  status: boolean;
+  manghe: string;
+  tennghe: string;
+  cap: number;
+  trangthai?: string;
 }
 
-const getDashPrefix = (level: number): string => {
-  if (level === 2) return "—— ";
-  if (level === 3) return "——— ";
-  if (level === 4) return "———— ";
+const getDashPrefix = (cap: number): string => {
+  if (cap === 2) return "— ";
+  if (cap === 3) return "—— ";
+  if (cap === 4) return "——— ";
   return "";
 };
 
@@ -100,7 +100,7 @@ const DialogAny = Dialog as any;
 const TextFieldAny = TextField as any;
 const AutocompleteAny = Autocomplete as any;
 
-export const InjuryTypeView = React.forwardRef((props, ref) => {
+export const OccupationView = React.forwardRef((props, ref) => {
   const classes = useStyles();
   const { enqueueSnackbar } = useSnackbar();
 
@@ -109,16 +109,17 @@ export const InjuryTypeView = React.forwardRef((props, ref) => {
   }));
 
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<InjuryType[]>([]);
+  const [data, setData] = useState<Occupation[]>([]);
   const [total, setTotal] = useState(0);
 
   // Filters State
   const [filters, setFilters] = useState<any>({
     page: 1,
     limit: 10,
-    code: "",
-    name: "",
-    level: "",
+    manghe: "",
+    tennghe: "",
+    cap: "",
+    trangthai: "",
   });
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -129,71 +130,75 @@ export const InjuryTypeView = React.forwardRef((props, ref) => {
   // Dialog Add/Edit State
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
-  const [form, setForm] = useState<Omit<InjuryType, "id">>({
-    code: "",
-    name: "",
-    level: 1,
-    status: true,
+  const [form, setForm] = useState<Omit<Occupation, "id">>({
+    manghe: "",
+    tennghe: "",
+    cap: 1,
+    trangthai: "ACTIVE",
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  const [allInjuryTypes, setAllInjuryTypes] = useState<InjuryType[]>([]);
+  const [allOccupations, setAllOccupations] = useState<Occupation[]>([]);
 
-  const fetchAllInjuryTypes = async () => {
+  const fetchAllOccupations = async () => {
     try {
-      const res: any = await injuryTypeService.getAll({ pageSize: 1000 });
-      const items = res?.data?.items || res?.items || res?.data?.data || res?.data || [];
-      setAllInjuryTypes(items);
+      const res: any = await occupationService.getAll({ pageSize: 1000 });
+      const items = res?.data?.items || res?.items || [];
+      setAllOccupations(items);
     } catch (err) {
-      console.error("Error fetching all injury types", err);
+      console.error("Error fetching all occupations", err);
     }
   };
 
   useEffect(() => {
-    fetchAllInjuryTypes();
+    fetchAllOccupations();
   }, []);
 
-  const handleCodeChange = (val: string) => {
+  const handleMaNgheChange = (val: string) => {
     const cleanVal = val.replace(/[^0-9]/g, "").slice(0, 4);
     setForm((prev) => ({
       ...prev,
-      code: cleanVal,
-      level: cleanVal.length || 1,
+      manghe: cleanVal,
+      cap: cleanVal.length || 1,
     }));
-    if (formErrors.code) setFormErrors((prev) => ({ ...prev, code: "" }));
+    if (formErrors.manghe) setFormErrors((prev) => ({ ...prev, manghe: "" }));
   };
 
   const parentGroup = useMemo(() => {
-    const code = form.code.trim();
+    const code = form.manghe.trim();
     if (code.length <= 1) return null;
     const parentCode = code.slice(0, -1);
-    return allInjuryTypes.find((item) => item.code === parentCode) || null;
-  }, [form.code, allInjuryTypes]);
+    return allOccupations.find((item) => item.manghe === parentCode) || null;
+  }, [form.manghe, allOccupations]);
 
   const parentNotFound = useMemo(() => {
-    const code = form.code.trim();
+    const code = form.manghe.trim();
     return code.length > 1 && !parentGroup;
-  }, [form.code, parentGroup]);
+  }, [form.manghe, parentGroup]);
 
   const fetchList = async () => {
     setLoading(true);
     try {
+      const where: any = {};
+      if (filters.manghe) where.ma_nghe = { operation: "like", value: `%${filters.manghe}%` };
+      if (filters.tennghe) where.ten_nghe = { operation: "like", value: `%${filters.tennghe}%` };
+      if (filters.cap) where.cap = { operation: "=", value: Number(filters.cap) };
+      if (filters.trangthai) where.trang_thai = { operation: "=", value: filters.trangthai };
+
       const params = {
-        page: filters.page,
-        limit: filters.limit,
-        code: filters.code || undefined,
-        name: filters.name || undefined,
-        level: filters.level || undefined,
+        pageNumber: filters.page - 1,
+        pageSize: filters.limit,
+        where: JSON.stringify(where)
       };
 
-      const res: any = await injuryTypeService.getAll(params);
-      const items = res?.data?.items || res?.items || res?.data?.data || res?.data || [];
-      const totalCount = res?.data?.total || res?.total || res?.data?.count || res?.count || 0;
+      const res: any = await occupationService.getAll(params);
+      const items = res?.data?.items || res?.items || [];
+      const totalCount = res?.data?.totalCount ?? res?.totalCount ?? 0;
 
       setData(items);
       setTotal(totalCount);
     } catch (error) {
-      enqueueSnackbar("Lỗi khi tải danh sách loại chấn thương", { variant: "error" });
+      enqueueSnackbar("Lỗi khi tải danh sách nghề nghiệp", { variant: "error" });
     } finally {
       setLoading(false);
     }
@@ -209,18 +214,13 @@ export const InjuryTypeView = React.forwardRef((props, ref) => {
       [field]: value,
       page: field === "page" ? value : 1
     }));
-    if (field !== "page" && field !== "limit") {
-      setSelectedIds([]);
-    }
   };
 
-  const handleSelectAll = () => {
-    if (data.length === 0) return;
-    const allChecked = data.every((item) => selectedIds.includes(String(item.id)));
-    if (allChecked) {
-      setSelectedIds([]);
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(data.map(item => String(item.id)));
     } else {
-      setSelectedIds(data.map((item) => String(item.id)));
+      setSelectedIds([]);
     }
   };
 
@@ -233,22 +233,22 @@ export const InjuryTypeView = React.forwardRef((props, ref) => {
   const handleOpenAdd = () => {
     setEditId(null);
     setForm({
-      code: "",
-      name: "",
-      level: 1,
-      status: true,
+      manghe: "",
+      tennghe: "",
+      cap: 1,
+      trangthai: "ACTIVE",
     });
     setFormErrors({});
     setDialogOpen(true);
   };
 
-  const handleOpenEdit = (item: InjuryType) => {
+  const handleOpenEdit = (item: Occupation) => {
     setEditId(item.id);
     setForm({
-      code: item.code,
-      name: item.name,
-      level: item.level,
-      status: item.status,
+      manghe: item.manghe,
+      tennghe: item.tennghe,
+      cap: item.cap,
+      trangthai: item.trangthai || "ACTIVE",
     });
     setFormErrors({});
     setDialogOpen(true);
@@ -258,47 +258,65 @@ export const InjuryTypeView = React.forwardRef((props, ref) => {
     setDialogOpen(false);
   };
 
+  const handleConfirmDelete = (id: number) => {
+    setDeleteId(id);
+    setConfirmDeleteOpen(true);
+  };
+
+  const handleDeleteOne = async () => {
+    if (!deleteId) return;
+    try {
+      await occupationService.delete(deleteId);
+      enqueueSnackbar("Xóa nghề nghiệp thành công", { variant: "success" });
+      setConfirmDeleteOpen(false);
+      fetchList();
+      fetchAllOccupations();
+    } catch (error) {
+      enqueueSnackbar("Lỗi khi xóa nghề nghiệp", { variant: "error" });
+    }
+  };
+
   const handleDeleteMany = async () => {
     if (selectedIds.length === 0) return;
     try {
-      await injuryTypeService.deleteMany(selectedIds.map(Number));
-      enqueueSnackbar("Xóa loại chấn thương thành công", { variant: "success" });
+      await occupationService.deleteMany(selectedIds.map(Number));
+      enqueueSnackbar("Xóa các nghề nghiệp thành công", { variant: "success" });
       setConfirmBulkDeleteOpen(false);
       setSelectedIds([]);
       fetchList();
-      fetchAllInjuryTypes();
+      fetchAllOccupations();
     } catch (error) {
-      enqueueSnackbar("Lỗi khi xóa loại chấn thương", { variant: "error" });
+      enqueueSnackbar("Lỗi khi xóa danh sách nghề nghiệp", { variant: "error" });
     }
   };
 
   const handleSave = async () => {
     const errors: Record<string, string> = {};
-    const trimmedCode = form.code.trim();
-    const trimmedName = form.name.trim();
+    const trimmedMa = form.manghe.trim();
+    const trimmedTen = form.tennghe.trim();
 
-    if (!trimmedCode) {
-      errors.code = "Mã số không được để trống";
-    } else if (trimmedCode.length < 1 || trimmedCode.length > 4) {
-      errors.code = "Mã số chỉ được nhập từ 1-4 ký tự";
-    } else if (trimmedCode.length > 1 && !parentGroup) {
-      errors.code = "Không có nhóm loại chấn thương cha";
+    if (!trimmedMa) {
+      errors.manghe = "Mã nghề nghiệp không được để trống";
+    } else if (trimmedMa.length < 1 || trimmedMa.length > 4) {
+      errors.manghe = "Mã nghề chỉ được nhập từ 1-4 ký tự";
+    } else if (trimmedMa.length > 1 && !parentGroup) {
+      errors.manghe = "Không có nhóm nghề cha";
     }
 
-    if (!trimmedName) {
-      errors.name = "Tên loại chấn thương không được để trống";
+    if (!trimmedTen) {
+      errors.tennghe = "Tên nghề nghiệp không được để trống";
     }
 
     // Local duplicate check
     if (editId === null) {
-      const codeExists = allInjuryTypes.some((item) => item.code === trimmedCode);
-      if (codeExists) errors.code = "Mã số đã tồn tại";
+      const codeExists = allOccupations.some((item) => item.manghe === trimmedMa);
+      if (codeExists) errors.manghe = "Mã nghề nghiệp đã tồn tại";
 
-      const nameExists = allInjuryTypes.some((item) => item.name === trimmedName);
-      if (nameExists) errors.name = "Tên loại chấn thương đã tồn tại";
+      const nameExists = allOccupations.some((item) => item.tennghe === trimmedTen);
+      if (nameExists) errors.tennghe = "Tên nghề nghiệp đã tồn tại";
     } else {
-      const nameExists = allInjuryTypes.some((item) => item.name === trimmedName && item.id !== editId);
-      if (nameExists) errors.name = "Tên loại chấn thương đã tồn tại";
+      const nameExists = allOccupations.some((item) => item.tennghe === trimmedTen && item.id !== editId);
+      if (nameExists) errors.tennghe = "Tên nghề nghiệp đã tồn tại";
     }
 
     if (Object.keys(errors).length > 0) {
@@ -309,27 +327,39 @@ export const InjuryTypeView = React.forwardRef((props, ref) => {
     setLoading(true);
     try {
       const submitForm = {
-        code: trimmedCode,
-        name: trimmedName,
-        level: form.level,
-        status: form.status,
+        manghe: trimmedMa,
+        tennghe: trimmedTen,
+        cap: form.cap,
+        trangthai: form.trangthai,
       };
 
       if (editId !== null) {
-        await injuryTypeService.update(editId, submitForm);
-        enqueueSnackbar("Cập nhật loại chấn thương thành công", { variant: "success" });
+        await occupationService.update(editId, submitForm);
+        enqueueSnackbar("Cập nhật nghề nghiệp thành công", { variant: "success" });
       } else {
-        await injuryTypeService.create(submitForm);
-        enqueueSnackbar("Thêm mới loại chấn thương thành công", { variant: "success" });
+        await occupationService.create(submitForm);
+        enqueueSnackbar("Thêm mới nghề nghiệp thành công", { variant: "success" });
       }
       setDialogOpen(false);
       fetchList();
-      fetchAllInjuryTypes();
+      fetchAllOccupations();
     } catch (error: any) {
-      const message = error?.response?.data?.message || "Lỗi khi lưu thông tin loại chấn thương";
+      const message = error?.response?.data?.message || "Lỗi khi lưu thông tin nghề nghiệp";
       enqueueSnackbar(message, { variant: "error" });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleStatusToggle = async (item: Occupation) => {
+    const nextStatus = item.trangthai === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+    try {
+      await occupationService.update(item.id, { ...item, trangthai: nextStatus });
+      enqueueSnackbar("Cập nhật trạng thái thành công", { variant: "success" });
+      fetchList();
+      fetchAllOccupations();
+    } catch (error) {
+      enqueueSnackbar("Lỗi khi cập nhật trạng thái", { variant: "error" });
     }
   };
 
@@ -360,20 +390,21 @@ export const InjuryTypeView = React.forwardRef((props, ref) => {
                     onChange={handleSelectAll}
                   />
                 </TableCell>
-                <TableCell className={classes.headerCell} style={{ width: 150 }}>Mã số</TableCell>
-                <TableCell className={classes.headerCell}>Tên loại chấn thương</TableCell>
-                <TableCell className={classes.headerCell} align="center" style={{ width: 120 }}>Cấp</TableCell>
                 <TableCell className={classes.headerCell} align="center" style={{ width: 80 }}>Thao tác</TableCell>
+                <TableCell className={classes.headerCell} style={{ width: 150 }}>Mã nghề</TableCell>
+                <TableCell className={classes.headerCell}>Tên nghề nghiệp</TableCell>
+                <TableCell className={classes.headerCell} align="center" style={{ width: 120 }}>Cấp</TableCell>
               </TableRow>
               <TableRow>
+                <TableCell className={classes.filterCell} />
                 <TableCell className={classes.filterCell} />
                 <TableCell className={classes.filterCell}>
                   <TextField
                     fullWidth
                     size="small"
                     placeholder="Lọc mã..."
-                    value={filters.code}
-                    onChange={(e) => handleFilterChange("code", e.target.value)}
+                    value={filters.manghe}
+                    onChange={(e) => handleFilterChange("manghe", e.target.value)}
                     className={classes.filterField}
                   />
                 </TableCell>
@@ -382,8 +413,8 @@ export const InjuryTypeView = React.forwardRef((props, ref) => {
                     fullWidth
                     size="small"
                     placeholder="Lọc tên..."
-                    value={filters.name}
-                    onChange={(e) => handleFilterChange("name", e.target.value)}
+                    value={filters.tennghe}
+                    onChange={(e) => handleFilterChange("tennghe", e.target.value)}
                     className={classes.filterField}
                   />
                 </TableCell>
@@ -392,8 +423,8 @@ export const InjuryTypeView = React.forwardRef((props, ref) => {
                     fullWidth
                     size="small"
                     displayEmpty
-                    value={filters.level}
-                    onChange={(e) => handleFilterChange("level", e.target.value)}
+                    value={filters.cap}
+                    onChange={(e) => handleFilterChange("cap", e.target.value)}
                     className={classes.filterField}
                   >
                     <MenuItem value="">Tất cả</MenuItem>
@@ -403,7 +434,6 @@ export const InjuryTypeView = React.forwardRef((props, ref) => {
                     <MenuItem value="4">Cấp 4</MenuItem>
                   </Select>
                 </TableCell>
-                <TableCell className={classes.filterCell} />
               </TableRow>
             </TableHead>
             <TableBody>
@@ -416,7 +446,7 @@ export const InjuryTypeView = React.forwardRef((props, ref) => {
               ) : data.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} align="center" className={classes.bodyCell}>
-                    Không tìm thấy loại chấn thương nào.
+                    Không tìm thấy nghề nghiệp nào.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -429,14 +459,14 @@ export const InjuryTypeView = React.forwardRef((props, ref) => {
                         onChange={() => handleSelectOne(String(item.id))}
                       />
                     </TableCell>
-                    <TableCell className={classes.bodyCell}>{item.code}</TableCell>
-                    <TableCell className={classes.bodyCell}>{getDashPrefix(item.level)}{item.name}</TableCell>
-                    <TableCell className={classes.bodyCell} align="center">Cấp {item.level}</TableCell>
                     <TableCell className={classes.bodyCell} align="center">
                       <IconButton className={classes.actionIcon} onClick={() => handleOpenEdit(item)} size="small">
                         <EditIcon fontSize="small" />
                       </IconButton>
                     </TableCell>
+                    <TableCell className={classes.bodyCell}>{item.manghe}</TableCell>
+                    <TableCell className={classes.bodyCell}>{getDashPrefix(item.cap)}{item.tennghe}</TableCell>
+                    <TableCell className={classes.bodyCell} align="center">Cấp {item.cap}</TableCell>
                   </TableRow>
                 ))
               )}
@@ -476,11 +506,20 @@ export const InjuryTypeView = React.forwardRef((props, ref) => {
         />
       )}
 
-      {/* Bulk Delete Dialog */}
+      {/* Dialog Confirmations */}
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        title="Xác nhận xóa"
+        message="Bạn có chắc chắn muốn xóa nghề nghiệp này?"
+        onCancel={() => setConfirmDeleteOpen(false)}
+        onConfirm={handleDeleteOne}
+        confirmText="Xóa"
+      />
+
       <ConfirmDialog
         open={confirmBulkDeleteOpen}
         title="Xác nhận xóa nhiều"
-        message={`Bạn có chắc chắn muốn xóa vĩnh viễn ${selectedIds.length} loại chấn thương đã chọn?`}
+        message={`Bạn có chắc chắn muốn xóa vĩnh viễn ${selectedIds.length} nghề nghiệp đã chọn?`}
         onCancel={() => setConfirmBulkDeleteOpen(false)}
         onConfirm={handleDeleteMany}
         confirmText="Xóa"
@@ -512,20 +551,20 @@ export const InjuryTypeView = React.forwardRef((props, ref) => {
             backgroundColor: "#2f65f0",
           }}
         >
-          {editId ? "Cập nhật loại chấn thương" : "Thêm mới loại chấn thương"}
+          {editId ? "Cập nhật nghề nghiệp" : "Thêm mới nghề nghiệp"}
         </DialogTitle>
         <DialogContent sx={{ p: 3, pt: 2.5, pb: 1, borderColor: "#eef0f4" }}>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, pt: 1.5 }}>
             <TextFieldAny
               fullWidth
               size="small"
-              label="Mã số *"
-              placeholder="Nhập mã số"
-              value={form.code}
-              onChange={(e: any) => handleCodeChange(e.target.value)}
+              label="Mã nghề *"
+              placeholder="Nhập mã nghề"
+              value={form.manghe}
+              onChange={(e: any) => handleMaNgheChange(e.target.value)}
               disabled={editId !== null}
-              error={!!formErrors.code}
-              helperText={formErrors.code}
+              error={!!formErrors.manghe}
+              helperText={formErrors.manghe}
               InputLabelProps={{ shrink: true }}
               sx={{
                 "& .MuiOutlinedInput-root": {
@@ -541,15 +580,15 @@ export const InjuryTypeView = React.forwardRef((props, ref) => {
             <TextFieldAny
               fullWidth
               size="small"
-              label="Tên loại chấn thương *"
-              placeholder="Nhập tên loại chấn thương"
-              value={form.name}
+              label="Tên nghề nghiệp *"
+              placeholder="Nhập tên nghề nghiệp"
+              value={form.tennghe}
               onChange={(e: any) => {
-                setForm({ ...form, name: e.target.value });
-                if (formErrors.name) setFormErrors({ ...formErrors, name: "" });
+                setForm({ ...form, tennghe: e.target.value });
+                if (formErrors.tennghe) setFormErrors({ ...formErrors, tennghe: "" });
               }}
-              error={!!formErrors.name}
-              helperText={formErrors.name}
+              error={!!formErrors.tennghe}
+              helperText={formErrors.tennghe}
               InputLabelProps={{ shrink: true }}
               sx={{
                 "& .MuiOutlinedInput-root": {
@@ -564,15 +603,15 @@ export const InjuryTypeView = React.forwardRef((props, ref) => {
             <AutocompleteAny
               size="small"
               options={parentGroup ? [parentGroup] : []}
-              getOptionLabel={(option: any) => `${option.code} - ${getDashPrefix(option.level)}${option.name}`}
+              getOptionLabel={(option: any) => `${option.manghe} - ${getDashPrefix(option.cap)}${option.tennghe}`}
               value={parentGroup}
-              disabled={editId !== null || form.code.trim().length <= 1}
+              disabled={editId !== null || form.manghe.trim().length <= 1}
               renderInput={(params: any) => (
                 <TextFieldAny
                   {...params}
-                  label="Tên loại chấn thương cha"
+                  label="Nhóm nghề cha"
                   error={parentNotFound}
-                  helperText={parentNotFound ? "Không có nhóm loại chấn thương cha" : ""}
+                  helperText={parentNotFound ? "Không có nhóm nghề cha" : ""}
                   InputLabelProps={{ shrink: true }}
                   sx={{
                     "& .MuiOutlinedInput-root": {
@@ -594,8 +633,8 @@ export const InjuryTypeView = React.forwardRef((props, ref) => {
               select
               size="small"
               label="Trạng thái *"
-              value={form.status ? "ACTIVE" : "INACTIVE"}
-              onChange={(e: any) => setForm({ ...form, status: e.target.value === "ACTIVE" })}
+              value={form.trangthai}
+              onChange={(e: any) => setForm({ ...form, trangthai: e.target.value })}
               InputLabelProps={{ shrink: true }}
               SelectProps={{
                 MenuProps: { PaperProps: { sx: { borderRadius: "8px" } } }
@@ -645,12 +684,10 @@ export const InjuryTypeView = React.forwardRef((props, ref) => {
               },
             }}
           >
-            Lưu lại
+            Lưu
           </Button>
         </DialogActions>
       </DialogAny>
     </React.Fragment>
   );
 });
-
-export default InjuryTypeView;

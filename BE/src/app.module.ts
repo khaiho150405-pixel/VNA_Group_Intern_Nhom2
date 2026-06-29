@@ -20,6 +20,7 @@ import { PeriodicReportModule } from "./modules/periodic-report/periodic-report.
 import { ReportPeriodModule } from "./modules/report-period/report-period.module";
 import { PermissionModule } from "./modules/permission/permission.module";
 import { DomainMiddleware } from "./commons/middleware/domain.middleware";
+import { OccupationModule } from "./modules/occupation/occupation.module";
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { DomainMiddleware } from "./commons/middleware/domain.middleware";
     PeriodicReportModule,
     ReportPeriodModule,
     PermissionModule,
+    OccupationModule,
   ],
   controllers: [AppController],
   providers: [AppService]

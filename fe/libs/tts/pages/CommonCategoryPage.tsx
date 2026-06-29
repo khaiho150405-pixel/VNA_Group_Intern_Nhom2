@@ -5,9 +5,9 @@ import { Box, Typography, Button, Select, MenuItem } from "@mui/material";
 import { Add as AddIcon, FileUpload as UploadIcon, Download as DownloadIcon } from "@mui/icons-material";
 import { useSnackbar } from "notistack";
 import { useStyles } from "@tts/logic/common-category/style";
-import { BusinessLineView } from "../components/common-category/BusinessLineView";
 import { InjuryFactorView } from "../components/common-category/InjuryFactorView";
 import { InjuryTypeView } from "../components/common-category/InjuryTypeView";
+import { OccupationView } from "../components/common-category/OccupationView";
 
 export const CommonCategoryPage = () => {
   const classes = useStyles();
@@ -65,7 +65,7 @@ export const CommonCategoryPage = () => {
         <Box className={classes.card} sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
           {category === "INJURY_FACTOR" && <InjuryFactorView ref={viewRef} />}
           {category === "INJURY_TYPE" && <InjuryTypeView ref={viewRef} />}
-          {category === "BUSINESS_LINE" && <BusinessLineView ref={viewRef} />}
+          {category === "BUSINESS_LINE" && <OccupationView ref={viewRef} />}
         </Box>
       </Box>
     </Box>

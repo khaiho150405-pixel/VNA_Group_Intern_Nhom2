@@ -10,3 +10,4 @@ export * from './loai-hinh-kinh-doanh.services';
 export * from './business-line.services';
 export * from './injury-factor.services';
 export * from './injury-type.services';
+export * from './occupation.services';
