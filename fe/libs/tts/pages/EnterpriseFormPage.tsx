@@ -1128,7 +1128,7 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
   };
 
   return (
-    <Box className={classes.root}>
+    <Box sx={{ backgroundColor: '#ffffff', minHeight: '100vh', display: 'flex', flexDirection: 'column', overflow: 'visible' }}>
         {isProfile && (<>
         {/* Page Header */}
         <Box sx={{ 
@@ -1140,7 +1140,10 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
           py: 1.5,
           backgroundColor: '#fff',
           borderRadius: 1,
-          boxShadow: '0px 2px 12px rgba(0, 0, 0, 0.04)'
+          boxShadow: '0px 2px 12px rgba(0, 0, 0, 0.04)',
+          position: 'sticky',
+          top: 0,
+          zIndex: 10
         }}>
           <Typography sx={{ 
             fontSize: '1.25rem', 
@@ -1253,13 +1256,13 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
         </Box>
 
         {loading ? (
-          <Box className={classes.content}>
+          <Box sx={{ padding: '24px 24px 32px 24px', flex: 1, backgroundColor: '#ffffff' }}>
             <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}>
               <CircularProgress />
             </Box>
           </Box>
         ) : (
-          <Box className={classes.content}>
+          <Box sx={{ padding: '24px 24px 32px 24px', flex: 1, backgroundColor: '#ffffff' }}>
             {activeStep === 0 ? renderStep1() : renderStep2()}
           </Box>
         )}

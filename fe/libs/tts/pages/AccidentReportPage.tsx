@@ -6,11 +6,13 @@ import {
     TableContainer, TableHead, TableRow, Checkbox,
     IconButton, TextField, Select, MenuItem, CircularProgress,
     TablePagination, Autocomplete, InputAdornment, Divider, Grid,
-    Dialog, DialogTitle, DialogContent, DialogActions
+    Dialog, DialogTitle, DialogContent, DialogActions, Pagination
 } from '@mui/material';
 import {
     Visibility as VisibilityIcon,
-    Close as CloseIcon
+    Close as CloseIcon,
+    ChevronLeft as ChevronLeftIcon,
+    ChevronRight as ChevronRightIcon
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -22,6 +24,87 @@ import { DoetService, periodicReportService } from '@tts/services';
 import { useAuth } from '@core/contexts/AuthProvider';
 import { EnterpriseAccidentReportPage } from './EnterpriseAccidentReportPage';
 import { ConfirmDialog } from '@core/components/ConfirmDialog';
+
+interface CustomPaginationProps {
+  page: number;
+  count: number;
+  onChange: (newPage: number) => void;
+  isZeroBased?: boolean;
+}
+
+const CustomPagination = ({ page, count, onChange, isZeroBased = false }: CustomPaginationProps) => {
+  const currentPage = isZeroBased ? page + 1 : page;
+  const [val, setVal] = React.useState(String(currentPage));
+
+  React.useEffect(() => {
+    setVal(String(currentPage));
+  }, [currentPage]);
+
+  const handlePageSubmit = () => {
+    const p = parseInt(val, 10);
+    if (!isNaN(p) && p >= 1 && p <= count) {
+      onChange(isZeroBased ? p - 1 : p);
+    } else {
+      setVal(String(currentPage));
+    }
+  };
+
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+      <IconButton
+        size="small"
+        onClick={() => onChange(isZeroBased ? page - 1 : page - 1)}
+        disabled={currentPage <= 1}
+        sx={{ color: '#94a3b8', '&.Mui-disabled': { color: '#cbd5e1' }, p: '2px' }}
+      >
+        <ChevronLeftIcon sx={{ fontSize: '1.1rem' }} />
+      </IconButton>
+      <Box
+        sx={{
+          width: '24px',
+          height: '24px',
+          backgroundColor: '#f1f3f5',
+          borderRadius: '4px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden'
+        }}
+      >
+        <input
+          value={val}
+          onChange={(e) => setVal(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              handlePageSubmit();
+            }
+          }}
+          onBlur={handlePageSubmit}
+          style={{
+            width: '100%',
+            height: '100%',
+            border: 'none',
+            outline: 'none',
+            background: 'transparent',
+            textAlign: 'center',
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            color: '#1e293b',
+            padding: 0
+          }}
+        />
+      </Box>
+      <IconButton
+        size="small"
+        onClick={() => onChange(isZeroBased ? page + 1 : page + 1)}
+        disabled={currentPage >= count}
+        sx={{ color: '#94a3b8', '&.Mui-disabled': { color: '#cbd5e1' }, p: '2px' }}
+      >
+        <ChevronRightIcon sx={{ fontSize: '1.1rem' }} />
+      </IconButton>
+    </Box>
+  );
+};
 
 export const AccidentReportPage = () => {
     const classes = useAccidentReportStyles();
@@ -159,6 +242,19 @@ export const AccidentReportPage = () => {
         reportPeriod: '',
         status: ''
     });
+
+    const startIndex = useMemo(
+        () => (total === 0 ? 0 : tableFilters.limit * tableFilters.page + 1),
+        [tableFilters.limit, tableFilters.page, total],
+    );
+    const endIndex = useMemo(
+        () => Math.min(tableFilters.limit * (tableFilters.page + 1), total),
+        [tableFilters.limit, tableFilters.page, total],
+    );
+    const totalPages = useMemo(
+        () => Math.ceil(total / tableFilters.limit),
+        [total, tableFilters.limit],
+    );
 
     const [provinces, setProvinces] = useState<any[]>([]);
     const [wards, setWards] = useState<any[]>([]);
@@ -367,8 +463,8 @@ export const AccidentReportPage = () => {
                     </Box>
                 </Box>
 
-                <Box className={classes.mainContent}>
-                    <Box className={classes.card}>
+                <Box className={classes.mainContent} sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                    <Box className={classes.card} sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
 
                         <Box sx={{ p: 2.5, borderBottom: '1px solid #e2e8f0' }}>
                             <Grid container spacing={3}>
@@ -409,9 +505,8 @@ export const AccidentReportPage = () => {
                             </Grid>
                         </Box>
 
-                        <Box className={classes.tableScroll}>
-
-                            <TableContainer sx={{ maxHeight: 'calc(100vh - 280px)' }}>
+                        <Box className={classes.tableScroll} sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                        <TableContainer sx={{ flex: 1, overflowY: 'auto' }}>
                                 <Table stickyHeader size="small">
                                     <TableHead>
                                         <TableRow>
@@ -554,17 +649,24 @@ export const AccidentReportPage = () => {
                             </TableContainer>
                         </Box>
                         <Box className={classes.footer}>
-                            <TablePagination
-                                component="div"
-                                count={total}
+                            <Select
+                                size="small"
+                                value={tableFilters.limit}
+                                onChange={(e) => handleTableFilterChange('limit', Number(e.target.value))}
+                                className={classes.pageSizeSelect}
+                            >
+                                <MenuItem value={10}>10</MenuItem>
+                                <MenuItem value={20}>20</MenuItem>
+                                <MenuItem value={50}>50</MenuItem>
+                            </Select>
+                            <Typography className={classes.pageInfo}>
+                                {startIndex} - {endIndex} của {total}
+                            </Typography>
+                            <CustomPagination
                                 page={tableFilters.page}
-                                onPageChange={(_, newPage) => handleTableFilterChange('page', newPage)}
-                                rowsPerPage={tableFilters.limit}
-                                onRowsPerPageChange={(e) => handleTableFilterChange('limit', parseInt(e.target.value, 10))}
-                                rowsPerPageOptions={[10, 20, 50]}
-                                labelRowsPerPage=""
-                                labelDisplayedRows={({ from, to, count }) => `${from} - ${to} của ${count !== -1 ? count : `hơn ${to}`}`}
-                                className={classes.pageInfo}
+                                count={totalPages}
+                                onChange={(page) => handleTableFilterChange('page', page)}
+                                isZeroBased
                             />
                         </Box>
                     </Box>

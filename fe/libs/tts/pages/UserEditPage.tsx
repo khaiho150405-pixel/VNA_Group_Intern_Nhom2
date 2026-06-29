@@ -256,12 +256,32 @@ export const UserEditPage = () => {
     }
 
     return (
-        <Box className={classes.root}>
-                <Box className={classes.pageHeader}>
-                    <Typography className={classes.headerTitle}>
+        <Box sx={{ backgroundColor: '#ffffff', minHeight: '100vh', display: 'flex', flexDirection: 'column', overflow: 'visible' }}>
+                <Box sx={{
+                    backgroundColor: '#fff',
+                    padding: '16px 24px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    boxShadow: '0px 2px 12px rgba(0, 0, 0, 0.04)',
+                    zIndex: 10,
+                    minHeight: '64px',
+                    position: 'sticky',
+                    top: 0,
+                }}>
+                    <Typography sx={{
+                        fontWeight: 700,
+                        fontSize: '1.1rem',
+                        color: '#333',
+                        margin: 0,
+                    }}>
                         {canEdit ? 'Chỉnh sửa người dùng' : 'Chi tiết người dùng'}
                     </Typography>
-                    <Box className={classes.actions}>
+                    <Box sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                    }}>
                         <Button className={classes.cancelBtn} disableRipple disabled={loading} onClick={() => router.push('/users')}>
                             {canEdit ? 'Hủy bỏ' : 'Quay lại'}
                         </Button>
@@ -288,7 +308,7 @@ export const UserEditPage = () => {
                     </Box>
                 </Box>
 
-                <Box className={classes.mainContent}>
+                <Box sx={{ padding: 3, flex: 1, overflow: 'visible' }}>
                     <Grid container spacing={3}>
 
                         <Grid size={{ xs: 12, md: 3 }}>

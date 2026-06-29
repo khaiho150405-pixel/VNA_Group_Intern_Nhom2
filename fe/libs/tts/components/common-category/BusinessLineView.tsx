@@ -29,6 +29,8 @@ import {
   Add as AddIcon,
   Close as CloseIcon,
   FileUpload as UploadIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
 } from "@mui/icons-material";
 import { useSnackbar } from "notistack";
 import { makeStyles } from "@mui/styles";
@@ -40,6 +42,49 @@ import { BulkSelectionBar } from "@core/components/BulkSelectionBar";
 import { businessLineService } from "@tts/services";
 
 import { useStyles } from "@tts/logic/common-category/style";
+
+interface CustomPaginationProps {
+  page: number;
+  count: number;
+  onChange: (newPage: number) => void;
+}
+
+const CustomPagination = ({ page, count, onChange }: CustomPaginationProps) => {
+  const [val, setVal] = React.useState(String(page));
+
+  React.useEffect(() => {
+    setVal(String(page));
+  }, [page]);
+
+  const handlePageSubmit = () => {
+    const p = parseInt(val, 10);
+    if (!isNaN(p) && p >= 1 && p <= count) {
+      onChange(p);
+    } else {
+      setVal(String(page));
+    }
+  };
+
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+      <IconButton size="small" onClick={() => onChange(page - 1)} disabled={page <= 1} sx={{ color: '#94a3b8', '&.Mui-disabled': { color: '#cbd5e1' }, p: '2px' }}>
+        <ChevronLeftIcon sx={{ fontSize: '1.1rem' }} />
+      </IconButton>
+      <Box sx={{ width: '24px', height: '24px', backgroundColor: '#f1f3f5', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+        <input
+          value={val}
+          onChange={(e) => setVal(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') handlePageSubmit(); }}
+          onBlur={handlePageSubmit}
+          style={{ width: '100%', height: '100%', border: 'none', outline: 'none', background: 'transparent', textAlign: 'center', fontSize: '0.75rem', fontWeight: 600, color: '#1e293b', padding: 0 }}
+        />
+      </Box>
+      <IconButton size="small" onClick={() => onChange(page + 1)} disabled={page >= count} sx={{ color: '#94a3b8', '&.Mui-disabled': { color: '#cbd5e1' }, p: '2px' }}>
+        <ChevronRightIcon sx={{ fontSize: '1.1rem' }} />
+      </IconButton>
+    </Box>
+  );
+};
 
 interface BusinessLine {
   id: number;
@@ -295,8 +340,9 @@ export const BusinessLineView = React.forwardRef((props, ref) => {
 
   return (
     <React.Fragment>
-      <TableContainer className={classes.tableScroll}>
-        <Table stickyHeader size="small">
+      <Box className={classes.tableScroll} sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+        <TableContainer sx={{ flex: 1, overflowY: 'auto' }}>
+          <Table stickyHeader size="small">
           <TableHead>
             {/* Table Header Row */}
             <TableRow>
@@ -417,6 +463,7 @@ export const BusinessLineView = React.forwardRef((props, ref) => {
           </TableBody>
         </Table>
       </TableContainer>
+      </Box>
 
       {/* Pagination Footer */}
       <Box className={classes.footer}>
@@ -433,14 +480,10 @@ export const BusinessLineView = React.forwardRef((props, ref) => {
         <Typography className={classes.pageInfo}>
           {startIndex} - {endIndex} of {total}
         </Typography>
-        <Pagination
+        <CustomPagination
           count={Math.max(1, Math.ceil(total / filters.limit))}
           page={filters.page}
-          onChange={(_, p) => handleFilterChange("page", p)}
-          shape="rounded"
-          size="small"
-          siblingCount={0}
-          boundaryCount={1}
+          onChange={(p) => handleFilterChange("page", p)}
         />
       </Box>
 

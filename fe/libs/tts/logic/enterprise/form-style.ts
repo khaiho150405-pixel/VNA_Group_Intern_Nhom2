@@ -13,6 +13,10 @@ export const useEnterpriseFormStyles = makeStyles((theme: Theme) => ({
     backgroundColor: "#fff",
     padding: theme.spacing(2.5, 3),
     borderBottom: "1px solid #eef0f4",
+    position: "sticky",
+    top: 0,
+    zIndex: 10,
+    boxShadow: "0px 2px 12px rgba(0, 0, 0, 0.04)",
   },
   stepper: {
     maxWidth: 500,
@@ -165,6 +169,11 @@ export const useEnterpriseFormStyles = makeStyles((theme: Theme) => ({
     justifyContent: "flex-end",
     gap: theme.spacing(1.5),
     marginTop: theme.spacing(1),
+    position: "sticky",
+    bottom: 0,
+    zIndex: 10,
+    borderTop: "1px solid #eef0f4",
+    boxShadow: "0px -2px 12px rgba(0, 0, 0, 0.04)",
   },
   cancelBtn: {
     textTransform: "none",

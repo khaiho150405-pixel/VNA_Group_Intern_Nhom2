@@ -1492,7 +1492,16 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
   const headStyle = { ...cellStyle, fontWeight: 'bold', backgroundColor: '#f8fafc', color: '#475569', padding: '10px 8px' };
 
   return (
-    <Box className={classes.root}>
+    <Box 
+      sx={{ 
+        backgroundColor: '#ffffff',
+        height: mode === 'list' ? '100%' : 'auto', 
+        minHeight: mode === 'list' ? 'auto' : '100vh',
+        overflow: mode === 'list' ? 'hidden' : 'visible',
+        display: 'flex',
+        flexDirection: 'column'
+      }}
+    >
       {/* -------------------- 1. LIST SCREEN (mode === 'list') -------------------- */}
       {mode === 'list' && (
         <>
@@ -1516,10 +1525,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
             </Box>
           </Box>
 
-          <Box className={classes.mainContent}>
-            <Box className={classes.card}>
-              <TableContainer>
-                <Table size="medium">
+          <Box sx={{ padding: 3, display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+            <Box sx={{ backgroundColor: '#fff', borderRadius: 2, boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.04), 0px 2px 6px rgba(0, 0, 0, 0.02)', border: '1px solid #f0f0f0', display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+              <Box className={classes.tableScroll} sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                <TableContainer sx={{ flex: 1, overflowY: 'auto' }}>
+                  <Table size="medium">
                   <TableHead>
                     <TableRow>
                       <TableCell className={classes.headerCell} width={100} align="center">Thao tác</TableCell>
@@ -1606,6 +1616,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
               </TableContainer>
             </Box>
           </Box>
+        </Box>
         </>
       )}
 
@@ -1691,8 +1702,8 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
             </Box>
           </Box>
 
-          <Box className={classes.mainContent}>
-            <Box className={classes.card} sx={{ p: 3 }}>
+          <Box sx={{ padding: 3, display: 'flex', flexDirection: 'column', flex: 1, overflow: 'visible' }}>
+            <Box sx={{ backgroundColor: '#fff', borderRadius: 2, boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.04), 0px 2px 6px rgba(0, 0, 0, 0.02)', border: '1px solid #f0f0f0', p: 3, display: 'flex', flexDirection: 'column', flex: 1, overflow: 'visible' }}>
               {currentRejectReason && (
                 <Alert severity="warning" sx={{ mb: 3, borderRadius: 1.5 }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
@@ -3095,8 +3106,8 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
             </Box>
           </Box>
 
-          <Box className={classes.mainContent}>
-            <Box className={classes.card} sx={{ p: 3 }}>
+          <Box sx={{ padding: 3, display: 'flex', flexDirection: 'column', flex: 1, overflow: 'visible' }}>
+            <Box sx={{ backgroundColor: '#fff', borderRadius: 2, boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.04), 0px 2px 6px rgba(0, 0, 0, 0.02)', border: '1px solid #f0f0f0', p: 3, display: 'flex', flexDirection: 'column', flex: 1, overflow: 'visible' }}>
               <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
                 Báo cáo tổng hợp tình hình tai nạn lao động - Kỳ báo cáo: {period === 'CA_NAM' ? 'Cả năm' : '6 tháng'} năm {selectedYear}
               </Typography>

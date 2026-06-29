@@ -109,7 +109,7 @@ export const AccountInfoPage = () => {
   };
 
   return (
-    <Box className={classes.root}>
+    <Box sx={{ backgroundColor: '#ffffff', minHeight: '100vh', display: 'flex', flexDirection: 'column', overflow: 'visible' }}>
       <AppToast
         show={toast.show}
         message={toast.message}
@@ -144,7 +144,7 @@ export const AccountInfoPage = () => {
       </Box>
 
       {/* Main Content Area */}
-      <Box className={classes.mainContent}>
+      <Box sx={{ padding: 3, flex: 1, overflow: 'visible' }}>
         <Grid container spacing={3}>
           {/* Left Column: Avatar & Activation */}
 

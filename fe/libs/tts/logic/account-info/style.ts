@@ -23,8 +23,10 @@ export const useAccountInfoStyles = makeStyles((theme: Theme) => ({
     justifyContent: 'space-between',
     alignItems: 'center',
     boxShadow: '0px 2px 12px rgba(0, 0, 0, 0.04)',
-    zIndex: 1,
+    zIndex: 10,
     minHeight: '64px',
+    position: 'sticky',
+    top: 0,
   },
   headerTitle: {
     fontWeight: 700,

@@ -48,7 +48,7 @@ export const CommonCategoryPage = () => {
         </Box>
       </Box>
 
-      <Box className={classes.mainContent}>
+      <Box className={classes.mainContent} sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
         <Box sx={{ mb: 2, width: 300 }}>
           <Select
             size="small"
@@ -62,7 +62,7 @@ export const CommonCategoryPage = () => {
             <MenuItem value="BUSINESS_LINE">Danh mục nghề nghiệp</MenuItem>
           </Select>
         </Box>
-        <Box className={classes.card} sx={{ minHeight: 0 }}>
+        <Box className={classes.card} sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
           {category === "INJURY_FACTOR" && <InjuryFactorView ref={viewRef} />}
           {category === "INJURY_TYPE" && <InjuryTypeView ref={viewRef} />}
           {category === "BUSINESS_LINE" && <BusinessLineView ref={viewRef} />}

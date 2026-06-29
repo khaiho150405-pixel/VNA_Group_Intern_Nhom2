@@ -19,6 +19,8 @@ import {
     Visibility,
     VisibilityOff,
     VisibilityOutlined as ViewIcon,
+    ChevronLeft as ChevronLeftIcon,
+    ChevronRight as ChevronRightIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useSnackbar } from 'notistack';
@@ -35,6 +37,61 @@ import { useUserListStyles } from '../logic/user/style';
 import * as XLSX from 'xlsx';
 import { InputAdornment } from '@mui/material';
 import { validate, VALIDATION_MESSAGES } from '@core/utils/validation';
+
+interface CustomPaginationProps {
+  page: number;
+  count: number;
+  onChange: (newPage: number) => void;
+  isZeroBased?: boolean;
+}
+
+const CustomPagination = ({ page, count, onChange, isZeroBased = false }: CustomPaginationProps) => {
+  const currentPage = isZeroBased ? page + 1 : page;
+  const [val, setVal] = React.useState(String(currentPage));
+
+  React.useEffect(() => {
+    setVal(String(currentPage));
+  }, [currentPage]);
+
+  const handlePageSubmit = () => {
+    const p = parseInt(val, 10);
+    if (!isNaN(p) && p >= 1 && p <= count) {
+      onChange(isZeroBased ? p - 1 : p);
+    } else {
+      setVal(String(currentPage));
+    }
+  };
+
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+      <IconButton
+        size="small"
+        onClick={() => onChange(isZeroBased ? page - 1 : page - 1)}
+        disabled={currentPage <= 1}
+        sx={{ color: '#94a3b8', '&.Mui-disabled': { color: '#cbd5e1' }, p: '2px' }}
+      >
+        <ChevronLeftIcon sx={{ fontSize: '1.1rem' }} />
+      </IconButton>
+      <Box sx={{ width: '24px', height: '24px', backgroundColor: '#f1f3f5', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+        <input
+          value={val}
+          onChange={(e) => setVal(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') handlePageSubmit(); }}
+          onBlur={handlePageSubmit}
+          style={{ width: '100%', height: '100%', border: 'none', outline: 'none', background: 'transparent', textAlign: 'center', fontSize: '0.75rem', fontWeight: 600, color: '#1e293b', padding: 0 }}
+        />
+      </Box>
+      <IconButton
+        size="small"
+        onClick={() => onChange(isZeroBased ? page + 1 : page + 1)}
+        disabled={currentPage >= count}
+        sx={{ color: '#94a3b8', '&.Mui-disabled': { color: '#cbd5e1' }, p: '2px' }}
+      >
+        <ChevronRightIcon sx={{ fontSize: '1.1rem' }} />
+      </IconButton>
+    </Box>
+  );
+};
 
 export const UserManagementPage = () => {
     const classes = useUserListStyles();
@@ -624,10 +681,10 @@ export const UserManagementPage = () => {
                 </Box>
             </Box>
 
-            <Box className={classes.mainContent}>
-                <Box className={classes.card}>
-                    <Box className={classes.tableScroll}>
-                        <TableContainer>
+            <Box className={classes.mainContent} sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                <Box className={classes.card} sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                    <Box className={classes.tableScroll} sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                        <TableContainer sx={{ flex: 1, overflowY: 'auto' }}>
                             <Table size="small" stickyHeader>
                                 <TableHead>
                                     <TableRow>
@@ -855,14 +912,10 @@ export const UserManagementPage = () => {
                         <Typography className={classes.pageInfo}>
                             {startIndex} - {endIndex} of {total}
                         </Typography>
-                        <Pagination
+                        <CustomPagination
                             count={Math.max(1, Math.ceil(total / filters.limit))}
                             page={filters.page}
-                            onChange={(_, page) => handleFilterChange("page", page)}
-                            shape="rounded"
-                            size="small"
-                            siblingCount={0}
-                            boundaryCount={1}
+                            onChange={(page) => handleFilterChange("page", page)}
                         />
                     </Box>
                 </Box>
@@ -908,7 +961,7 @@ export const UserManagementPage = () => {
                 </DialogTitle>
 
                 <DialogContent sx={{ pt: '20px !important', pb: 2 }}>
-                    <Box sx={{ mb: 2, p: 1.5, bgcolor: '#f8fafc', borderRadius: '6px', borderLeft: '4px solid #3b82f6' }}>
+                    <Box sx={{ mb: 2, p: 1.5, bgcolor: '#f8fafc', borderRadius: '4px', borderLeft: '4px solid #3b82f6' }}>
                         <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
                             Vui lòng kiểm tra kỹ danh sách tài khoản trước khi nhập vào cơ sở dữ liệu.
                             Click nút <strong>Sửa</strong> (hoặc nhấn biểu tượng cây bút) để cập nhật thông tin inline, click <strong>Xóa</strong> để loại bỏ dòng.
@@ -1054,7 +1107,7 @@ export const UserManagementPage = () => {
                                             </TableCell>
                                             <TableCell align="center">
                                                 {isEditing ? (
-                                                    <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                                                    <Box sx={{ display: 'flex', gap: 0.25, justifyContent: 'center' }}>
                                                         <Tooltip title="Lưu">
                                                             <IconButton
                                                                 size="small"
@@ -1075,7 +1128,7 @@ export const UserManagementPage = () => {
                                                         </Tooltip>
                                                     </Box>
                                                 ) : (
-                                                    <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                                                    <Box sx={{ display: 'flex', gap: 0.25, justifyContent: 'center' }}>
                                                         <Tooltip title="Sửa">
                                                             <IconButton
                                                                 size="small"
@@ -1118,7 +1171,7 @@ export const UserManagementPage = () => {
                         disableElevation
                         disabled={loading || importUsers.length === 0 || importUsers.some(item => Object.keys(validateRow(item)).length > 0)}
                         startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <UploadIcon fontSize="small" />}
-                        sx={{ textTransform: 'none', bgcolor: '#2f65f0', fontWeight: 600, borderRadius: '6px' }}
+                        sx={{ textTransform: 'none', bgcolor: '#2f65f0', fontWeight: 600, borderRadius: '4px' }}
                     >
                         Xác nhận nhập ({importUsers.length})
                     </Button>
@@ -1140,7 +1193,7 @@ export const UserManagementPage = () => {
                     </IconButton>
                 </DialogTitle>
                 <DialogContent sx={{ pt: '20px !important', pb: 2 }}>
-                    <Box sx={{ mb: 2, p: 1.5, bgcolor: '#f8fafc', borderRadius: '6px', borderLeft: '4px solid #3b82f6' }}>
+                    <Box sx={{ mb: 2, p: 1.5, bgcolor: '#f8fafc', borderRadius: '4px', borderLeft: '4px solid #3b82f6' }}>
                         <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
                             Vui lòng kiểm tra kỹ danh sách tài khoản trước khi nhập vào cơ sở dữ liệu.
                             Click nút <strong>Sửa</strong> (hoặc nhấn biểu tượng cây bút) để cập nhật thông tin inline, click <strong>Xóa</strong> để loại bỏ dòng.
@@ -1301,7 +1354,7 @@ export const UserManagementPage = () => {
                                             </TableCell>
                                             <TableCell align="center">
                                                 {isEditing ? (
-                                                    <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                                                    <Box sx={{ display: 'flex', gap: 0.25, justifyContent: 'center' }}>
                                                         <Tooltip title="Lưu">
                                                             <IconButton
                                                                 size="small"
@@ -1322,7 +1375,7 @@ export const UserManagementPage = () => {
                                                         </Tooltip>
                                                     </Box>
                                                 ) : (
-                                                    <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                                                    <Box sx={{ display: 'flex', gap: 0.25, justifyContent: 'center' }}>
                                                         <Tooltip title="Sửa">
                                                             <IconButton
                                                                 size="small"
@@ -1365,7 +1418,7 @@ export const UserManagementPage = () => {
                         disableElevation
                         disabled={loading || importUsers.length === 0 || importUsers.some(item => Object.keys(validateRow(item)).length > 0)}
                         startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <UploadIcon fontSize="small" />}
-                        sx={{ textTransform: 'none', bgcolor: '#2f65f0', fontWeight: 600, borderRadius: '6px' }}
+                        sx={{ textTransform: 'none', bgcolor: '#2f65f0', fontWeight: 600, borderRadius: '4px' }}
                     >
                         Xác nhận nhập ({importUsers.length})
                     </Button>

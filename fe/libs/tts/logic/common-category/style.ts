@@ -8,6 +8,7 @@ export const useStyles = makeStyles((theme: Theme) => ({
     flexDirection: "column",
     flex: 1,
     height: "100%",
+    overflow: "hidden",
   },
   pageHeader: {
     backgroundColor: "#fff",
@@ -16,8 +17,10 @@ export const useStyles = makeStyles((theme: Theme) => ({
     justifyContent: "space-between",
     alignItems: "center",
     boxShadow: "0px 2px 12px rgba(0, 0, 0, 0.04)",
-    zIndex: 1,
+    zIndex: 10,
     minHeight: 64,
+    position: 'sticky',
+    top: 0,
   },
   headerTitle: {
     fontWeight: 700,
@@ -65,6 +68,7 @@ export const useStyles = makeStyles((theme: Theme) => ({
     flex: 1,
     display: "flex",
     flexDirection: "column",
+    overflow: "hidden",
   },
   card: {
     backgroundColor: "#fff",
@@ -77,8 +81,10 @@ export const useStyles = makeStyles((theme: Theme) => ({
     flex: 1,
   },
   tableScroll: {
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
     flex: 1,
-    overflow: "auto",
   },
   headerCell: {
     fontWeight: 600,

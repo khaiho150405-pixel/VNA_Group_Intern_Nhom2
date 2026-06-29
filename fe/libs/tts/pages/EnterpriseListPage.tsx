@@ -28,6 +28,8 @@ import {
   Key as KeyIcon,
   Add as AddIcon,
   FileUpload as UploadIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
 } from "@mui/icons-material";
 import { useRouter } from "next/navigation";
 import { useSnackbar } from "notistack";
@@ -46,6 +48,61 @@ import { useEnterpriseListStyles } from "../logic/enterprise/style";
 import { ConfirmDialog } from "@core/components/ConfirmDialog";
 import { useAuth } from "@core/contexts/AuthProvider";
 import { normalizeListResponse } from "@core/utils/helper";
+
+interface CustomPaginationProps {
+  page: number;
+  count: number;
+  onChange: (newPage: number) => void;
+  isZeroBased?: boolean;
+}
+
+const CustomPagination = ({ page, count, onChange, isZeroBased = false }: CustomPaginationProps) => {
+  const currentPage = isZeroBased ? page + 1 : page;
+  const [val, setVal] = React.useState(String(currentPage));
+
+  React.useEffect(() => {
+    setVal(String(currentPage));
+  }, [currentPage]);
+
+  const handlePageSubmit = () => {
+    const p = parseInt(val, 10);
+    if (!isNaN(p) && p >= 1 && p <= count) {
+      onChange(isZeroBased ? p - 1 : p);
+    } else {
+      setVal(String(currentPage));
+    }
+  };
+
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+      <IconButton
+        size="small"
+        onClick={() => onChange(isZeroBased ? page - 1 : page - 1)}
+        disabled={currentPage <= 1}
+        sx={{ color: '#94a3b8', '&.Mui-disabled': { color: '#cbd5e1' }, p: '2px' }}
+      >
+        <ChevronLeftIcon sx={{ fontSize: '1.1rem' }} />
+      </IconButton>
+      <Box sx={{ width: '24px', height: '24px', backgroundColor: '#f1f3f5', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+        <input
+          value={val}
+          onChange={(e) => setVal(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') handlePageSubmit(); }}
+          onBlur={handlePageSubmit}
+          style={{ width: '100%', height: '100%', border: 'none', outline: 'none', background: 'transparent', textAlign: 'center', fontSize: '0.75rem', fontWeight: 600, color: '#1e293b', padding: 0 }}
+        />
+      </Box>
+      <IconButton
+        size="small"
+        onClick={() => onChange(isZeroBased ? page + 1 : page + 1)}
+        disabled={currentPage >= count}
+        sx={{ color: '#94a3b8', '&.Mui-disabled': { color: '#cbd5e1' }, p: '2px' }}
+      >
+        <ChevronRightIcon sx={{ fontSize: '1.1rem' }} />
+      </IconButton>
+    </Box>
+  );
+};
 
 interface WardOption {
   key: string;
@@ -331,10 +388,10 @@ export const EnterpriseListPage = () => {
           </Box>
         </Box>
 
-        <Box className={classes.mainContent}>
-          <Box className={classes.card}>
-            <Box className={classes.tableScroll}>
-              <TableContainer>
+        <Box className={classes.mainContent} sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+        <Box className={classes.card} sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+          <Box className={classes.tableScroll} sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+              <TableContainer sx={{ flex: 1, overflowY: 'auto' }}>
                 <Table size="small" stickyHeader>
                   <TableHead>
                     <TableRow>
@@ -569,14 +626,10 @@ export const EnterpriseListPage = () => {
               <Typography className={classes.pageInfo}>
                 {startIndex} - {endIndex} of {total}
               </Typography>
-              <Pagination
+              <CustomPagination
                 count={Math.max(1, Math.ceil(total / (filters.limit || 10)))}
                 page={filters.page}
-                onChange={(_, page) => handleFilterChange("page", page)}
-                shape="rounded"
-                size="small"
-                siblingCount={0}
-                boundaryCount={1}
+                onChange={(page) => handleFilterChange("page", page)}
               />
             </Box>
           </Box>
