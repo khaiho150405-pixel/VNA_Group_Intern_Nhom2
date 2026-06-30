@@ -48,7 +48,7 @@ export interface ReportRow {
 import { useParams } from 'next/navigation';
 import { DoetService, periodicReportService } from '@tts/services';
 
-const CAUSES = [
+const fallbackCauses = [
   { id: 1, name: "Không có thiết bị an toàn hoặc thiết bị không đảm bảo an toàn" },
   { id: 2, name: "Không có phương tiện bảo vệ cá nhân hoặc phương tiện bảo vệ cá nhân không tốt" },
   { id: 3, name: "Tổ chức lao động không hợp lý" },
@@ -60,9 +60,11 @@ const CAUSES = [
   { id: 9, name: "Khách quan khó tránh/ Nguyên nhân chưa kể đến" }
 ];
 
-const OCCUPATIONS = [
-  { id: 102, name: "Nhà lãnh đạo cơ quan Đảng Cộng sản Việt nam cấp Trung ương" },
-  { id: 103, name: "Công nhân" }
+const fallbackOccupations = [
+  { id: 1, name: "1 - Nhà lãnh đạo trong các ngành, các cấp và các đơn vị" },
+  { id: 2, name: "11 - Nhà lãnh đạo cơ quan Đảng Cộng sản Việt Nam cấp Trung ương và địa phương..." },
+  { id: 3, name: "111 - Nhà lãnh đạo cơ quan Đảng Cộng sản Việt Nam cấp Trung ương" },
+  { id: 4, name: "1111 - Trưởng ban, Phó Trưởng ban và tương đương trở lên thuộc cấp Trung ương" }
 ];
 
 const getAbsoluteFileUrl = (url?: string) => {
@@ -84,6 +86,11 @@ const formatNumberWithDots = (val: string | number) => {
 export function AccidentReportDetailPage() {
   const [data, setData] = useState<ReportRow[]>([]);
   const [injuryFactors, setInjuryFactors] = useState<any[]>([]);
+  const [accidentCauses, setAccidentCauses] = useState<any[]>([]);
+  const [occupations, setOccupations] = useState<any[]>([]);
+
+  const causesList = accidentCauses.length > 0 ? accidentCauses : fallbackCauses;
+  const occupationsList = occupations.length > 0 ? occupations : fallbackOccupations;
   const [costs, setCosts] = useState<any>(null);
   const [reportInfo, setReportInfo] = useState<{ year?: number, period?: string, fileUrl?: string, fileName?: string } | null>(null);
   const [rawReport, setRawReport] = useState<any>(null);
@@ -254,14 +261,28 @@ export function AccidentReportDetailPage() {
 
     const fetchData = async () => {
       try {
-        const [response, factorsRes]: any = await Promise.all([
+        const [response, factorsRes, causesRes, occRes]: any = await Promise.all([
           periodicReportService.getById(id),
-          DoetService.getInjuryFactors()
+          DoetService.getInjuryFactors(),
+          DoetService.getAccidentCauses(),
+          DoetService.getOccupations()
         ]);
         const report = response.data || response;
         setRawReport(report);
         const factors = factorsRes.data || factorsRes || [];
         setInjuryFactors(factors);
+
+        const causes = causesRes?.data || causesRes || [];
+        setAccidentCauses(causes);
+
+        const occs = occRes?.data?.items || occRes?.data || occRes || [];
+        if (Array.isArray(occs) && occs.length > 0) {
+          const occsMapped = occs.map((o: any) => ({
+            id: o.id,
+            name: `${o.manghe} - ${o.tennghe}`
+          }));
+          setOccupations(occsMapped);
+        }
 
         const mapData = (summary: any): ReportData => ({
           tongSoVu: summary?.tongSoVu || 0,
@@ -310,7 +331,7 @@ export function AccidentReportDetailPage() {
           { id: "1.1-a", code: "", name: "a. Do người sử dụng lao động", isHeader: true, level: 0 },
         ];
 
-        CAUSES.slice(0, 6).forEach((c, i) => {
+        causesList.slice(0, 6).forEach((c, i) => {
           const stats = getSummedStatsForCause(c.id);
           if (stats) {
             rows.push({ id: `1.1-a-${c.id}`, code: String(i + 1), name: c.name, isHeader: false, level: 0, data: stats });
@@ -318,7 +339,7 @@ export function AccidentReportDetailPage() {
         });
 
         rows.push({ id: "1.1-b", code: "", name: "b. Do người lao động", isHeader: true, level: 0 });
-        CAUSES.slice(6, 8).forEach((c, i) => {
+        causesList.slice(6, 8).forEach((c, i) => {
           const stats = getSummedStatsForCause(c.id);
           if (stats) {
             rows.push({ id: `1.1-b-${c.id}`, code: String(i + 7), name: c.name, isHeader: false, level: 0, data: stats });
@@ -327,7 +348,7 @@ export function AccidentReportDetailPage() {
 
         const otherStats = getSummedStatsForCause(9);
         if (otherStats) {
-          rows.push({ id: "1.1-9", code: "9", name: CAUSES[8].name, isHeader: false, level: 0, data: otherStats });
+          rows.push({ id: "1.1-9", code: "9", name: causesList[8].name, isHeader: false, level: 0, data: otherStats });
         }
 
         rows.push({ id: "1.2", code: "", name: "1.2. Phân theo yếu tố gây chấn thương", isHeader: true, level: 0 });
@@ -383,7 +404,7 @@ export function AccidentReportDetailPage() {
             sum.tongSoThuongNang = (sum.tongSoThuongNang || 0) + Number(stats.tongSoThuongNang || stats.tongSoNguoiThuongNang || 0);
             sum.khongQlThuongNang = (sum.khongQlThuongNang || 0) + Number(stats.khongQlThuongNang || 0);
           });
-          const occInfo = OCCUPATIONS.find(o => o.id === occId);
+          const occInfo = occupationsList.find(o => o.id === occId);
           const name = occInfo?.name || `Nghề nghiệp ${occId}`;
           rows.push({ id: `1.3-${occId}`, code: String(occId), name, isHeader: false, level: 0, data: mapData(sum) });
         });

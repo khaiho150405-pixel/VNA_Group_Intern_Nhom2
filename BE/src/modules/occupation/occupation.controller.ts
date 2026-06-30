@@ -4,6 +4,7 @@ import { BaseController, ResponseInterceptor } from "src/commons";
 import { AuthGuard } from "src/commons/guards/authGuard";
 import { Occupation } from "./occupation.entity";
 import { OccupationService } from "./occupation.service";
+import Response from "../../commons/response";
 
 @ApiTags("Occupation")
 @Controller("occupation")
@@ -11,6 +12,14 @@ import { OccupationService } from "./occupation.service";
 export class OccupationController extends BaseController<Occupation, OccupationService> {
   constructor(private readonly occupationService: OccupationService) {
     super(occupationService);
+  }
+
+  @Get("dropdown/active")
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
+  @ApiOperation({ summary: "Lấy danh sách nghề nghiệp đang hoạt động (dropdown)" })
+  async getActiveDropdown() {
+    const data = await this.occupationService.getActiveForDropdown();
+    return Response.get(data);
   }
 
   @Get("list")

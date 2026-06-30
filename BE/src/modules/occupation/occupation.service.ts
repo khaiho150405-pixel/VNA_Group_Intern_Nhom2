@@ -108,4 +108,11 @@ export class OccupationService extends BaseService<Occupation> implements OnAppl
     }
     return super.put(currentUser, id, payload);
   }
+
+  async getActiveForDropdown() {
+    return await this.occupationRepo.find({
+      where: { trangthai: 'ACTIVE' },
+      order: { id: 'ASC' }
+    });
+  }
 }

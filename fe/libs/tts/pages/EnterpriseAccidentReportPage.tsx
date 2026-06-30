@@ -32,7 +32,7 @@ import { saveAs } from 'file-saver';
 import { useAccidentReportStyles } from '../logic/accident-report/style';
 import { DoetService, periodicReportService, reportPeriodService } from '@tts/services';
 
-const CAUSES = [
+const fallbackCauses = [
   { id: 1, name: "Không có thiết bị an toàn hoặc thiết bị không đảm bảo an toàn" },
   { id: 2, name: "Không có phương tiện bảo vệ cá nhân hoặc phương tiện bảo vệ cá nhân không tốt" },
   { id: 3, name: "Tổ chức lao động không hợp lý" },
@@ -44,9 +44,11 @@ const CAUSES = [
   { id: 9, name: "Khách quan khó tránh/ Nguyên nhân chưa kể đến" }
 ];
 
-const OCCUPATIONS = [
-  { id: 102, name: "Nhà lãnh đạo cơ quan Đảng Cộng sản Việt nam cấp Trung ương" },
-  { id: 103, name: "Công nhân" }
+const fallbackOccupations = [
+  { id: 1, name: "1 - Nhà lãnh đạo trong các ngành, các cấp và các đơn vị" },
+  { id: 2, name: "11 - Nhà lãnh đạo cơ quan Đảng Cộng sản Việt Nam cấp Trung ương và địa phương..." },
+  { id: 3, name: "111 - Nhà lãnh đạo cơ quan Đảng Cộng sản Việt Nam cấp Trung ương" },
+  { id: 4, name: "1111 - Trưởng ban, Phó Trưởng ban và tương đương trở lên thuộc cấp Trung ương" }
 ];
 
 // Helper formatting functions
@@ -200,6 +202,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
 
   // Dropdown options loaded from DB
   const [injuryFactors, setInjuryFactors] = useState<any[]>([]);
+  const [accidentCauses, setAccidentCauses] = useState<any[]>([]);
+  const [occupations, setOccupations] = useState<any[]>([]);
+
+  const causesList = accidentCauses.length > 0 ? accidentCauses : fallbackCauses;
+  const occupationsList = occupations.length > 0 ? occupations : fallbackOccupations;
 
   const validateFieldDirect = (fieldKey: string, value: any, currentErrors: Record<string, string>): boolean => {
     let errMsg = '';
@@ -580,9 +587,13 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
         return { name, code: String(id), ...getStatCols(getDetailStats(matches), '') };
       });
 
-      const OCC_MAP: any = { 102: "Nhà lãnh đạo cơ quan Đảng Cộng sản Việt nam cấp Trung ương", 103: "Công nhân" };
+      const OCC_MAP: Record<number, string> = {};
+      const currentOccupations = occupations.length > 0 ? occupations : fallbackOccupations;
+      currentOccupations.forEach((o: any) => {
+        OCC_MAP[o.id] = o.name;
+      });
       const uniqueOccs = Array.from(new Set(sourceDetails.filter((d: any) => d.ngheNghiepId && (!d.reportType || d.reportType === 'TAI_NAN_LAO_DONG')).map((d: any) => Number(d.ngheNghiepId))));
-      const occupations = uniqueOccs.map((id: any) => {
+      const occupationsExport = uniqueOccs.map((id: any) => {
         const name = OCC_MAP[id] || `Nghề nghiệp ${id}`;
         const matches = sourceDetails.filter((d: any) => Number(d.ngheNghiepId) === id && (!d.reportType || d.reportType === 'TAI_NAN_LAO_DONG'));
         return { name, code: String(id), ...getStatCols(getDetailStats(matches), '') };
@@ -595,7 +606,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
       const data = {
         ...causesData,
         factors,
-        occupations,
+        occupations: occupationsExport,
         companyName: myCompany?.name || "",
         companyAddress: myCompany?.address || "",
         wC1: wardCodeStr[0], wC2: wardCodeStr[1], wC3: wardCodeStr[2], wC4: wardCodeStr[3], wC5: wardCodeStr[4],
@@ -716,6 +727,36 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
         }
       } catch (err) {
         console.error("Error fetching injury factors dropdown", err);
+      }
+
+      try {
+        const causesRes: any = await DoetService.getAccidentCauses();
+        const items = causesRes?.data || causesRes || [];
+        if (Array.isArray(items) && items.length > 0) {
+          setAccidentCauses(items);
+        } else {
+          setAccidentCauses(fallbackCauses);
+        }
+      } catch (err) {
+        console.error("Error fetching accident causes dropdown", err);
+        setAccidentCauses(fallbackCauses);
+      }
+
+      try {
+        const occRes: any = await DoetService.getOccupations();
+        const items = occRes?.data?.items || occRes?.data || occRes || [];
+        if (Array.isArray(items) && items.length > 0) {
+          const mapped = items.map((o: any) => ({
+            id: o.id,
+            name: `${o.manghe} - ${o.tennghe}`
+          }));
+          setOccupations(mapped);
+        } else {
+          setOccupations(fallbackOccupations);
+        }
+      } catch (err) {
+        console.error("Error fetching occupations dropdown", err);
+        setOccupations(fallbackOccupations);
       }
     };
     initData();
@@ -2262,8 +2303,8 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                                 <Autocomplete
                                   size="small"
                                   fullWidth
-                                  options={CAUSES}
-                                  value={CAUSES.find(c => c.id === detail.nguyenNhanId) || null}
+                                  options={accidentCauses}
+                                  value={accidentCauses.find(c => c.id === detail.nguyenNhanId) || null}
                                   onChange={(_, v) => handleDetailFieldChange(index, 'nguyenNhanId', v?.id || '')}
                                   getOptionLabel={(opt) => opt.name}
                                   isOptionEqualToValue={(o, v) => o.id === v.id}
@@ -2302,8 +2343,8 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                                 <Autocomplete
                                   size="small"
                                   fullWidth
-                                  options={OCCUPATIONS}
-                                  value={OCCUPATIONS.find(o => o.id === detail.ngheNghiepId) || null}
+                                  options={occupations}
+                                  value={occupations.find(o => o.id === detail.ngheNghiepId) || null}
                                   onChange={(_, v) => handleDetailFieldChange(index, 'ngheNghiepId', v?.id || '')}
                                   getOptionLabel={(opt) => opt.name}
                                   isOptionEqualToValue={(o, v) => o.id === v.id}
@@ -2893,7 +2934,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             <TableCell colSpan={13} sx={{ fontStyle: 'italic', pl: 4, ...cellStyle }}>a. Do người sử dụng lao động</TableCell>
                           </TableRow>
                           {(() => {
-                            const matched = CAUSES.slice(0, 6).map((c, i) => {
+                            const matched = causesList.slice(0, 6).map((c, i) => {
                               const matches = accidentDetails.filter(d => Number(d.nguyenNhanId) === c.id);
                               if (matches.length === 0) return null;
                               return { c, code: i + 1, stats: aggregateStats(matches) };
@@ -2921,7 +2962,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             <TableCell colSpan={13} sx={{ fontStyle: 'italic', pl: 4, ...cellStyle }}>b. Do người lao động</TableCell>
                           </TableRow>
                           {(() => {
-                            const matched = CAUSES.slice(6, 8).map((c, i) => {
+                            const matched = causesList.slice(6, 8).map((c, i) => {
                               const matches = accidentDetails.filter(d => Number(d.nguyenNhanId) === c.id);
                               if (matches.length === 0) return null;
                               return { c, code: i + 7, stats: aggregateStats(matches) };
@@ -2949,7 +2990,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             const matches = accidentDetails.filter(d => Number(d.nguyenNhanId) === 9);
                             if (matches.length === 0) return null;
                             const stats = aggregateStats(matches);
-                            const c = CAUSES[8];
+                            const c = causesList[8];
                             return (
                               <TableRow key={c.id}>
                                 <TableCell sx={{ pl: 5, ...cellStyle }}>{c.name}</TableCell>
@@ -3009,7 +3050,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             return uniqueNgheNghiepIds.map((occId) => {
                               const matches = accidentDetails.filter(d => Number(d.ngheNghiepId) === occId);
                               const stats = aggregateStats(matches);
-                              const occInfo = OCCUPATIONS.find(o => o.id === occId);
+                              const occInfo = occupationsList.find(o => o.id === occId);
                               const name = occInfo?.name || `Nghề nghiệp ${occId}`;
                               return (
                                 <TableRow key={occId}>
@@ -3264,7 +3305,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         <TableCell colSpan={13} sx={{ fontStyle: 'italic', pl: 4, ...cellStyle }}>a. Do người sử dụng lao động</TableCell>
                       </TableRow>
                       {(() => {
-                        const matched = CAUSES.slice(0, 6).map((c, i) => {
+                        const matched = causesList.slice(0, 6).map((c, i) => {
                           const matches = accidentDetails.filter(d => Number(d.nguyenNhanId) === c.id);
                           if (matches.length === 0) return null;
                           return { c, code: i + 1, stats: aggregateStats(matches) };
@@ -3292,7 +3333,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         <TableCell colSpan={13} sx={{ fontStyle: 'italic', pl: 4, ...cellStyle }}>b. Do người lao động</TableCell>
                       </TableRow>
                       {(() => {
-                        const matched = CAUSES.slice(6, 8).map((c, i) => {
+                        const matched = causesList.slice(6, 8).map((c, i) => {
                           const matches = accidentDetails.filter(d => Number(d.nguyenNhanId) === c.id);
                           if (matches.length === 0) return null;
                           return { c, code: i + 7, stats: aggregateStats(matches) };
@@ -3320,7 +3361,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         const matches = accidentDetails.filter(d => Number(d.nguyenNhanId) === 9);
                         if (matches.length === 0) return null;
                         const stats = aggregateStats(matches);
-                        const c = CAUSES[8];
+                        const c = causesList[8];
                         return (
                           <TableRow key={c.id}>
                             <TableCell sx={{ pl: 5, ...cellStyle }}>{c.name}</TableCell>
@@ -3380,7 +3421,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         return uniqueNgheNghiepIds.map((occId) => {
                           const matches = accidentDetails.filter(d => Number(d.ngheNghiepId) === occId);
                           const stats = aggregateStats(matches);
-                          const occInfo = OCCUPATIONS.find(o => o.id === occId);
+                          const occInfo = occupationsList.find(o => o.id === occId);
                           const name = occInfo?.name || `Nghề nghiệp ${occId}`;
                           return (
                             <TableRow key={occId}>

@@ -72,6 +72,8 @@ export function AccidentReportSummaryPage() {
   const [loaiHinhStats, setLoaiHinhStats] = useState<LoaiHinhStat[]>([]);
   const [loaiHinhs, setLoaiHinhs] = useState<any[]>([]);
   const [injuryFactors, setInjuryFactors] = useState<any[]>([]);
+  const [accidentCauses, setAccidentCauses] = useState<any[]>([]);
+  const [occupations, setOccupations] = useState<any[]>([]);
   const [costs, setCosts] = useState<any>(null);
   const [reportInfo, setReportInfo] = useState<{ year?: number, period?: string, totalReports?: number } | null>(null);
   const [rawReport, setRawReport] = useState<any>(null);
@@ -153,9 +155,18 @@ export function AccidentReportSummaryPage() {
         return { name, code: String(id), ...getStatCols(getDetailStats(matches), '') };
       });
 
-      const OCC_MAP: any = { 102: "Nhà lãnh đạo cơ quan Đảng Cộng sản Việt nam cấp Trung ương", 103: "Công nhân" };
+      const OCC_MAP: Record<number, string> = {};
+      const currentOccs = occupations.length > 0 ? occupations : [
+        { id: 1, name: "1 - Nhà lãnh đạo trong các ngành, các cấp và các đơn vị" },
+        { id: 2, name: "11 - Nhà lãnh đạo cơ quan Đảng Cộng sản Việt Nam cấp Trung ương và địa phương..." },
+        { id: 3, name: "111 - Nhà lãnh đạo cơ quan Đảng Cộng sản Việt Nam cấp Trung ương" },
+        { id: 4, name: "1111 - Trưởng ban, Phó Trưởng ban và tương đương trở lên thuộc cấp Trung ương" }
+      ];
+      currentOccs.forEach((o: any) => {
+        OCC_MAP[o.id] = o.name;
+      });
       const uniqueOccs = Array.from(new Set(sourceDetails.filter((d: any) => d.ngheNghiepId && (!d.reportType || d.reportType === 'TAI_NAN_LAO_DONG')).map((d: any) => Number(d.ngheNghiepId))));
-      const occupations = uniqueOccs.map((id: any) => {
+      const occupationsExport = uniqueOccs.map((id: any) => {
         const name = OCC_MAP[id] || `Nghề nghiệp ${id}`;
         const matches = sourceDetails.filter((d: any) => Number(d.ngheNghiepId) === id && (!d.reportType || d.reportType === 'TAI_NAN_LAO_DONG'));
         return { name, code: String(id), ...getStatCols(getDetailStats(matches), '') };
@@ -198,7 +209,7 @@ export function AccidentReportSummaryPage() {
       const docData = {
         ...causesData,
         factors,
-        occupations,
+        occupations: occupationsExport,
         ...table1Data,
         ...getStatCols(tnldTroCapSummary, 't2_201'),
         ...getStatCols({
@@ -249,10 +260,12 @@ export function AccidentReportSummaryPage() {
     const fetchData = async () => {
       try {
         const queryParams = Object.fromEntries(searchParams.entries());
-        const [response, factorsRes, lhRes]: any = await Promise.all([
+        const [response, factorsRes, lhRes, causesRes, occRes]: any = await Promise.all([
           periodicReportService.getSummary(queryParams),
           DoetService.getInjuryFactors(),
-          (DoetService as any).getLoaiHinhKinhDoanh?.() || Promise.resolve({ data: [] }) // using safe fallback since it's in DoetService or auth
+          (DoetService as any).getLoaiHinhKinhDoanh?.() || Promise.resolve({ data: [] }),
+          DoetService.getAccidentCauses(),
+          DoetService.getOccupations()
         ]);
         const report = response.data || response;
         setRawReport(report);
@@ -261,6 +274,18 @@ export function AccidentReportSummaryPage() {
         const lHinhs = lhRes?.data?.items || lhRes?.data || lhRes || [];
         setLoaiHinhs(lHinhs);
         setLoaiHinhStats(report.loaiHinhStats || []);
+
+        const causes = causesRes?.data || causesRes || [];
+        setAccidentCauses(causes);
+
+        const occs = occRes?.data?.items || occRes?.data || occRes || [];
+        if (Array.isArray(occs) && occs.length > 0) {
+          const occsMapped = occs.map((o: any) => ({
+            id: o.id,
+            name: `${o.manghe} - ${o.tennghe}`
+          }));
+          setOccupations(occsMapped);
+        }
 
         const mapData = (summary: any): ReportData => ({
           tongSoVu: summary?.tongSoVu || 0,
