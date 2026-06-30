@@ -351,6 +351,81 @@ export const ReportPeriodPage = () => {
     }
   };
 
+  const handleYearPeriodChange = (updatedYear: string, updatedPeriod: string) => {
+    let newStart = form.startDate;
+    let newEnd = form.endDate;
+    if (updatedYear) {
+      if (updatedPeriod === '6_THANG') {
+        newStart = `${updatedYear}-01-01`;
+        newEnd = `${updatedYear}-06-30`;
+      } else if (updatedPeriod === 'CA_NAM') {
+        newStart = `${updatedYear}-01-01`;
+        newEnd = `${updatedYear}-12-31`;
+      }
+    }
+    setForm(prev => ({
+      ...prev,
+      year: updatedYear,
+      period: updatedPeriod,
+      startDate: newStart,
+      endDate: newEnd
+    }));
+  };
+
+  const handleFormStartDateChange = (dateStr: string) => {
+    if (!dateStr) {
+      setForm(prev => ({ ...prev, startDate: "" }));
+      return;
+    }
+    const dateObj = new Date(dateStr);
+    if (isNaN(dateObj.getTime())) return;
+    const forcedStartStr = formatDateInput(dateObj);
+
+    let forcedEndStr = form.endDate;
+    if (form.period === '6_THANG') {
+      const endObj = new Date(dateObj);
+      endObj.setMonth(endObj.getMonth() + 6);
+      forcedEndStr = formatDateInput(endObj);
+    } else if (form.period === 'CA_NAM') {
+      const endObj = new Date(dateObj);
+      endObj.setFullYear(endObj.getFullYear() + 1);
+      forcedEndStr = formatDateInput(endObj);
+    }
+
+    setForm(prev => ({
+      ...prev,
+      startDate: forcedStartStr,
+      endDate: forcedEndStr
+    }));
+  };
+
+  const handleFormEndDateChange = (dateStr: string) => {
+    if (!dateStr) {
+      setForm(prev => ({ ...prev, endDate: "" }));
+      return;
+    }
+    const dateObj = new Date(dateStr);
+    if (isNaN(dateObj.getTime())) return;
+    const forcedEndStr = formatDateInput(dateObj);
+
+    let forcedStartStr = form.startDate;
+    if (form.period === '6_THANG') {
+      const startObj = new Date(dateObj);
+      startObj.setMonth(startObj.getMonth() - 6);
+      forcedStartStr = formatDateInput(startObj);
+    } else if (form.period === 'CA_NAM') {
+      const startObj = new Date(dateObj);
+      startObj.setFullYear(startObj.getFullYear() - 1);
+      forcedStartStr = formatDateInput(startObj);
+    }
+
+    setForm(prev => ({
+      ...prev,
+      startDate: forcedStartStr,
+      endDate: forcedEndStr
+    }));
+  };
+
   const handleFormStartInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     const filtered = val.replace(/[^0-9/]/g, '');
@@ -365,17 +440,11 @@ export const ReportPeriodPage = () => {
       if (y > 1900 && y < 2100 && m >= 0 && m < 12 && d > 0 && d <= 31) {
         const date = new Date(y, m, d);
         if (!isNaN(date.getTime())) {
-          const dateStr = formatDateInput(date);
-          const updatedForm = { ...form, startDate: dateStr };
-          const yearMatch = dateStr.match(/^(\d{4})/);
-          if (yearMatch) {
-            updatedForm.year = yearMatch[1];
-          }
-          setForm(updatedForm);
+          handleFormStartDateChange(formatDateInput(date));
         }
       }
     } else if (filtered === '') {
-      setForm({ ...form, startDate: "" });
+      handleFormStartDateChange("");
     }
   };
 
@@ -393,17 +462,11 @@ export const ReportPeriodPage = () => {
       if (y > 1900 && y < 2100 && m >= 0 && m < 12 && d > 0 && d <= 31) {
         const date = new Date(y, m, d);
         if (!isNaN(date.getTime())) {
-          const dateStr = formatDateInput(date);
-          const updatedForm = { ...form, endDate: dateStr };
-          const yearMatch = dateStr.match(/^(\d{4})/);
-          if (yearMatch) {
-            updatedForm.year = yearMatch[1];
-          }
-          setForm(updatedForm);
+          handleFormEndDateChange(formatDateInput(date));
         }
       }
     } else if (filtered === '') {
-      setForm({ ...form, endDate: "" });
+      handleFormEndDateChange("");
     }
   };
 
@@ -476,22 +539,16 @@ export const ReportPeriodPage = () => {
       enqueueSnackbar("Ngày kết thúc không được nhỏ hơn ngày bắt đầu", { variant: "warning" });
       return;
     }
+    // Remove validation constraints comparing dates years to form year
     const targetYear = parseInt(form.year);
-    const getYearFromDate = (dateStr: string): number => {
-      const match = dateStr.match(/^(\d{4})/);
-      if (match) return parseInt(match[1], 10);
-      return new Date(dateStr).getFullYear();
-    };
-
-    const startYear = getYearFromDate(form.startDate);
-    const endYear = getYearFromDate(form.endDate);
-
-    if (startYear !== targetYear) {
-      enqueueSnackbar(`Ngày bắt đầu phải nằm trong năm ${targetYear}`, { variant: "warning" });
+    const minStart = new Date(targetYear, 0, 1);
+    if (start < minStart) {
+      enqueueSnackbar(`Ngày bắt đầu phải lớn hơn hoặc bằng ngày 01/01 của năm báo cáo ${targetYear}`, { variant: "warning" });
       return;
     }
-    if (endYear !== targetYear) {
-      enqueueSnackbar(`Ngày kết thúc phải nằm trong năm ${targetYear}`, { variant: "warning" });
+    const maxStart = new Date(targetYear, 11, 31);
+    if (start > maxStart) {
+      enqueueSnackbar(`Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày 31/12 của năm báo cáo ${targetYear}`, { variant: "warning" });
       return;
     }
 
@@ -502,6 +559,23 @@ export const ReportPeriodPage = () => {
     if (duplicateLocal) {
       enqueueSnackbar(
         `Đã tồn tại cấu hình kỳ báo cáo ${form.period === "CA_NAM" ? "Cả năm" : "6 tháng"} cho năm ${form.year}`,
+        { variant: "warning" }
+      );
+      return;
+    }
+
+    // Kiểm tra trùng thời gian (overlap) giữa các kỳ báo cáo trong cùng năm ở frontend
+    const formStart = new Date(form.startDate);
+    const formEnd = new Date(form.endDate);
+    const overlapLocal = data.find((item) => {
+      if (String(item.year) !== form.year || item.id === editId) return false;
+      const opStart = new Date(item.startDate);
+      const opEnd = new Date(item.endDate);
+      return formStart <= opEnd && opStart <= formEnd;
+    });
+    if (overlapLocal) {
+      enqueueSnackbar(
+        `Thời gian kỳ báo cáo trùng với kỳ báo cáo "${overlapLocal.period === "CA_NAM" ? "Cả năm" : "6 tháng"}" (${new Date(overlapLocal.startDate).toLocaleDateString('vi-VN')} - ${new Date(overlapLocal.endDate).toLocaleDateString('vi-VN')})`,
         { variant: "warning" }
       );
       return;
@@ -890,27 +964,15 @@ export const ReportPeriodPage = () => {
                   value={form.year}
                   onChange={(_, newValue) => {
                     const yearVal = (newValue || "").replace(/[^0-9]/g, "");
-                    const updatedForm = {
-                      ...form,
-                      year: yearVal,
-                      startDate: yearVal ? `${yearVal}-01-01` : "",
-                      endDate: yearVal ? `${yearVal}-12-31` : ""
-                    };
-                    setForm(updatedForm);
+                    handleYearPeriodChange(yearVal, form.period);
                   }}
                   onInputChange={(_, newInputValue) => {
                     const yearVal = newInputValue.replace(/[^0-9]/g, "");
-                    setForm((prev) => {
-                      const updated = {
-                        ...prev,
-                        year: yearVal
-                      };
-                      if (yearVal.length === 4) {
-                        updated.startDate = `${yearVal}-01-01`;
-                        updated.endDate = `${yearVal}-12-31`;
-                      }
-                      return updated;
-                    });
+                    if (yearVal.length === 4) {
+                      handleYearPeriodChange(yearVal, form.period);
+                    } else {
+                      setForm((prev) => ({ ...prev, year: yearVal }));
+                    }
                   }}
                   renderInput={(params) => (
                     <TextField
@@ -929,7 +991,7 @@ export const ReportPeriodPage = () => {
                   size="small"
                   label="Kỳ báo cáo *"
                   value={form.period}
-                  onChange={(e) => setForm({ ...form, period: e.target.value })}
+                  onChange={(e) => handleYearPeriodChange(form.year, e.target.value)}
                 >
                   <MenuItem value="CA_NAM">Cả năm</MenuItem>
                   <MenuItem value="6_THANG">6 tháng</MenuItem>
@@ -972,14 +1034,7 @@ export const ReportPeriodPage = () => {
                     value={form.startDate ? formatDateInput(form.startDate) : ''}
                     onChange={(val) => {
                       const dateStr = val ? formatDateInput(val) : "";
-                      const updatedForm = { ...form, startDate: dateStr };
-                      if (dateStr) {
-                        const yearMatch = dateStr.match(/^(\d{4})/);
-                        if (yearMatch) {
-                          updatedForm.year = yearMatch[1];
-                        }
-                      }
-                      setForm(updatedForm);
+                      handleFormStartDateChange(dateStr);
                       setFormStartAnchor(null);
                     }}
                     onClose={() => setFormStartAnchor(null)}
@@ -1023,14 +1078,7 @@ export const ReportPeriodPage = () => {
                     value={form.endDate ? formatDateInput(form.endDate) : ''}
                     onChange={(val) => {
                       const dateStr = val ? formatDateInput(val) : "";
-                      const updatedForm = { ...form, endDate: dateStr };
-                      if (dateStr) {
-                        const yearMatch = dateStr.match(/^(\d{4})/);
-                        if (yearMatch) {
-                          updatedForm.year = yearMatch[1];
-                        }
-                      }
-                      setForm(updatedForm);
+                      handleFormEndDateChange(dateStr);
                       setFormEndAnchor(null);
                     }}
                     onClose={() => setFormEndAnchor(null)}
