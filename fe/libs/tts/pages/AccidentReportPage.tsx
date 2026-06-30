@@ -6,13 +6,14 @@ import {
     TableContainer, TableHead, TableRow, Checkbox,
     IconButton, TextField, Select, MenuItem, CircularProgress,
     TablePagination, Autocomplete, InputAdornment, Divider, Grid,
-    Dialog, DialogTitle, DialogContent, DialogActions, Pagination
+    Dialog, DialogTitle, DialogContent, DialogActions, Pagination, Tooltip, Paper
 } from '@mui/material';
 import {
     Visibility as VisibilityIcon,
     Close as CloseIcon,
     ChevronLeft as ChevronLeftIcon,
-    ChevronRight as ChevronRightIcon
+    ChevronRight as ChevronRightIcon,
+    AccessTime as AccessTimeIcon
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -128,6 +129,8 @@ export const AccidentReportPage = () => {
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
     const [rejectReason, setRejectReason] = useState('');
+    const [rejectReasons, setRejectReasons] = useState<Record<string, string>>({});
+    const [commonReason, setCommonReason] = useState<string>('');
     const [actionType, setActionType] = useState<'DA_TIEP_NHAN' | 'HUY_TIEP_NHAN' | null>(null);
 
     const handleOpenHistory = async () => {
@@ -146,10 +149,27 @@ export const AccidentReportPage = () => {
         }
     };
 
+    const handleOpenHistoryForRow = async (id: number) => {
+        setHistoryDialogOpen(true);
+        setHistoryLoading(true);
+        setHistoryItems([]);
+        try {
+            const res = await periodicReportService.getHistory(id);
+            setHistoryItems(res?.data || res || []);
+        } catch (err) {
+            console.error("Error loading report history", err);
+            enqueueSnackbar("Lỗi khi tải lịch sử duyệt báo cáo", { variant: 'error' });
+        } finally {
+            setHistoryLoading(false);
+        }
+    };
+
     const handleConfirmAction = (type: 'DA_TIEP_NHAN' | 'HUY_TIEP_NHAN') => {
         setActionType(type);
         if (type === 'HUY_TIEP_NHAN') {
             setRejectReason('');
+            setRejectReasons({});
+            setCommonReason('');
             setCancelDialogOpen(true);
         } else {
             setConfirmOpen(true);
@@ -157,8 +177,9 @@ export const AccidentReportPage = () => {
     };
 
     const handleExecuteCancel = async () => {
-        if (!rejectReason.trim()) {
-            enqueueSnackbar("Vui lòng nhập lý do hủy tiếp nhận", { variant: 'warning' });
+        const missing = selectedIds.some(id => !rejectReasons[id] || !rejectReasons[id].trim());
+        if (missing) {
+            enqueueSnackbar("Vui lòng nhập lý do từ chối cho tất cả các báo cáo đã chọn", { variant: 'warning' });
             return;
         }
         setCancelDialogOpen(false);
@@ -168,7 +189,7 @@ export const AccidentReportPage = () => {
         setData((prevData) =>
             prevData.map((item) =>
                 selectedIds.includes(item.id)
-                    ? { ...item, status: 'HUY_TIEP_NHAN', rejectReason: rejectReason }
+                    ? { ...item, status: 'HUY_TIEP_NHAN', rejectReason: rejectReasons[item.id] || '' }
                     : item
             )
         );
@@ -178,17 +199,18 @@ export const AccidentReportPage = () => {
                 selectedIds.map(id =>
                     periodicReportService.update(Number(id), {
                         status: 'HUY_TIEP_NHAN',
-                        rejectReason: rejectReason
+                        rejectReason: rejectReasons[id] || ''
                     })
                 )
             );
-            enqueueSnackbar("Hủy tiếp nhận báo cáo thành công", { variant: 'success' });
+            enqueueSnackbar("Từ chối báo cáo thành công", { variant: 'success' });
             setSelectedIds([]);
-            setRejectReason('');
+            setRejectReasons({});
+            setCommonReason('');
             fetchData();
         } catch (error: any) {
             enqueueSnackbar(
-                error?.response?.data?.message || error?.message || "Đã xảy ra lỗi khi hủy tiếp nhận",
+                error?.response?.data?.message || error?.message || "Đã xảy ra lỗi khi từ chối",
                 { variant: 'error' }
             );
             fetchData();
@@ -362,7 +384,7 @@ export const AccidentReportPage = () => {
     };
 
     const handleSelectAll = () => {
-        const selectable = data.filter((d: any) => d.status !== 'CHO_BAO_CAO' && d.status !== 'DANG_BAO_CAO');
+        const selectable = data.filter((d: any) => d.status === 'CHO_XET_DUYET' || d.status === 'DA_TIEP_NHAN');
         const allChecked = selectable.length > 0 && selectable.every((d: any) => selectedIds.includes(d.id));
 
         if (allChecked || selectedIds.length > 0) {
@@ -404,7 +426,7 @@ export const AccidentReportPage = () => {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#f59e0b' }} />
                     <Typography variant="body2" sx={{ color: '#f59e0b', fontWeight: 600 }}>
-                        Chờ xét duyệt
+                        Chờ tiếp nhận
                     </Typography>
                 </Box>
             );
@@ -414,7 +436,7 @@ export const AccidentReportPage = () => {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#ef4444' }} />
                     <Typography variant="body2" sx={{ color: '#ef4444', fontWeight: 600 }}>
-                        Hủy tiếp nhận
+                        Bị từ chối
                     </Typography>
                 </Box>
             );
@@ -424,7 +446,7 @@ export const AccidentReportPage = () => {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#cbd5e1' }} />
                     <Typography variant="body2" sx={{ color: '#cbd5e1', fontWeight: 600 }}>
-                        Hết hạn báo cáo
+                        Đã hết hạn
                     </Typography>
                 </Box>
             );
@@ -469,29 +491,7 @@ export const AccidentReportPage = () => {
                             sx={{ width: 120 }}
                         />
 
-                        <Button
-                            variant="outlined"
-                            size="small"
-                            onClick={handleOpenHistory}
-                            sx={{
-                                textTransform: 'none',
-                                borderColor: '#dfe3eb',
-                                color: '#475569',
-                                fontWeight: 500,
-                                fontSize: '0.85rem',
-                                height: 32,
-                                borderRadius: 1,
-                                px: 2,
-                                backgroundColor: '#fff',
-                                '&:hover': {
-                                    borderColor: '#2f65f0',
-                                    color: '#2f65f0',
-                                    backgroundColor: '#f5f8ff'
-                                }
-                            }}
-                        >
-                            Lịch sử duyệt/từ chối
-                        </Button>
+
                         <Button
                             variant="outlined"
                             className={classes.importBtn}
@@ -558,8 +558,8 @@ export const AccidentReportPage = () => {
                                             <TableCell padding="checkbox" className={classes.headerCell}>
                                                 <Checkbox
                                                     size="small"
-                                                    indeterminate={selectedIds.length > 0 && selectedIds.length < data.filter((d: any) => d.status !== 'CHO_BAO_CAO' && d.status !== 'DANG_BAO_CAO').length}
-                                                    checked={data.filter((d: any) => d.status !== 'CHO_BAO_CAO' && d.status !== 'DANG_BAO_CAO').length > 0 && selectedIds.length === data.filter((d: any) => d.status !== 'CHO_BAO_CAO' && d.status !== 'DANG_BAO_CAO').length}
+                                                    indeterminate={selectedIds.length > 0 && selectedIds.length < data.filter((d: any) => d.status === 'CHO_XET_DUYET' || d.status === 'DA_TIEP_NHAN').length}
+                                                    checked={data.filter((d: any) => d.status === 'CHO_XET_DUYET' || d.status === 'DA_TIEP_NHAN').length > 0 && selectedIds.length === data.filter((d: any) => d.status === 'CHO_XET_DUYET' || d.status === 'DA_TIEP_NHAN').length}
                                                     onChange={handleSelectAll}
                                                 />
                                             </TableCell>
@@ -619,19 +619,19 @@ export const AccidentReportPage = () => {
                                                     options={[
                                                         { label: "Chờ báo cáo", value: "CHO_BAO_CAO" },
                                                         { label: "Đang báo cáo", value: "DANG_BAO_CAO" },
-                                                        { label: "Chờ xét duyệt", value: "CHO_XET_DUYET" },
+                                                        { label: "Chờ tiếp nhận", value: "CHO_XET_DUYET" },
                                                         { label: "Đã tiếp nhận", value: "DA_TIEP_NHAN" },
-                                                        { label: "Hủy tiếp nhận", value: "HUY_TIEP_NHAN" },
-                                                        { label: "Hết hạn báo cáo", value: "HET_HAN" }
+                                                        { label: "Bị từ chối", value: "HUY_TIEP_NHAN" },
+                                                        { label: "Đã hết hạn", value: "HET_HAN" }
                                                     ]}
                                                     getOptionLabel={(option) => option.label}
                                                     value={[
                                                         { label: "Chờ báo cáo", value: "CHO_BAO_CAO" },
                                                         { label: "Đang báo cáo", value: "DANG_BAO_CAO" },
-                                                        { label: "Chờ xét duyệt", value: "CHO_XET_DUYET" },
+                                                        { label: "Chờ tiếp nhận", value: "CHO_XET_DUYET" },
                                                         { label: "Đã tiếp nhận", value: "DA_TIEP_NHAN" },
-                                                        { label: "Hủy tiếp nhận", value: "HUY_TIEP_NHAN" },
-                                                        { label: "Hết hạn báo cáo", value: "HET_HAN" }
+                                                        { label: "Bị từ chối", value: "HUY_TIEP_NHAN" },
+                                                        { label: "Đã hết hạn", value: "HET_HAN" }
                                                     ].find(item => item.value === tableFilters.status) || null}
                                                     onChange={(_, newValue) =>
                                                         handleTableFilterChange('status', newValue?.value || '')
@@ -667,19 +667,32 @@ export const AccidentReportPage = () => {
                                                                 size="small"
                                                                 checked={isChecked}
                                                                 onChange={() => handleSelectOne(item.id)}
-                                                                disabled={item.status === 'CHO_BAO_CAO' || item.status === 'DANG_BAO_CAO' || item.status === 'HET_HAN'}
+                                                                disabled={item.status !== 'CHO_XET_DUYET' && item.status !== 'DA_TIEP_NHAN'}
                                                             />
                                                         </TableCell>
                                                         <TableCell className={classes.bodyCell}>
-                                                            <IconButton
-                                                                component={(item.status === 'CHO_BAO_CAO' || item.status === 'HET_HAN') ? 'button' : Link}
-                                                                href={(item.status === 'CHO_BAO_CAO' || item.status === 'HET_HAN') ? undefined : `/accident-reports/${item.id}`}
-                                                                size="small"
-                                                                className={classes.actionIcon}
-                                                                disabled={item.status === 'CHO_BAO_CAO' || item.status === 'HET_HAN'}
-                                                            >
-                                                                <VisibilityIcon fontSize="small" />
-                                                            </IconButton>
+                                                            <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                                                                <IconButton
+                                                                    component={(item.status === 'CHO_BAO_CAO' || item.status === 'HET_HAN') ? 'button' : Link}
+                                                                    href={(item.status === 'CHO_BAO_CAO' || item.status === 'HET_HAN') ? undefined : `/accident-reports/${item.id}`}
+                                                                    size="small"
+                                                                    className={classes.actionIcon}
+                                                                    disabled={item.status === 'CHO_BAO_CAO' || item.status === 'HET_HAN'}
+                                                                >
+                                                                    <VisibilityIcon fontSize="small" />
+                                                                </IconButton>
+                                                                {item.status !== 'CHO_BAO_CAO' && item.status !== 'HET_HAN' && (
+                                                                    <Tooltip title="Lịch sử duyệt/từ chối" arrow>
+                                                                        <IconButton
+                                                                            size="small"
+                                                                            className={classes.actionIcon}
+                                                                            onClick={() => handleOpenHistoryForRow(Number(item.id))}
+                                                                        >
+                                                                            <AccessTimeIcon fontSize="small" />
+                                                                        </IconButton>
+                                                                    </Tooltip>
+                                                                )}
+                                                            </Box>
                                                         </TableCell>
                                                         <TableCell className={classes.bodyCell} sx={{ fontWeight: 500 }}>{item.companyName || '--'}</TableCell>
                                                         <TableCell className={classes.bodyCell}>{item.taxCode || item.doet?.taxCode || '--'}</TableCell>
@@ -812,31 +825,82 @@ export const AccidentReportPage = () => {
                 <Dialog
                     open={cancelDialogOpen}
                     onClose={() => setCancelDialogOpen(false)}
-                    maxWidth="xs"
+                    maxWidth="md"
                     fullWidth
                 >
                     <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#ff453a', fontWeight: 600 }}>
-                        Lý do hủy tiếp nhận
+                        Lý do từ chối
                     </DialogTitle>
                     <DialogContent>
                         <Typography variant="body2" sx={{ color: '#555', mb: 2 }}>
-                            Bạn có chắc chắn muốn hủy tiếp nhận {selectedIds.length} báo cáo đã chọn? Doanh nghiệp có thể chỉnh sửa và nộp lại báo cáo sau khi bị hủy tiếp nhận.
+                            Bạn có chắc chắn muốn từ chối {selectedIds.length} báo cáo đã chọn? Doanh nghiệp có thể chỉnh sửa và nộp lại báo cáo sau khi bị từ chối.
                         </Typography>
-                        <TextField
-                            autoFocus
-                            fullWidth
-                            multiline
-                            rows={3}
-                            variant="outlined"
-                            placeholder="Nhập lý do hủy tiếp nhận..."
-                            value={rejectReason}
-                            onChange={(e) => setRejectReason(e.target.value)}
-                            slotProps={{
-                                input: {
-                                    style: { fontSize: '0.875rem' }
-                                }
-                            }}
-                        />
+
+                        <Box sx={{ mb: 2.5, mt: 1, display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <TextField
+                                size="small"
+                                placeholder="Nhập lý do áp dụng chung cho tất cả..."
+                                value={commonReason}
+                                onChange={(e) => setCommonReason(e.target.value)}
+                                sx={{ flex: 1 }}
+                            />
+                            <Button
+                                variant="outlined"
+                                size="small"
+                                onClick={() => {
+                                    const newReasons: Record<string, string> = {};
+                                    selectedIds.forEach(id => {
+                                        newReasons[id] = commonReason;
+                                    });
+                                    setRejectReasons(newReasons);
+                                }}
+                                sx={{ height: 40, textTransform: 'none', fontWeight: 600 }}
+                            >
+                                Áp dụng cho tất cả
+                            </Button>
+                        </Box>
+
+                        <TableContainer component={Paper} variant="outlined" sx={{ mb: 2, maxHeight: 300, overflowY: 'auto' }}>
+                            <Table size="small">
+                                <TableHead>
+                                    <TableRow sx={{ bgcolor: '#f8fafc' }}>
+                                        <TableCell sx={{ fontWeight: 'bold' }}>Doanh nghiệp</TableCell>
+                                        <TableCell sx={{ fontWeight: 'bold' }} width={120}>Kỳ báo cáo</TableCell>
+                                        <TableCell sx={{ fontWeight: 'bold' }} width={100}>Năm</TableCell>
+                                        <TableCell sx={{ fontWeight: 'bold', width: '45%' }}>Lý do từ chối *</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {data.filter((item: any) => selectedIds.includes(item.id)).map((item) => (
+                                        <TableRow key={item.id}>
+                                            <TableCell>{item.companyName || '--'}</TableCell>
+                                            <TableCell>{item.period === 'CA_NAM' ? 'Cả năm' : '6 tháng'}</TableCell>
+                                            <TableCell>{item.year}</TableCell>
+                                            <TableCell>
+                                                <TextField
+                                                    size="small"
+                                                    fullWidth
+                                                    variant="outlined"
+                                                    placeholder="Nhập lý do từ chối..."
+                                                    value={rejectReasons[item.id] || ''}
+                                                    onChange={(e) => {
+                                                        setRejectReasons(prev => ({
+                                                            ...prev,
+                                                            [item.id]: e.target.value
+                                                        }));
+                                                    }}
+                                                    slotProps={{
+                                                        input: {
+                                                            style: { fontSize: '0.875rem' }
+                                                        }
+                                                    }}
+                                                />
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
                     </DialogContent>
                     <DialogActions sx={{ px: 3, pb: 2 }}>
                         <Button
@@ -862,7 +926,6 @@ export const AccidentReportPage = () => {
                         <Button
                             onClick={handleExecuteCancel}
                             variant="contained"
-                            disabled={!rejectReason.trim()}
                             sx={{
                                 textTransform: 'none',
                                 borderRadius: '6px',

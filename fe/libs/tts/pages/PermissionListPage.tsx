@@ -105,7 +105,14 @@ export const PermissionListPage = () => {
   });
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
-    'ADMIN_G_DEPARTMENT': true, // Default expanded as in screenshots
+    'ADMIN_G_DEPARTMENT': true,
+    'ADMIN_G_ROLE': true,
+    'ADMIN_G_USER': true,
+    'ADMIN_G_ACCIDENT_REPORT': true,
+    'ADMIN_G_REPORT_PERIOD': true,
+    'ADMIN_G_CATEGORY': true,
+    'ADMIN_G_LOAI_HINH_KD': true,
+    'ADMIN_G_NGANH_NGHE_KD': true,
   });
 
   const isTestUser = user?.username === 'testuser';

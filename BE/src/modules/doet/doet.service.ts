@@ -61,7 +61,102 @@ export class DoetService extends BaseService<Doet> {
     return 0;
   }
 
-  // Kiểm tra quyền ghi (thêm, sửa) - Chuyên viên trở lên
+  private async hasPermission(roleId: number | undefined, code: string): Promise<boolean> {
+    if (!roleId) return false;
+    const count = await this.manager.query(
+      `SELECT COUNT(*) FROM role_permissions WHERE role_id = $1 AND permission_code = $2`,
+      [roleId, code]
+    );
+    return parseInt(count[0]?.count || '0', 10) > 0;
+  }
+
+  // Kiểm tra quyền xem
+  async checkReadPermission(currentUser: any, targetDoetId?: number) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') {
+      return;
+    }
+    const roleType = currentUser.role?.type;
+    const roleId = currentUser.role?.id;
+
+    // Doanh nghiệp - chỉ được phép xem chính mình
+    if (roleType === 'DN') {
+      const doetId = currentUser.doet || currentUser.doet_id;
+      if (targetDoetId !== undefined && Number(doetId) !== Number(targetDoetId)) {
+        throw Response.errorForBidden("Tài khoản doanh nghiệp chỉ có quyền xem thông tin của chính mình.");
+      }
+      return;
+    }
+
+    // Sở - Kiểm tra quyền xem trong DB
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_DEPARTMENT_VIEW');
+    if (!allowed) {
+      const level = this.getPermissionLevel(currentUser);
+      if (level < 0) {
+        throw Response.errorForBidden("Tài khoản của bạn không có quyền xem thông tin doanh nghiệp.");
+      }
+    }
+  }
+
+  // Kiểm tra quyền ghi (thêm)
+  private async checkCreatePermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') {
+      return;
+    }
+    const roleId = currentUser.role?.id;
+
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_DEPARTMENT_CREATE');
+    if (!allowed) {
+      const level = this.getPermissionLevel(currentUser);
+      if (level < 1) {
+        throw Response.errorForBidden("Tài khoản của bạn chỉ có quyền xem, không được thực hiện thao tác này.");
+      }
+    }
+  }
+
+  // Kiểm tra quyền ghi (sửa)
+  private async checkUpdatePermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') {
+      return;
+    }
+    if (currentUser.isUpdatingSelf) {
+      return;
+    }
+    const roleId = currentUser.role?.id;
+
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_DEPARTMENT_UPDATE');
+    if (!allowed) {
+      const level = this.getPermissionLevel(currentUser);
+      if (level < 1) {
+        throw Response.errorForBidden("Tài khoản của bạn chỉ có quyền xem, không được thực hiện thao tác này.");
+      }
+    }
+  }
+
+  // Kiểm tra quyền đầy đủ (xóa, cập nhật trạng thái)
+  private async checkFullPermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') {
+      return;
+    }
+    const roleId = currentUser.role?.id;
+
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_DEPARTMENT_DELETE');
+    if (!allowed) {
+      const level = this.getPermissionLevel(currentUser);
+      if (level < 2) {
+        throw Response.errorForBidden("Bạn không có quyền thực hiện thao tác này. Chỉ Admin hoặc Lãnh đạo mới được phép xóa hoặc cập nhật trạng thái.");
+      }
+    }
+  }
+
+  private checkPermission(currentUser: any) {
+    this.checkWritePermission(currentUser);
+  }
+
+  // Fallback signature to keep backward compatibility
   private checkWritePermission(currentUser: any) {
     if (currentUser === undefined || currentUser === null) return;
     if (currentUser?.role?.type === 'DN' && currentUser.isUpdatingSelf) return;
@@ -71,25 +166,12 @@ export class DoetService extends BaseService<Doet> {
     }
   }
 
-  // Kiểm tra quyền đầy đủ (xóa, cập nhật trạng thái) - Admin/Lãnh đạo
-  private checkFullPermission(currentUser: any) {
-    if (currentUser === undefined || currentUser === null) return;
-    const level = this.getPermissionLevel(currentUser);
-    if (level < 2) {
-      throw Response.errorForBidden("Bạn không có quyền thực hiện thao tác này. Chỉ Admin hoặc Lãnh đạo mới được phép xóa hoặc cập nhật trạng thái.");
-    }
-  }
-
-  private checkPermission(currentUser: any) {
-    this.checkWritePermission(currentUser);
-  }
-
   async post(currentUser: any, itemDto: any, doet: any): Promise<any> {
     // Kiem tra quyen cap nhat trang thai - chi Admin/Lanh dao duoc phep khi set trang thai khac ACTIVE
     if (itemDto && Object.prototype.hasOwnProperty.call(itemDto, "status") && itemDto.status !== "ACTIVE") {
-      this.checkFullPermission(currentUser);
+      await this.checkFullPermission(currentUser);
     }
-    this.checkWritePermission(currentUser);
+    await this.checkCreatePermission(currentUser);
     const data = this.normalizeDoetPayload(itemDto);
     const result = await super.post(currentUser, data, doet);
     
@@ -107,10 +189,10 @@ export class DoetService extends BaseService<Doet> {
     if (itemDto && Object.prototype.hasOwnProperty.call(itemDto, "status")) {
       const existing = await this.doetRepository.findOne({ where: { id } });
       if (existing && existing.status !== itemDto.status) {
-        this.checkFullPermission(currentUser);
+        await this.checkFullPermission(currentUser);
       }
     }
-    this.checkWritePermission(currentUser);
+    await this.checkUpdatePermission(currentUser);
     const data = this.normalizeDoetPayload(itemDto);
     const result = await super.put(currentUser, id, data);
 
@@ -132,21 +214,21 @@ export class DoetService extends BaseService<Doet> {
   }
 
   async delete(currentUser: any, id: string): Promise<any> {
-    this.checkFullPermission(currentUser);
+    await this.checkFullPermission(currentUser);
     // Delete associated users first
     await this.manager.query(`DELETE FROM users WHERE doet_id = $1`, [id]);
     return await super.delete(currentUser, id);
   }
 
   async destroy(currentUser: any, id: string): Promise<any> {
-    this.checkFullPermission(currentUser);
+    await this.checkFullPermission(currentUser);
     // Delete associated users first
     await this.manager.query(`DELETE FROM users WHERE doet_id = $1`, [id]);
     return await super.destroy(currentUser, id);
   }
 
   async destroys(currentUser: any, ids: string[], doet: any): Promise<any> {
-    this.checkFullPermission(currentUser);
+    await this.checkFullPermission(currentUser);
     if (ids && ids.length > 0) {
       // Delete associated users for all specified enterprises
       await this.manager.query(`

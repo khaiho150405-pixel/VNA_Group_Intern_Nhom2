@@ -22,7 +22,8 @@ import {
   ChevronLeft as ChevronLeftIcon,
   Save as SaveIcon,
   FileDownload as FileDownloadIcon,
-  InfoOutlined as InfoOutlinedIcon
+  InfoOutlined as InfoOutlinedIcon,
+  AccessTime as AccessTimeIcon
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
 import { useReactToPrint } from 'react-to-print';
@@ -810,7 +811,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
 
       if (row.displayStatus === 'HET_HAN' && !report) {
         status = 'HET_HAN';
-        statusLabel = 'Hết hạn báo cáo';
+        statusLabel = 'Đã hết hạn';
         statusColor = '#cbd5e1'; // Faded grey
       } else if (report) {
         status = report.status;
@@ -818,13 +819,13 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
           statusLabel = 'Đang báo cáo';
           statusColor = '#1b3b87'; // Dark blue
         } else if (status === 'CHO_XET_DUYET') {
-          statusLabel = 'Chờ xét duyệt';
+          statusLabel = 'Chờ tiếp nhận';
           statusColor = '#f59e0b'; // Yellow
         } else if (status === 'DA_TIEP_NHAN') {
           statusLabel = 'Đã tiếp nhận';
           statusColor = '#2f65f0'; // Blue
         } else if (status === 'HUY_TIEP_NHAN') {
-          statusLabel = 'Hủy tiếp nhận';
+          statusLabel = 'Bị từ chối';
           statusColor = '#ef4444'; // Red
         }
       }
@@ -843,32 +844,20 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
     });
   }, [existingReports, activePeriods]);
 
-  useEffect(() => {
-    if (!historyDialogOpen) return;
-    
-    const loadHistoryForTab = async () => {
-      setHistoryLoading(true);
-      setHistoryItems([]);
-      try {
-        const targetRow = tableRows.find(r => 
-          activeHistoryTab === 0 ? r.period !== 'CA_NAM' : r.period === 'CA_NAM'
-        );
-        
-        if (targetRow && targetRow.reportId) {
-          const res = await periodicReportService.getHistory(targetRow.reportId);
-          setHistoryItems(res?.data || res || []);
-        } else {
-          setHistoryItems([]);
-        }
-      } catch (err) {
-        console.error("Error loading report history", err);
-      } finally {
-        setHistoryLoading(false);
-      }
-    };
-    
-    loadHistoryForTab();
-  }, [historyDialogOpen, activeHistoryTab, tableRows]);
+  const handleOpenHistoryForRow = async (reportId: number) => {
+    setHistoryDialogOpen(true);
+    setHistoryLoading(true);
+    setHistoryItems([]);
+    try {
+      const res = await periodicReportService.getHistory(reportId);
+      setHistoryItems(res?.data || res || []);
+    } catch (err) {
+      console.error("Error loading report history", err);
+      enqueueSnackbar("Lỗi khi tải lịch sử duyệt báo cáo", { variant: 'error' });
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
   // Enter edit mode
   const handleStartEdit = async (row: any) => {
@@ -877,7 +866,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
       return;
     }
     if (row.status === 'DA_TIEP_NHAN' || row.status === 'CHO_XET_DUYET') {
-      enqueueSnackbar("Báo cáo đang chờ xét duyệt hoặc đã được tiếp nhận, không thể chỉnh sửa.", { variant: 'error' });
+      enqueueSnackbar("Báo cáo đang chờ tiếp nhận hoặc đã được tiếp nhận, không thể chỉnh sửa.", { variant: 'error' });
       return;
     }
     setPeriod(row.period);
@@ -1604,29 +1593,6 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                 ))}
               </Select>
 
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={handleOpenHistory}
-                sx={{
-                  textTransform: 'none',
-                  borderColor: '#dfe3eb',
-                  color: '#475569',
-                  fontWeight: 500,
-                  fontSize: '0.85rem',
-                  height: 32,
-                  borderRadius: 1,
-                  px: 2,
-                  backgroundColor: '#fff',
-                  '&:hover': {
-                    borderColor: '#2f65f0',
-                    color: '#2f65f0',
-                    backgroundColor: '#f5f8ff'
-                  }
-                }}
-              >
-                Lịch sử duyệt/từ chối
-              </Button>
             </Box>
           </Box>
 
@@ -1679,6 +1645,17 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                                 >
                                   <EditIcon fontSize="small" />
                                 </IconButton>
+                              )}
+                              {row.reportId && (
+                                <Tooltip title="Lịch sử duyệt/từ chối" arrow>
+                                  <IconButton
+                                    size="small"
+                                    className={classes.actionIcon}
+                                    onClick={() => handleOpenHistoryForRow(row.reportId)}
+                                  >
+                                    <AccessTimeIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
                               )}
                             </Box>
                           </TableCell>
@@ -1812,7 +1789,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
               {currentRejectReason && (
                 <Alert severity="warning" sx={{ mb: 3, borderRadius: 1.5 }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                    Báo cáo này đã bị hủy tiếp nhận với lý do:
+                    Báo cáo này đã bị từ chối với lý do:
                   </Typography>
                   <Typography variant="body2" sx={{ mt: 0.5 }}>
                     {currentRejectReason}
@@ -3513,7 +3490,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
         fullWidth
       >
         <DialogTitle sx={{ bgcolor: '#ef4444', color: '#fff', fontWeight: 'bold', py: 1.5 }}>
-          Lý do hủy tiếp nhận
+          Lý do bị từ chối
         </DialogTitle>
         <DialogContent sx={{ mt: 2 }}>
           <Typography>{currentRejectReason || 'Không có lý do cụ thể.'}</Typography>
@@ -3562,23 +3539,6 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
           Tiến độ xử lý
         </DialogTitle>
         <DialogContent sx={{ py: 2, px: 3 }}>
-          <Tabs
-            value={activeHistoryTab}
-            onChange={(_, newValue) => setActiveHistoryTab(newValue)}
-            variant="fullWidth"
-            sx={{
-              mb: 3,
-              borderBottom: '1px solid #e2e8f0',
-              '& .MuiTab-root': {
-                textTransform: 'none',
-                fontWeight: 600,
-                fontSize: '0.85rem'
-              }
-            }}
-          >
-            <Tab label="Kỳ 6 tháng" />
-            <Tab label="Cả năm" />
-          </Tabs>
 
           {historyLoading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>

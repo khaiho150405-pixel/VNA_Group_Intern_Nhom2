@@ -1,6 +1,6 @@
 import { Body, ClassSerializerInterceptor, Controller, Get, Param, Post, Query, Request, UseGuards, UseInterceptors, UploadedFile } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
-import { BaseController, ResponseData, ResponseInterceptor } from "src/commons";
+import { BaseController, ResponseData, ResponseInterceptor, GetAllDto } from "src/commons";
 import { AuthGuard } from "src/commons/guards/authGuard";
 import { Doet } from "./doet.entity";
 import { DoetService } from "./doet.service";
@@ -65,8 +65,21 @@ export class DoetController extends BaseController<Doet, DoetService> {
 
   @Get()
   @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
-  async getAll(@Query() query: any): Promise<any> {
+  async getAll(@Request() req: any, @Query() query: any): Promise<any> {
+    await this.doetService.checkReadPermission(req.user);
     return await this.doetService.findWithFilters(query);
+  }
+
+  @Get(':id')
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
+  @ApiOperation({ summary: 'Get detail item' })
+  async getDetail(
+    @Query() getAllDto: GetAllDto,
+    @Param('id') id: string,
+    @Request() req
+  ) {
+    await this.doetService.checkReadPermission(req.user, Number(id));
+    return await super.getDetail(getAllDto, id, req);
   }
 
   @Get("/setting")

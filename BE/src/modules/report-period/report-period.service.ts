@@ -262,15 +262,11 @@ export class ReportPeriodService implements OnApplicationBootstrap {
     qb.orderBy("rp.start_date", "ASC");
     let allPeriods = await qb.getMany();
 
-    // Filter: chỉ giữ lại kỳ báo cáo kể từ thời điểm doanh nghiệp tham gia hệ thống trở đi (endDate >= ngày đăng ký)
+    // Filter: chỉ giữ lại kỳ báo cáo được tạo cùng lúc hoặc sau khi doanh nghiệp được tạo (p.createdAt >= registrationDate)
     if (registrationDate) {
-      // Chuẩn hoá về đầu ngày để so sánh
-      const regDay = new Date(registrationDate);
-      regDay.setHours(0, 0, 0, 0);
       allPeriods = allPeriods.filter((p) => {
-        const periodEnd = new Date(p.endDate);
-        periodEnd.setHours(0, 0, 0, 0);
-        return periodEnd >= regDay;
+        const pCreated = new Date(p.createdAt);
+        return pCreated >= registrationDate;
       });
     }
 

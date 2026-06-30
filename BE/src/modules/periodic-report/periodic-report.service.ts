@@ -95,16 +95,12 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
 
       for (const d of doets) {
         const regDate = d.createdAt ? new Date(d.createdAt) : null;
-        if (regDate) {
-          regDate.setHours(0, 0, 0, 0);
-        }
         for (const config of activePeriods) {
           if (period && config.period !== period) continue;
 
-          if (regDate) {
-            const periodEnd = new Date(config.endDate);
-            periodEnd.setHours(0, 0, 0, 0);
-            if (regDate > periodEnd) {
+          if (regDate && config.createdAt) {
+            const pCreated = new Date(config.createdAt);
+            if (pCreated < regDate) {
               continue;
             }
           }
@@ -535,12 +531,12 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
     if (!currentReport) throw new BadRequestException("Không tìm thấy báo cáo");
     
     if (!isSoUser && (currentReport.status === 'DA_TIEP_NHAN' || currentReport.status === 'CHO_XET_DUYET')) {
-      throw new BadRequestException("Báo cáo đang chờ xét duyệt hoặc đã được tiếp nhận, không thể chỉnh sửa");
+      throw new BadRequestException("Báo cáo đang chờ tiếp nhận hoặc đã được tiếp nhận, không thể chỉnh sửa");
     }
 
     if (status === 'HUY_TIEP_NHAN') {
       if (!payload.rejectReason || !payload.rejectReason.trim()) {
-        throw new BadRequestException("Vui lòng cung cấp lý do hủy tiếp nhận");
+        throw new BadRequestException("Vui lòng cung cấp lý do từ chối");
       }
     } else if (status === 'DA_TIEP_NHAN' || status === 'CHO_XET_DUYET') {
       payload.rejectReason = null;
