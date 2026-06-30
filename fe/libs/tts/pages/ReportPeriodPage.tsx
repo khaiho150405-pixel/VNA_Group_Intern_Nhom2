@@ -620,10 +620,10 @@ export const ReportPeriodPage = () => {
                 <TableHead>
                   {/* Table Header Row */}
                   <TableRow>
-                    <TableCell className={classes.headerCell} width={100}>Thao tác</TableCell>
+                    <TableCell className={classes.headerCell} width={80}>Thao tác</TableCell>
                     <TableCell className={classes.headerCell} width={120}>Năm báo cáo</TableCell>
                     <TableCell className={classes.headerCell}>Tên báo cáo</TableCell>
-                    <TableCell className={classes.headerCell} width={180}>Kỳ báo cáo</TableCell>
+                    <TableCell className={classes.headerCell} width={120}>Kỳ báo cáo</TableCell>
                     <TableCell className={classes.headerCell} width={180}>Thời gian bắt đầu</TableCell>
                     <TableCell className={classes.headerCell} width={180}>Thời gian kết thúc</TableCell>
                     <TableCell className={classes.headerCell} width={150}>Trạng thái</TableCell>

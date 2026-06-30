@@ -1085,8 +1085,8 @@ export const RoleManagementPage = () => {
 
           {/* Tab 1: Quyền hạn */}
           {activeTab === 0 && (
-            <Box className={classes.card} sx={{ mt: 3, border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-              <Box className={classes.tableScroll} sx={{ maxHeight: 350 }}>
+            <Box sx={{ mt: 3, border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#fff' }}>
+              <Box sx={{ maxHeight: 350, overflowY: 'auto' }}>
                 <Table size="small" stickyHeader>
                   <TableHead>
                     <TableRow>
@@ -1246,8 +1246,8 @@ export const RoleManagementPage = () => {
                 />
               </Box>
 
-              <Box className={classes.card} sx={{ border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-                <Box className={classes.tableScroll} sx={{ maxHeight: 350 }}>
+              <Box sx={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#fff' }}>
+                <Box sx={{ maxHeight: 350, overflowY: 'auto' }}>
                   <Table size="small" stickyHeader>
                     <TableHead>
                       <TableRow>
