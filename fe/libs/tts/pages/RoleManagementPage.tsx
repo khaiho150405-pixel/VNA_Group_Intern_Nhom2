@@ -45,6 +45,7 @@ import {
 } from '@mui/icons-material';
 
 import { useAuth } from '@core/contexts/AuthProvider';
+import { usePermission } from '@core/hooks/usePermission';
 import { roleService } from '@tts/services/role.services';
 import { permissionService } from '@tts/services/permission.services';
 import { userService } from '@tts/services/user.services';
@@ -111,7 +112,9 @@ const CustomPagination = ({ page, count, onChange, isZeroBased = false }: Custom
 export const RoleManagementPage = () => {
   const classes = useUserListStyles();
   const { user } = useAuth();
+  const { hasPermission } = usePermission();
   const { enqueueSnackbar } = useSnackbar();
+  const hasRoleViewPermission = hasPermission('ADMIN_C_ROLE_VIEW');
 
   const [loading, setLoading] = useState(true);
   const [roles, setRoles] = useState<any[]>([]);
@@ -230,14 +233,14 @@ export const RoleManagementPage = () => {
   };
 
   useEffect(() => {
-    if (isTestUser) {
+    if (hasRoleViewPermission) {
       fetchData();
       fetchAllUsers();
     } else {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isTestUser]);
+  }, [hasRoleViewPermission]);
 
   const toggleGroup = (code: string) => {
     setExpandedGroups(prev => ({
@@ -541,14 +544,35 @@ export const RoleManagementPage = () => {
 
   const handleToggleComponent = (compCode: string, parentGroupCode: string) => {
     const isChecked = selectedPermissionCodes.includes(compCode);
+    const isViewPermission = compCode.endsWith('_VIEW');
 
     if (isChecked) {
-      setSelectedPermissionCodes(prev =>
-        prev.filter(code => code !== compCode && code !== parentGroupCode)
-      );
+      if (isViewPermission) {
+        // Unchecking VIEW => uncheck ALL siblings in the same group AND the parent group
+        const children = getComponentsForGroup(parentGroupCode);
+        const childCodes = children.map(c => c.code);
+        const codesToRemove = new Set([...childCodes, parentGroupCode]);
+        setSelectedPermissionCodes(prev =>
+          prev.filter(code => !codesToRemove.has(code))
+        );
+      } else {
+        setSelectedPermissionCodes(prev =>
+          prev.filter(code => code !== compCode && code !== parentGroupCode)
+        );
+      }
     } else {
       setSelectedPermissionCodes(prev => {
         const nextList = [...prev, compCode];
+
+        // Checking a non-VIEW permission => auto-check the VIEW permission of the same group
+        if (!isViewPermission) {
+          const children = getComponentsForGroup(parentGroupCode);
+          const viewComp = children.find(c => c.code.endsWith('_VIEW'));
+          if (viewComp && !nextList.includes(viewComp.code)) {
+            nextList.push(viewComp.code);
+          }
+        }
+
         const children = getComponentsForGroup(parentGroupCode);
         const childCodes = children.map(c => c.code);
         const isAllSiblingsChecked = childCodes.every(code => nextList.includes(code));
@@ -823,8 +847,8 @@ export const RoleManagementPage = () => {
     }
   };
 
-  // Deny access for users other than testuser (placed below all hooks)
-  if (!isTestUser) {
+  // Deny access for users without role view permission (placed below all hooks)
+  if (!hasPermission('ADMIN_C_ROLE_VIEW')) {
     return (
       <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
         <Box sx={{ bgcolor: '#fee2e2', p: 3, borderRadius: '50%', mb: 3 }}>
@@ -836,7 +860,7 @@ export const RoleManagementPage = () => {
           Quyền truy cập bị từ chối
         </Typography>
         <Typography variant="body1" sx={{ color: '#64748b', mb: 3, textAlign: 'center', maxWidth: 450 }}>
-          Chỉ tài khoản quản trị hệ thống mặc định (<strong>testuser</strong>) mới được phép thay đổi, chỉnh sửa hoặc gán vai trò người dùng.
+          Bạn không có quyền truy cập chức năng này.
         </Typography>
       </Box>
     );
@@ -860,15 +884,17 @@ export const RoleManagementPage = () => {
               </Typography>
             </Box>
           </Box>
-          <Button
-            variant="contained"
-            disableElevation
-            onClick={handleOpenCreateDialog}
-            className={classes.addBtn}
-            startIcon={<AddIcon />}
-          >
-            Thêm mới
-          </Button>
+          {hasPermission('ADMIN_C_ROLE_CREATE') && (
+            <Button
+              variant="contained"
+              disableElevation
+              onClick={handleOpenCreateDialog}
+              className={classes.addBtn}
+              startIcon={<AddIcon />}
+            >
+              Thêm mới
+            </Button>
+          )}
         </Box>
 
         <Box className={classes.mainContent} sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
@@ -884,12 +910,14 @@ export const RoleManagementPage = () => {
                     <TableHead>
                       <TableRow>
                         <TableCell padding="checkbox" className={classes.headerCell} width={50}>
-                          <Checkbox
-                            size="small"
-                            checked={isAllSelected}
-                            indeterminate={isIndeterminate}
-                            onChange={handleSelectAll}
-                          />
+                          {hasPermission('ADMIN_C_ROLE_DELETE') && (
+                            <Checkbox
+                              size="small"
+                              checked={isAllSelected}
+                              indeterminate={isIndeterminate}
+                              onChange={handleSelectAll}
+                            />
+                          )}
                         </TableCell>
                         <TableCell className={classes.headerCell} width={80}>Thao tác</TableCell>
                         <TableCell className={classes.headerCell} width={300}>Mã vai trò</TableCell>
@@ -934,21 +962,25 @@ export const RoleManagementPage = () => {
                           return (
                             <TableRow key={item.id} hover className={checked ? classes.rowSelected : ""}>
                               <TableCell padding="checkbox" className={classes.bodyCell}>
-                                <Checkbox
-                                  size="small"
-                                  checked={checked}
-                                  disabled={isSuperAdmin}
-                                  onChange={() => handleSelectOne(String(item.id))}
-                                />
+                                {hasPermission('ADMIN_C_ROLE_DELETE') && (
+                                  <Checkbox
+                                    size="small"
+                                    checked={checked}
+                                    disabled={isSuperAdmin}
+                                    onChange={() => handleSelectOne(String(item.id))}
+                                  />
+                                )}
                               </TableCell>
                               <TableCell className={classes.bodyCell} align="center">
-                                <IconButton
-                                  size="small"
-                                  className={classes.actionIcon}
-                                  onClick={() => handleOpenEditDialog(item)}
-                                >
-                                  <EditIcon fontSize="small" />
-                                </IconButton>
+                                {hasPermission('ADMIN_C_ROLE_UPDATE') && !isSuperAdmin && (
+                                  <IconButton
+                                    size="small"
+                                    className={classes.actionIcon}
+                                    onClick={() => handleOpenEditDialog(item)}
+                                  >
+                                    <EditIcon fontSize="small" />
+                                  </IconButton>
+                                )}
                               </TableCell>
                               <TableCell className={classes.bodyCell} sx={{ fontWeight: 700, color: '#1e293b' }}>
                                 {item.role}
@@ -968,26 +1000,24 @@ export const RoleManagementPage = () => {
 
             {!loading && totalRoles > 0 && (
               <Box className={classes.footer}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                  <Select
-                    value={roleFilters.limit}
-                    onChange={(e) => handleRoleFilterChange("limit", Number(e.target.value))}
-                    className={classes.pageSizeSelect}
-                    size="small"
-                  >
-                    <MenuItem value={10}>10</MenuItem>
-                    <MenuItem value={20}>20</MenuItem>
-                    <MenuItem value={50}>50</MenuItem>
-                  </Select>
-                  <Typography className={classes.pageInfo}>
-                    {roleStartIndex} - {roleEndIndex} of {totalRoles}
-                  </Typography>
-                  <CustomPagination
-                    count={Math.max(1, Math.ceil(totalRoles / roleFilters.limit))}
-                    page={roleFilters.page}
-                    onChange={(page) => handleRoleFilterChange("page", page)}
-                  />
-                </Box>
+                <Select
+                  value={roleFilters.limit}
+                  onChange={(e) => handleRoleFilterChange("limit", Number(e.target.value))}
+                  className={classes.pageSizeSelect}
+                  size="small"
+                >
+                  <MenuItem value={10}>10</MenuItem>
+                  <MenuItem value={20}>20</MenuItem>
+                  <MenuItem value={50}>50</MenuItem>
+                </Select>
+                <Typography className={classes.pageInfo}>
+                  {roleStartIndex} - {roleEndIndex} of {totalRoles}
+                </Typography>
+                <CustomPagination
+                  count={Math.max(1, Math.ceil(totalRoles / roleFilters.limit))}
+                  page={roleFilters.page}
+                  onChange={(page) => handleRoleFilterChange("page", page)}
+                />
               </Box>
             )}
           </Box>
@@ -995,7 +1025,7 @@ export const RoleManagementPage = () => {
       </Box>
 
       {
-        selectedIds.length > 0 && (
+        selectedIds.length > 0 && hasPermission('ADMIN_C_ROLE_DELETE') && (
           <BulkSelectionBar
             count={selectedIds.length}
             onDelete={() => setConfirmBulkDeleteOpen(true)}
@@ -1044,7 +1074,7 @@ export const RoleManagementPage = () => {
         </DialogTitle>
 
         <DialogContent sx={{ py: 3 }}>
-          <Box sx={{ pt: 5 }}>
+          <Box sx={{ pt: 3 }}>
             <Grid container spacing={3}>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
@@ -1083,7 +1113,7 @@ export const RoleManagementPage = () => {
           </Box>
 
           {/* Tabs switch */}
-          <Box sx={{ mt: 3, borderBottom: 1, borderColor: 'divider' }}>
+          <Box sx={{ mt: 1, borderBottom: 1, borderColor: 'divider' }}>
             <Tabs value={activeTab} onChange={(e, val) => setActiveTab(val)}>
               <Tab label="Quyền hạn" id="role-dialog-tab-0" sx={{ textTransform: 'none', fontWeight: 600 }} />
               <Tab label="Người dùng sở hữu" id="role-dialog-tab-1" sx={{ textTransform: 'none', fontWeight: 600 }} />
@@ -1207,26 +1237,24 @@ export const RoleManagementPage = () => {
 
               {dialogTotalCount > 0 && (
                 <Box className={classes.footer}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                    <Select
-                      value={dialogFilters.limit}
-                      onChange={(e) => handleDialogFilterChange("limit", Number(e.target.value))}
-                      className={classes.pageSizeSelect}
-                      size="small"
-                    >
-                      <MenuItem value={10}>10</MenuItem>
-                      <MenuItem value={20}>20</MenuItem>
-                      <MenuItem value={50}>50</MenuItem>
-                    </Select>
-                    <Typography className={classes.pageInfo}>
-                      {dialogStartIndex} - {dialogEndIndex} of {dialogTotalCount}
-                    </Typography>
-                    <CustomPagination
-                      count={Math.max(1, Math.ceil(dialogTotalCount / dialogFilters.limit))}
-                      page={dialogFilters.page}
-                      onChange={(page) => handleDialogFilterChange("page", page)}
-                    />
-                  </Box>
+                  <Select
+                    value={dialogFilters.limit}
+                    onChange={(e) => handleDialogFilterChange("limit", Number(e.target.value))}
+                    className={classes.pageSizeSelect}
+                    size="small"
+                  >
+                    <MenuItem value={10}>10</MenuItem>
+                    <MenuItem value={20}>20</MenuItem>
+                    <MenuItem value={50}>50</MenuItem>
+                  </Select>
+                  <Typography className={classes.pageInfo}>
+                    {dialogStartIndex} - {dialogEndIndex} of {dialogTotalCount}
+                  </Typography>
+                  <CustomPagination
+                    count={Math.max(1, Math.ceil(dialogTotalCount / dialogFilters.limit))}
+                    page={dialogFilters.page}
+                    onChange={(page) => handleDialogFilterChange("page", page)}
+                  />
                 </Box>
               )}
             </Box>
@@ -1301,16 +1329,14 @@ export const RoleManagementPage = () => {
 
                 {totalDialogUsers > 0 && (
                   <Box className={classes.footer}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, ml: 'auto' }}>
-                      <Typography className={classes.pageInfo}>
-                        {Math.min(totalDialogUsers, (userPage - 1) * userLimit + 1)} - {Math.min(totalDialogUsers, userPage * userLimit)} of {totalDialogUsers}
-                      </Typography>
-                      <CustomPagination
-                        count={Math.max(1, Math.ceil(totalDialogUsers / userLimit))}
-                        page={userPage}
-                        onChange={(page) => setUserPage(page)}
-                      />
-                    </Box>
+                    <Typography className={classes.pageInfo}>
+                      {Math.min(totalDialogUsers, (userPage - 1) * userLimit + 1)} - {Math.min(totalDialogUsers, userPage * userLimit)} of {totalDialogUsers}
+                    </Typography>
+                    <CustomPagination
+                      count={Math.max(1, Math.ceil(totalDialogUsers / userLimit))}
+                      page={userPage}
+                      onChange={(page) => setUserPage(page)}
+                    />
                   </Box>
                 )}
               </Box>
@@ -1318,21 +1344,7 @@ export const RoleManagementPage = () => {
           )}
         </DialogContent>
 
-        <DialogActions sx={{ p: 3, borderTop: '1px solid #e2e8f0' }}>
-          <Button
-            onClick={handleCloseDialog}
-            variant="outlined"
-            sx={{
-              borderRadius: '8px',
-              textTransform: 'none',
-              fontWeight: 600,
-              px: 3,
-              borderColor: '#cbd5e1',
-              color: '#475569'
-            }}
-          >
-            Hủy
-          </Button>
+        <DialogActions sx={{ p: 2, borderTop: '1px solid #e2e8f0' }}>
           <Button
             onClick={handleSaveForm}
             variant="contained"

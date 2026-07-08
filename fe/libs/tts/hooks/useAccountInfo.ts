@@ -42,6 +42,7 @@ export const useAccountInfo = () => {
 
   useEffect(() => {
     const fetchRoles = async () => {
+      if (!isRoleEditable) return;
       // Skip if already fetched
       if (hasFetchedRolesRef.current) return;
       
@@ -57,7 +58,9 @@ export const useAccountInfo = () => {
             r.role !== 'enterprise' && 
             r.type !== 'DN' && 
             r.id !== 5 && 
-            r.name !== 'Doanh nghiệp'
+            r.name !== 'Doanh nghiệp' &&
+            r.role !== 'superAdmin' &&
+            r.id !== 4
         );
         hasFetchedRolesRef.current = true;
         dispatch({ type: 'onChange', name: 'roles', value: roleList });
@@ -98,7 +101,7 @@ export const useAccountInfo = () => {
       }
     };
     refreshUser();
-  }, []); // Empty dependency array - only run once on mount
+  }, [isRoleEditable]); // Empty dependency array - only run once on mount
 
   useEffect(() => {
     if (state.city) {

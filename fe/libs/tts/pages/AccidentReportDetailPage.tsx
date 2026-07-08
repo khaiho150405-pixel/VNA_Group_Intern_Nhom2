@@ -467,9 +467,23 @@ export function AccidentReportDetailPage() {
           </Typography>
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button
-              variant="outlined"
-              sx={{ color: '#64748b', borderColor: '#cbd5e1', '&:hover': { borderColor: '#94a3b8', backgroundColor: '#f8fafc' } }}
               onClick={() => router.push('/accident-reports')}
+              sx={{
+                textTransform: 'none',
+                color: '#666',
+                fontSize: '0.85rem',
+                borderRadius: '6px',
+                padding: '4px 16px',
+                minWidth: 'auto',
+                backgroundColor: 'transparent',
+                boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
+                transition: 'all 0.2s ease-in-out',
+                '&:hover': {
+                  backgroundColor: '#f5f5f7',
+                  color: '#333',
+                  boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)'
+                }
+              }}
             >
               Huỷ bỏ
             </Button>

@@ -35,6 +35,7 @@ import { useStyles } from "@tts/logic/common-category/style";
 
 import { ConfirmDialog } from "@core/components/ConfirmDialog";
 import { BulkSelectionBar } from "@core/components/BulkSelectionBar";
+import { usePermission } from "@core/hooks/usePermission";
 
 import { occupationService } from "@tts/services";
 
@@ -103,6 +104,24 @@ const AutocompleteAny = Autocomplete as any;
 export const OccupationView = React.forwardRef((props, ref) => {
   const classes = useStyles();
   const { enqueueSnackbar } = useSnackbar();
+  const { hasPermission } = usePermission();
+
+  const getErrorMessage = (err: any, defaultMsg: string) => {
+    const data = err?.response?.data;
+    if (data) {
+      if (data.errors) {
+        if (typeof data.errors === 'string') return data.errors;
+        if (typeof data.errors === 'object') {
+          const msg = data.errors.message;
+          if (msg) return Array.isArray(msg) ? msg[0] : msg;
+        }
+      }
+      if (data.message) {
+        return Array.isArray(data.message) ? data.message[0] : data.message;
+      }
+    }
+    return err?.message || defaultMsg;
+  };
 
   React.useImperativeHandle(ref, () => ({
     openAdd: handleOpenAdd
@@ -271,8 +290,8 @@ export const OccupationView = React.forwardRef((props, ref) => {
       setConfirmDeleteOpen(false);
       fetchList();
       fetchAllOccupations();
-    } catch (error) {
-      enqueueSnackbar("Lỗi khi xóa nghề nghiệp", { variant: "error" });
+    } catch (error: any) {
+      enqueueSnackbar(getErrorMessage(error, "Lỗi khi xóa nghề nghiệp"), { variant: "error" });
     }
   };
 
@@ -285,8 +304,8 @@ export const OccupationView = React.forwardRef((props, ref) => {
       setSelectedIds([]);
       fetchList();
       fetchAllOccupations();
-    } catch (error) {
-      enqueueSnackbar("Lỗi khi xóa danh sách nghề nghiệp", { variant: "error" });
+    } catch (error: any) {
+      enqueueSnackbar(getErrorMessage(error, "Lỗi khi xóa danh sách nghề nghiệp"), { variant: "error" });
     }
   };
 
@@ -344,8 +363,7 @@ export const OccupationView = React.forwardRef((props, ref) => {
       fetchList();
       fetchAllOccupations();
     } catch (error: any) {
-      const message = error?.response?.data?.message || "Lỗi khi lưu thông tin nghề nghiệp";
-      enqueueSnackbar(message, { variant: "error" });
+      enqueueSnackbar(getErrorMessage(error, "Lỗi khi lưu thông tin nghề nghiệp"), { variant: "error" });
     } finally {
       setLoading(false);
     }
@@ -358,8 +376,8 @@ export const OccupationView = React.forwardRef((props, ref) => {
       enqueueSnackbar("Cập nhật trạng thái thành công", { variant: "success" });
       fetchList();
       fetchAllOccupations();
-    } catch (error) {
-      enqueueSnackbar("Lỗi khi cập nhật trạng thái", { variant: "error" });
+    } catch (error: any) {
+      enqueueSnackbar(getErrorMessage(error, "Lỗi khi cập nhật trạng thái"), { variant: "error" });
     }
   };
 
@@ -460,9 +478,11 @@ export const OccupationView = React.forwardRef((props, ref) => {
                       />
                     </TableCell>
                     <TableCell className={classes.bodyCell} align="center">
-                      <IconButton className={classes.actionIcon} onClick={() => handleOpenEdit(item)} size="small">
-                        <EditIcon fontSize="small" />
-                      </IconButton>
+                      {hasPermission('ADMIN_C_CATEGORY_UPDATE') && (
+                        <IconButton className={classes.actionIcon} onClick={() => handleOpenEdit(item)} size="small">
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      )}
                     </TableCell>
                     <TableCell className={classes.bodyCell}>{item.manghe}</TableCell>
                     <TableCell className={classes.bodyCell}>{getDashPrefix(item.cap)}{item.tennghe}</TableCell>
@@ -498,7 +518,7 @@ export const OccupationView = React.forwardRef((props, ref) => {
       </Box>
 
       {/* Bulk Selection Actions */}
-      {selectedIds.length > 0 && (
+      {selectedIds.length > 0 && hasPermission('ADMIN_C_CATEGORY_DELETE') && (
         <BulkSelectionBar
           count={selectedIds.length}
           onDelete={() => setConfirmBulkDeleteOpen(true)}
@@ -531,29 +551,17 @@ export const OccupationView = React.forwardRef((props, ref) => {
         onClose={handleCloseDialog}
         maxWidth="xs"
         fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: "12px",
-            overflow: "hidden"
-          }
-        }}
+        sx={{ '& .MuiDialog-paper': { borderRadius: '12px' } }}
       >
-        <DialogTitle
-          sx={{
-            m: 0,
-            p: 2,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            fontSize: "1.1rem",
-            fontWeight: 600,
-            color: "#fff",
-            backgroundColor: "#2f65f0",
-          }}
-        >
-          {editId ? "Cập nhật nghề nghiệp" : "Thêm mới nghề nghiệp"}
+        <DialogTitle sx={{ py: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0' }}>
+          <Typography sx={{ fontWeight: 700, fontSize: '1.2rem', color: '#1e293b' }}>
+            {editId ? "Chỉnh sửa nghề nghiệp" : "Thêm mới nghề nghiệp"}
+          </Typography>
+          <IconButton size="small" onClick={handleCloseDialog}>
+            <CloseIcon />
+          </IconButton>
         </DialogTitle>
-        <DialogContent sx={{ p: 3, pt: 2.5, pb: 1, borderColor: "#eef0f4" }}>
+        <DialogContent sx={{ py: 3 }}>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, pt: 1.5 }}>
             <TextFieldAny
               fullWidth
@@ -565,7 +573,7 @@ export const OccupationView = React.forwardRef((props, ref) => {
               disabled={editId !== null}
               error={!!formErrors.manghe}
               helperText={formErrors.manghe}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ inputLabel: { shrink: true } }}
               sx={{
                 "& .MuiOutlinedInput-root": {
                   borderRadius: "8px",
@@ -589,7 +597,7 @@ export const OccupationView = React.forwardRef((props, ref) => {
               }}
               error={!!formErrors.tennghe}
               helperText={formErrors.tennghe}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ inputLabel: { shrink: true } }}
               sx={{
                 "& .MuiOutlinedInput-root": {
                   borderRadius: "8px",
@@ -612,7 +620,6 @@ export const OccupationView = React.forwardRef((props, ref) => {
                   label="Nhóm nghề cha"
                   error={parentNotFound}
                   helperText={parentNotFound ? "Không có nhóm nghề cha" : ""}
-                  InputLabelProps={{ shrink: true }}
                   sx={{
                     "& .MuiOutlinedInput-root": {
                       borderRadius: "8px",
@@ -635,7 +642,7 @@ export const OccupationView = React.forwardRef((props, ref) => {
               label="Trạng thái *"
               value={form.trangthai}
               onChange={(e: any) => setForm({ ...form, trangthai: e.target.value })}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ inputLabel: { shrink: true } }}
               SelectProps={{
                 MenuProps: { PaperProps: { sx: { borderRadius: "8px" } } }
               }}
@@ -653,23 +660,31 @@ export const OccupationView = React.forwardRef((props, ref) => {
             </TextFieldAny>
           </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 2, px: 3, pt: 1, pb: 2.5, justifyContent: "flex-end", gap: 1 }}>
+        <DialogActions sx={{ p: 3, borderTop: '1px solid #e2e8f0', justifyContent: "flex-end", gap: 1.5 }}>
           <Button
             onClick={handleCloseDialog}
+            variant="outlined"
             sx={{
-              color: "#5a6478",
-              textTransform: "none",
-              fontWeight: 500,
-              "&:hover": { backgroundColor: "#f3f5f9" },
+              borderRadius: '8px',
+              textTransform: 'none',
+              px: 3,
+              color: '#666',
+              border: '1px solid #dfe3eb',
+              fontWeight: 600,
+              fontSize: '0.85rem',
+              '&:hover': {
+                backgroundColor: '#f8fafc',
+                borderColor: '#cbd5e1'
+              }
             }}
           >
-            Huỷ bỏ
+            Hủy bỏ
           </Button>
           <Button
             onClick={handleSave}
             disabled={loading}
             variant="contained"
-            startIcon={<SaveIcon />}
+            disableElevation
             sx={{
               backgroundColor: "#2f65f0",
               color: "#fff",
@@ -677,10 +692,8 @@ export const OccupationView = React.forwardRef((props, ref) => {
               fontWeight: 600,
               px: 3,
               borderRadius: "8px",
-              boxShadow: "0px 4px 10px rgba(47, 101, 240, 0.2)",
               "&:hover": {
                 backgroundColor: "#1e4fd1",
-                boxShadow: "0px 6px 14px rgba(47, 101, 240, 0.3)",
               },
             }}
           >

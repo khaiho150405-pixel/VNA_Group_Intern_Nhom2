@@ -118,24 +118,85 @@ export const AccountInfoPage = () => {
       />
 
       {/* Page Header */}
-      <Box className={classes.pageHeader}>
-        <Typography className={classes.headerTitle}>Chi tiết người dùng</Typography>
-        <Box className={classes.actions}>
-          <Button className={classes.cancelBtn} disableRipple disabled={loading} onClick={() => router.push('/')}>Hủy bỏ</Button>
+      <Box
+        sx={{
+          backgroundColor: '#fff',
+          padding: '16px 24px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          boxShadow: '0px 2px 12px rgba(0, 0, 0, 0.04)',
+          zIndex: 10,
+          minHeight: '64px',
+          position: 'sticky',
+          top: 0,
+        }}
+      >
+        <Typography
+          sx={{
+            fontWeight: 700,
+            fontSize: '1.1rem',
+            color: '#333',
+            margin: 0,
+            lineHeight: 1.4,
+          }}
+        >
+          Chi tiết người dùng
+        </Typography>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+          }}
+        >
+          <Button
+            disableRipple
+            disabled={loading}
+            onClick={() => router.push('/')}
+            sx={{
+              textTransform: 'none',
+              color: '#666',
+              fontSize: '0.875rem',
+              borderRadius: '6px',
+              padding: '6px 18px',
+              minWidth: 'auto',
+              backgroundColor: 'transparent',
+              boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
+              transition: 'all 0.2s ease-in-out',
+              '&:hover': {
+                backgroundColor: '#f5f5f7',
+                color: '#333',
+                boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)'
+              }
+            }}
+          >
+            Hủy bỏ
+          </Button>
           <Button
             variant="contained"
             startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Save fontSize="small" />}
-            className={classes.saveBtn}
             disableElevation
             onClick={handleSave}
             disabled={loading || !hasChanges}
             sx={{
+              backgroundColor: '#2f65f0',
+              color: '#fff',
+              '&:hover': {
+                backgroundColor: '#1e4fd1',
+              },
               ...(!hasChanges && !loading ? {
                 backgroundColor: '#b0b0b0 !important',
                 color: '#fff !important',
                 '&:hover': { backgroundColor: '#b0b0b0 !important' },
                 cursor: 'not-allowed',
-              } : {})
+                boxShadow: 'none',
+              } : {}),
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: '0.85rem',
+              borderRadius: '6px',
+              padding: '6px 24px',
             }}
           >
             {loading ? 'Đang lưu...' : 'Lưu'}
@@ -360,7 +421,7 @@ export const AccountInfoPage = () => {
                     onFocus={handleInputFocus}
                     disableRipple
                     disabled={loading}
-                    style={{ marginBottom: '20px', marginLeft: 0 }}
+                    style={{ marginBottom: '20px', marginLeft: 0, fontWeight: 600 }}
                   >
                     Thay đổi
                   </Button>

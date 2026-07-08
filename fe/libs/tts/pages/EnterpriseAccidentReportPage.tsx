@@ -32,6 +32,7 @@ import Docxtemplater from 'docxtemplater';
 import { saveAs } from 'file-saver';
 import { useAccidentReportStyles } from '../logic/accident-report/style';
 import { DoetService, periodicReportService, reportPeriodService } from '@tts/services';
+import { usePermission } from '@core/hooks/usePermission';
 
 const fallbackCauses = [
   { id: 1, name: "Không có thiết bị an toàn hoặc thiết bị không đảm bảo an toàn" },
@@ -162,6 +163,7 @@ const aggregateStats = (list: any[]) => {
 export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
   const classes = useAccidentReportStyles();
   const { enqueueSnackbar } = useSnackbar();
+  const { hasPermission } = usePermission();
 
   // State definitions
   const [mode, setMode] = useState<'list' | 'edit' | 'view'>('list');
@@ -1638,13 +1640,16 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                                 </IconButton>
                               )}
                               {row.status !== 'DA_TIEP_NHAN' && row.status !== 'CHO_XET_DUYET' && row.status !== 'HET_HAN' && (
-                                <IconButton
-                                  size="small"
-                                  className={classes.actionIcon}
-                                  onClick={() => handleStartEdit(row)}
-                                >
-                                  <EditIcon fontSize="small" />
-                                </IconButton>
+                                ((row.status === 'CHO_BAO_CAO' && hasPermission('ADMIN_C_ACCIDENT_REPORT_CREATE')) ||
+                                 (row.status !== 'CHO_BAO_CAO' && hasPermission('ADMIN_C_ACCIDENT_REPORT_UPDATE'))) && (
+                                  <IconButton
+                                    size="small"
+                                    className={classes.actionIcon}
+                                    onClick={() => handleStartEdit(row)}
+                                  >
+                                    <EditIcon fontSize="small" />
+                                  </IconButton>
+                                )
                               )}
                               {row.reportId && (
                                 <Tooltip title="Lịch sử duyệt/từ chối" arrow>
@@ -1726,14 +1731,16 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                   textTransform: 'none',
                   color: '#666',
                   fontSize: '0.85rem',
-                  borderRadius: 1.5,
+                  borderRadius: '6px',
                   padding: '4px 16px',
                   minWidth: 'auto',
                   backgroundColor: 'transparent',
-                  boxShadow: 'none',
+                  boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
+                  transition: 'all 0.2s ease-in-out',
                   '&:hover': {
                     backgroundColor: '#f5f5f7',
-                    color: '#333'
+                    color: '#333',
+                    boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)'
                   }
                 }}
               >
@@ -3120,7 +3127,25 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
               <Typography>Dữ liệu báo cáo đã nhập sẽ không được lưu lại</Typography>
             </DialogContent>
             <DialogActions sx={{ p: 2 }}>
-              <Button onClick={() => setCancelDialogOpen(false)} variant="text" sx={{ color: 'text.secondary', textTransform: 'none' }}>
+              <Button
+                onClick={() => setCancelDialogOpen(false)}
+                sx={{
+                  textTransform: 'none',
+                  color: '#666',
+                  fontSize: '0.85rem',
+                  borderRadius: '6px',
+                  padding: '4px 16px',
+                  minWidth: 'auto',
+                  backgroundColor: 'transparent',
+                  boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
+                  transition: 'all 0.2s ease-in-out',
+                  '&:hover': {
+                    backgroundColor: '#f5f5f7',
+                    color: '#333',
+                    boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)'
+                  }
+                }}
+              >
                 Hủy bỏ
               </Button>
               <Button
@@ -3161,18 +3186,18 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                 sx={{
                   textTransform: 'none',
                   color: '#666',
-                  bgcolor: '#fff',
-                  border: 'none',
                   fontSize: '0.85rem',
                   borderRadius: '6px',
-                  padding: '4.8px 18px',
+                  padding: '4px 16px',
+                  minWidth: 'auto',
+                  backgroundColor: 'transparent',
                   boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
                   transition: 'all 0.2s ease-in-out',
                   '&:hover': {
                     backgroundColor: '#f5f5f7',
                     color: '#333',
-                    boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)',
-                  },
+                    boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)'
+                  }
                 }}
               >
                 Hủy bỏ

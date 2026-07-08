@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
+import axios, { AxiosError } from "axios";
 import {
   Box,
   Typography,
@@ -34,6 +35,7 @@ import { useSnackbar } from "notistack";
 
 import { ConfirmDialog } from "@core/components/ConfirmDialog";
 import { BulkSelectionBar } from "@core/components/BulkSelectionBar";
+import { usePermission } from "@core/hooks/usePermission";
 
 import { injuryFactorService } from "@tts/services";
 import { useStyles } from "@tts/logic/common-category/style";
@@ -91,6 +93,9 @@ interface InjuryFactor {
 export const InjuryFactorView = React.forwardRef((props, ref) => {
   const classes = useStyles();
   const { enqueueSnackbar } = useSnackbar();
+  const { hasPermission } = usePermission();
+
+
 
   React.useImperativeHandle(ref, () => ({
     openAdd: handleOpenAdd
@@ -186,9 +191,15 @@ export const InjuryFactorView = React.forwardRef((props, ref) => {
       enqueueSnackbar("Xóa thành công", { variant: "success" });
       setSelectedIds([]);
       fetchList();
-    } catch (err: any) {
-      console.error("Error bulk deleting", err);
-      enqueueSnackbar(err?.response?.data?.message || "Lỗi khi xóa", { variant: "error" });
+    } catch (err: unknown) {
+      let msg = "Lỗi khi xóa";
+      if (axios.isAxiosError(err)) {
+        const d = (err as AxiosError<{ message?: string | string[]; error?: string; errors?: { message?: string | string[] } | string }>).response?.data;
+        if (d?.errors) { msg = typeof d.errors === 'string' ? d.errors : (typeof d.errors === 'object' && d.errors.message ? (Array.isArray(d.errors.message) ? d.errors.message[0] : d.errors.message) : msg); }
+        else if (d?.message) { msg = Array.isArray(d.message) ? d.message[0] : d.message; }
+        else if (d?.error) { msg = d.error; }
+      }
+      enqueueSnackbar(msg, { variant: "error" });
     } finally {
       setLoading(false);
     }
@@ -254,25 +265,93 @@ export const InjuryFactorView = React.forwardRef((props, ref) => {
       }
       setDialogOpen(false);
       fetchList();
-    } catch (err: any) {
-      console.error("Error saving", err);
-      enqueueSnackbar("Lỗi khi lưu thông tin", { variant: "error" });
+    } catch (err: unknown) {
+      let msg = "Lỗi khi lưu thông tin";
+      if (axios.isAxiosError(err)) {
+        const d = (err as AxiosError<{ message?: string | string[]; error?: string; errors?: { message?: string | string[] } | string }>).response?.data;
+        if (d?.errors) { msg = typeof d.errors === 'string' ? d.errors : (typeof d.errors === 'object' && d.errors.message ? (Array.isArray(d.errors.message) ? d.errors.message[0] : d.errors.message) : msg); }
+        else if (d?.message) { msg = Array.isArray(d.message) ? d.message[0] : d.message; }
+        else if (d?.error) { msg = d.error; }
+      }
+      enqueueSnackbar(msg, { variant: "error" });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleStatusToggle = async (item: InjuryFactor) => {
-    const nextStatus = !item.status;
+  const handleStatusToggle = useCallback(async (item: InjuryFactor) => {
+    const previousStatus = item.status;
+    const nextStatus = !previousStatus;
+
+    // Optimistic UI update
+    setData((prev) =>
+      prev.map((row) =>
+        row.id === item.id ? { ...row, status: nextStatus } : row
+      )
+    );
+
     try {
       await injuryFactorService.update(item.id, { ...item, status: nextStatus });
-      enqueueSnackbar("Cập nhật trạng thái thành công", { variant: "success" });
+      enqueueSnackbar("Cập nhật trạng thái thành công.", { variant: "success" });
       fetchList();
-    } catch (err: any) {
-      console.error("Error updating status", err);
-      enqueueSnackbar("Lỗi khi cập nhật trạng thái", { variant: "error" });
+    } catch (error: unknown) {
+      // Rollback UI on failure
+      setData((prev) =>
+        prev.map((row) =>
+          row.id === item.id ? { ...row, status: previousStatus } : row
+        )
+      );
+
+      // Extract error message from backend response
+      let errorMessage = "Cập nhật trạng thái thất bại.";
+
+      if (axios.isAxiosError(error)) {
+        const axiosErr = error as AxiosError<{
+          message?: string | string[];
+          error?: string;
+          errors?: { message?: string | string[] } | string;
+        }>;
+        const responseData = axiosErr.response?.data;
+
+        if (responseData) {
+          // Priority 1: errors.message (from custom ServiceErrorsFilter)
+          if (responseData.errors) {
+            if (typeof responseData.errors === "string") {
+              errorMessage = responseData.errors;
+            } else if (
+              typeof responseData.errors === "object" &&
+              responseData.errors.message
+            ) {
+              const errMsg = responseData.errors.message;
+              errorMessage = Array.isArray(errMsg) ? errMsg[0] : errMsg;
+            }
+          }
+          // Priority 2: response.data.message (string or array)
+          else if (responseData.message) {
+            errorMessage = Array.isArray(responseData.message)
+              ? responseData.message[0]
+              : responseData.message;
+          }
+          // Priority 3: response.data.error
+          else if (responseData.error) {
+            errorMessage = responseData.error;
+          }
+        }
+
+        // Debug logging only in development
+        if (process.env.NODE_ENV === "development") {
+          console.debug("[InjuryFactor Status Toggle] Debug Info:", {
+            httpStatus: axiosErr.response?.status,
+            responseBody: responseData,
+            requestUrl: axiosErr.config?.url,
+            requestPayload: axiosErr.config?.data,
+          });
+        }
+      }
+
+      enqueueSnackbar(errorMessage, { variant: "error" });
     }
-  };
+  }, [enqueueSnackbar]);
 
   const isAllSelected = data.length > 0 && data.every((item) => selectedIds.includes(String(item.id)));
   const isIndeterminate = !isAllSelected && data.some((item) => selectedIds.includes(String(item.id)));
@@ -378,6 +457,7 @@ export const InjuryFactorView = React.forwardRef((props, ref) => {
                       <Switch
                         size="small"
                         checked={item.status}
+                        disabled={!hasPermission('ADMIN_C_CATEGORY_UPDATE')}
                         onChange={() => handleStatusToggle(item)}
                         color="primary"
                       />
@@ -411,7 +491,7 @@ export const InjuryFactorView = React.forwardRef((props, ref) => {
         />
       </Box>
 
-      {selectedIds.length > 0 && (
+      {selectedIds.length > 0 && hasPermission('ADMIN_C_CATEGORY_DELETE') && (
         <BulkSelectionBar
           count={selectedIds.length}
           onDelete={() => setConfirmBulkDeleteOpen(true)}
@@ -428,106 +508,102 @@ export const InjuryFactorView = React.forwardRef((props, ref) => {
         confirmText="Xóa"
       />
 
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle
-          sx={{
-            m: 0,
-            p: 2,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            fontSize: "1.1rem",
-            fontWeight: 600,
-            color: "#333",
-          }}
-        >
-          {editId ? "Cập nhật" : "Thêm mới"}
-          <IconButton
-            aria-label="close"
-            onClick={handleCloseDialog}
-            sx={{ color: "#94a3b8" }}
-          >
+      <Dialog
+        open={dialogOpen}
+        onClose={handleCloseDialog}
+        maxWidth="sm"
+        fullWidth
+        sx={{ '& .MuiDialog-paper': { borderRadius: '12px' } }}
+      >
+        <DialogTitle sx={{ py: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0' }}>
+          <Typography sx={{ fontWeight: 700, fontSize: '1.2rem', color: '#1e293b' }}>
+            {editId ? "Chỉnh sửa yếu tố chấn thương" : "Thêm mới yếu tố chấn thương"}
+          </Typography>
+          <IconButton size="small" onClick={handleCloseDialog}>
             <CloseIcon />
           </IconButton>
         </DialogTitle>
-        <DialogContent dividers sx={{ p: 3, borderColor: "#eef0f4" }}>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
-            <Box>
-              <Typography sx={{ fontSize: "0.85rem", fontWeight: 500, color: "#94a3b8", mb: 0.5 }}>
-                Mã yếu tố chấn thương <span style={{ color: "red" }}>*</span>
-              </Typography>
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="Mã yếu tố"
-                value={form.code}
-                onChange={(e) => {
-                  setForm({ ...form, code: e.target.value });
-                  if (formErrors.code) setFormErrors({ ...formErrors, code: "" });
-                }}
-                error={!!formErrors.code}
-                helperText={formErrors.code}
-                sx={{
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: 1,
-                  },
-                }}
-              />
-            </Box>
+        <DialogContent sx={{ py: 3 }}>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, pt: 1.5 }}>
+            <TextField
+              fullWidth
+              size="small"
+              label="Mã yếu tố chấn thương *"
+              placeholder="Nhập mã yếu tố"
+              value={form.code}
+              onChange={(e) => {
+                setForm({ ...form, code: e.target.value });
+                if (formErrors.code) setFormErrors({ ...formErrors, code: "" });
+              }}
+              error={!!formErrors.code}
+              helperText={formErrors.code}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
 
-            <Box>
-              <Typography sx={{ fontSize: "0.85rem", fontWeight: 500, color: "#94a3b8", mb: 0.5 }}>
-                Tên yếu tố chấn thương <span style={{ color: "red" }}>*</span>
-              </Typography>
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="Tên yếu tố"
-                value={form.name}
-                onChange={(e) => {
-                  setForm({ ...form, name: e.target.value });
-                  if (formErrors.name) setFormErrors({ ...formErrors, name: "" });
-                }}
-                error={!!formErrors.name}
-                helperText={formErrors.name}
-                sx={{
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: 1,
-                  },
-                }}
-              />
-            </Box>
+            <TextField
+              fullWidth
+              size="small"
+              label="Tên yếu tố chấn thương *"
+              placeholder="Nhập tên yếu tố"
+              value={form.name}
+              onChange={(e) => {
+                setForm({ ...form, name: e.target.value });
+                if (formErrors.name) setFormErrors({ ...formErrors, name: "" });
+              }}
+              error={!!formErrors.name}
+              helperText={formErrors.name}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
 
-            <Box>
-              <Typography sx={{ fontSize: "0.85rem", fontWeight: 500, color: "#94a3b8", mb: 0.5 }}>
-                Trạng thái <span style={{ color: "red" }}>*</span>
-              </Typography>
-              <Select
-                fullWidth
-                size="small"
-                value={form.status ? "true" : "false"}
-                onChange={(e) => setForm({ ...form, status: e.target.value === "true" })}
-                sx={{ borderRadius: 1 }}
-              >
-                <MenuItem value="true">Sử dụng</MenuItem>
-                <MenuItem value="false">Không sử dụng</MenuItem>
-              </Select>
-            </Box>
+            <TextField
+              fullWidth
+              select
+              size="small"
+              label="Trạng thái *"
+              value={form.status ? "true" : "false"}
+              onChange={(e) => setForm({ ...form, status: e.target.value === "true" })}
+              slotProps={{ inputLabel: { shrink: true } }}
+            >
+              <MenuItem value="true">Sử dụng</MenuItem>
+              <MenuItem value="false">Không sử dụng</MenuItem>
+            </TextField>
           </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 2, px: 3 }}>
-          <Button onClick={handleCloseDialog} sx={{ color: "#5a6478", textTransform: "none" }}>
-            Huỷ
+        <DialogActions sx={{ p: 3, borderTop: '1px solid #e2e8f0', justifyContent: "flex-end", gap: 1.5 }}>
+          <Button
+            onClick={handleCloseDialog}
+            variant="outlined"
+            sx={{
+              borderRadius: '8px',
+              textTransform: 'none',
+              px: 3,
+              color: '#666',
+              border: '1px solid #dfe3eb',
+              fontWeight: 600,
+              fontSize: '0.85rem',
+              '&:hover': {
+                backgroundColor: '#f8fafc',
+                borderColor: '#cbd5e1'
+              }
+            }}
+          >
+            Hủy bỏ
           </Button>
           <Button
             onClick={handleSave}
             disabled={loading}
             variant="contained"
+            disableElevation
             sx={{
               backgroundColor: "#2f65f0",
               color: "#fff",
               textTransform: "none",
+              fontWeight: 600,
               px: 3,
+              borderRadius: "8px",
+              "&:hover": {
+                backgroundColor: "#1e4fd1",
+              },
             }}
           >
             Lưu

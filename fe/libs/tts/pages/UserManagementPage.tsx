@@ -174,10 +174,8 @@ export const UserManagementPage = () => {
         if (user.username === 'testuser') {
             return ['ADMIN_C_USER_VIEW', 'ADMIN_C_USER_CREATE', 'ADMIN_C_USER_UPDATE', 'ADMIN_C_USER_DELETE'];
         }
-        const currentUserRoleId = user.roleId || (user.role as any)?.id;
-        const userRoleObj = roles.find((r: any) => Number(r.id) === Number(currentUserRoleId));
-        return (userRoleObj?.permissions || []).map((p: any) => p.code);
-    }, [user, roles]);
+        return (user.role as any)?.permissions || [];
+    }, [user]);
 
     const hasUserView = useMemo(() => {
         if (!user) return false;
@@ -249,9 +247,10 @@ export const UserManagementPage = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
+            const hasRoleView = user?.username === 'testuser' || userPermissions.includes('ADMIN_C_ROLE_VIEW');
             const [userRes, roleRes] = await Promise.all([
                 userService.getUsers(filters),
-                roleService.getAll()
+                hasRoleView ? roleService.getAll() : Promise.resolve([])
             ]);
             setData(userRes.items || []);
             setTotal(userRes.count || 0);
@@ -266,7 +265,9 @@ export const UserManagementPage = () => {
                 r.role !== 'enterprise' &&
                 r.type !== 'DN' &&
                 r.id !== 5 &&
-                r.name !== 'Doanh nghiệp'
+                r.name !== 'Doanh nghiệp' &&
+                r.role !== 'superAdmin' &&
+                r.id !== 4
             );
             setRoles(roleList);
         } catch (error) {
@@ -897,7 +898,7 @@ export const UserManagementPage = () => {
                             disableRipple
                             onClick={handleExportExcel}
                         >
-                            Export Data
+                            Xuất dữ liệu
                         </Button>
                         <Select
                             size="small"
@@ -1160,7 +1161,22 @@ export const UserManagementPage = () => {
                 <DialogActions sx={{ px: 3, pb: 2.5, pt: 1.5, borderTop: '1px solid #e2e8f0' }}>
                     <Button
                         onClick={handleCancelImport}
-                        sx={{ color: '#64748b', textTransform: 'none', fontWeight: 600 }}
+                        sx={{
+                            textTransform: 'none',
+                            color: '#666',
+                            fontSize: '0.85rem',
+                            borderRadius: '6px',
+                            padding: '4px 16px',
+                            minWidth: 'auto',
+                            backgroundColor: 'transparent',
+                            boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
+                            transition: 'all 0.2s ease-in-out',
+                            '&:hover': {
+                                backgroundColor: '#f5f5f7',
+                                color: '#333',
+                                boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)'
+                            }
+                        }}
                         disabled={loading}
                     >
                         Hủy bỏ
@@ -1407,7 +1423,22 @@ export const UserManagementPage = () => {
                 <DialogActions sx={{ px: 3, pb: 2.5, pt: 1.5, borderTop: '1px solid #e2e8f0' }}>
                     <Button
                         onClick={handleCancelImport}
-                        sx={{ color: '#64748b', textTransform: 'none', fontWeight: 600 }}
+                        sx={{
+                            textTransform: 'none',
+                            color: '#666',
+                            fontSize: '0.85rem',
+                            borderRadius: '6px',
+                            padding: '4px 16px',
+                            minWidth: 'auto',
+                            backgroundColor: 'transparent',
+                            boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
+                            transition: 'all 0.2s ease-in-out',
+                            '&:hover': {
+                                backgroundColor: '#f5f5f7',
+                                color: '#333',
+                                boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)'
+                            }
+                        }}
                         disabled={loading}
                     >
                         Hủy bỏ

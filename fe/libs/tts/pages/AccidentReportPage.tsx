@@ -23,6 +23,7 @@ import { useSnackbar } from 'notistack';
 import { useAccidentReportStyles } from '../logic/accident-report/style';
 import { DoetService, periodicReportService } from '@tts/services';
 import { useAuth } from '@core/contexts/AuthProvider';
+import { usePermission } from '@core/hooks/usePermission';
 import { EnterpriseAccidentReportPage } from './EnterpriseAccidentReportPage';
 import { ConfirmDialog } from '@core/components/ConfirmDialog';
 
@@ -112,6 +113,7 @@ export const AccidentReportPage = () => {
     const router = useRouter();
     const { enqueueSnackbar } = useSnackbar();
     const { user } = useAuth();
+    const { hasPermission } = usePermission();
 
     const isSo = (user as any)?.role?.type === 'SO';
 
@@ -438,7 +440,7 @@ export const AccidentReportPage = () => {
             return (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#1b3b87' }} />
-                    <Typography variant="body2" sx={{ color: '#1b3b87', fontWeight: 500 }}>
+                    <Typography variant="body2" sx={{ color: '#1b3b87', fontWeight: 600 }}>
                         Đang báo cáo
                     </Typography>
                 </Box>
@@ -591,12 +593,14 @@ export const AccidentReportPage = () => {
                                     <TableHead>
                                         <TableRow>
                                             <TableCell padding="checkbox" className={classes.headerCell}>
-                                                <Checkbox
-                                                    size="small"
-                                                    indeterminate={selectedIds.length > 0 && selectedIds.length < data.filter((d: any) => d.status === 'CHO_XET_DUYET' || d.status === 'DA_TIEP_NHAN').length}
-                                                    checked={data.filter((d: any) => d.status === 'CHO_XET_DUYET' || d.status === 'DA_TIEP_NHAN').length > 0 && selectedIds.length === data.filter((d: any) => d.status === 'CHO_XET_DUYET' || d.status === 'DA_TIEP_NHAN').length}
-                                                    onChange={handleSelectAll}
-                                                />
+                                                {hasPermission('ADMIN_C_ACCIDENT_REPORT_UPDATE') && (
+                                                    <Checkbox
+                                                        size="small"
+                                                        indeterminate={selectedIds.length > 0 && selectedIds.length < data.filter((d: any) => d.status === 'CHO_XET_DUYET' || d.status === 'DA_TIEP_NHAN').length}
+                                                        checked={data.filter((d: any) => d.status === 'CHO_XET_DUYET' || d.status === 'DA_TIEP_NHAN').length > 0 && selectedIds.length === data.filter((d: any) => d.status === 'CHO_XET_DUYET' || d.status === 'DA_TIEP_NHAN').length}
+                                                        onChange={handleSelectAll}
+                                                    />
+                                                )}
                                             </TableCell>
                                             <TableCell className={classes.headerCell} width={80}>Thao tác</TableCell>
                                             <TableCell className={classes.headerCell}>Tên doanh nghiệp</TableCell>
@@ -698,12 +702,14 @@ export const AccidentReportPage = () => {
                                                 return (
                                                     <TableRow key={item.id} hover className={isChecked ? classes.rowSelected : ''}>
                                                         <TableCell padding="checkbox" className={classes.bodyCell}>
-                                                            <Checkbox
-                                                                size="small"
-                                                                checked={isChecked}
-                                                                onChange={() => handleSelectOne(item.id)}
-                                                                disabled={item.status !== 'CHO_XET_DUYET' && item.status !== 'DA_TIEP_NHAN'}
-                                                            />
+                                                            {hasPermission('ADMIN_C_ACCIDENT_REPORT_UPDATE') && (
+                                                                <Checkbox
+                                                                    size="small"
+                                                                    checked={isChecked}
+                                                                    onChange={() => handleSelectOne(item.id)}
+                                                                    disabled={item.status !== 'CHO_XET_DUYET' && item.status !== 'DA_TIEP_NHAN'}
+                                                                />
+                                                            )}
                                                         </TableCell>
                                                         <TableCell className={classes.bodyCell}>
                                                             <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
@@ -765,7 +771,7 @@ export const AccidentReportPage = () => {
                     </Box>
                 </Box>
 
-                {selectedIds.length > 0 && (
+                {selectedIds.length > 0 && hasPermission('ADMIN_C_ACCIDENT_REPORT_UPDATE') && (
                     <Box
                         sx={{
                             position: 'fixed',
@@ -1119,34 +1125,41 @@ export const AccidentReportPage = () => {
                     </DialogActions>
                 </Dialog>
 
-                <Dialog open={summaryDialogOpen} onClose={() => setSummaryDialogOpen(false)} maxWidth="sm" fullWidth>
-                    <DialogTitle sx={{ fontWeight: 'bold' }}>Tổng hợp báo cáo</DialogTitle>
-                    <DialogContent dividers>
-                        <Grid container spacing={3}>
+                <Dialog open={summaryDialogOpen} onClose={() => setSummaryDialogOpen(false)} maxWidth="sm" fullWidth sx={{ '& .MuiDialog-paper': { borderRadius: '12px' } }}>
+                    <DialogTitle sx={{ py: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0' }}>
+                        <Typography sx={{ fontWeight: 700, fontSize: '1.2rem', color: '#1e293b' }}>Tổng hợp báo cáo</Typography>
+                        <IconButton size="small" onClick={() => setSummaryDialogOpen(false)}>
+                            <CloseIcon />
+                        </IconButton>
+                    </DialogTitle>
+                    <DialogContent sx={{ py: 3, pt: 1.5 }}>
+                        <Grid container spacing={3} sx={{ pt: 3 }}>
                             <Grid size={{ xs: 12, sm: 6 }}>
-                                <FormControl fullWidth size="small">
-                                    <InputLabel>Năm báo cáo</InputLabel>
-                                    <Select
-                                        value={summaryFilter.year}
-                                        label="Năm báo cáo"
-                                        onChange={(e) => setSummaryFilter(p => ({ ...p, year: Number(e.target.value) }))}
-                                    >
-                                        {years.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
-                                    </Select>
-                                </FormControl>
+                                <TextField
+                                    fullWidth
+                                    select
+                                    size="small"
+                                    label="Năm báo cáo"
+                                    value={summaryFilter.year}
+                                    onChange={(e) => setSummaryFilter(p => ({ ...p, year: Number(e.target.value) }))}
+                                    slotProps={{ inputLabel: { shrink: true } }}
+                                >
+                                    {years.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
+                                </TextField>
                             </Grid>
                             <Grid size={{ xs: 12, sm: 6 }}>
-                                <FormControl fullWidth size="small">
-                                    <InputLabel>Kỳ báo cáo</InputLabel>
-                                    <Select
-                                        value={summaryFilter.period}
-                                        label="Kỳ báo cáo"
-                                        onChange={(e) => setSummaryFilter(p => ({ ...p, period: e.target.value as string }))}
-                                    >
-                                        <MenuItem value="SAU_THANG">6 tháng đầu năm</MenuItem>
-                                        <MenuItem value="CA_NAM">Cả năm</MenuItem>
-                                    </Select>
-                                </FormControl>
+                                <TextField
+                                    fullWidth
+                                    select
+                                    size="small"
+                                    label="Kỳ báo cáo"
+                                    value={summaryFilter.period}
+                                    onChange={(e) => setSummaryFilter(p => ({ ...p, period: e.target.value as string }))}
+                                    slotProps={{ inputLabel: { shrink: true } }}
+                                >
+                                    <MenuItem value="SAU_THANG">6 tháng đầu năm</MenuItem>
+                                    <MenuItem value="CA_NAM">Cả năm</MenuItem>
+                                </TextField>
                             </Grid>
                             <Grid size={{ xs: 12 }}>
                                 <Autocomplete
@@ -1177,8 +1190,26 @@ export const AccidentReportPage = () => {
                             </Grid>
                         </Grid>
                     </DialogContent>
-                    <DialogActions sx={{ px: 3, py: 2 }}>
-                        <Button onClick={() => setSummaryDialogOpen(false)} sx={{ color: '#64748b' }}>Hủy bỏ</Button>
+                    <DialogActions sx={{ p: 2, borderTop: '1px solid #e2e8f0', justifyContent: "flex-end", gap: 1.5 }}>
+                        <Button
+                            onClick={() => setSummaryDialogOpen(false)}
+                            variant="outlined"
+                            sx={{
+                                borderRadius: '8px',
+                                textTransform: 'none',
+                                px: 3,
+                                color: '#666',
+                                border: '1px solid #dfe3eb',
+                                fontWeight: 600,
+                                fontSize: '0.85rem',
+                                '&:hover': {
+                                    backgroundColor: '#f8fafc',
+                                    borderColor: '#cbd5e1'
+                                }
+                            }}
+                        >
+                            Hủy bỏ
+                        </Button>
                         <Button
                             onClick={() => {
                                 const params = new URLSearchParams();
@@ -1190,7 +1221,17 @@ export const AccidentReportPage = () => {
                                 router.push(`/accident-reports/summary?${params.toString()}`);
                             }}
                             variant="contained"
-                            sx={{ bgcolor: '#2f65f0' }}
+                            disableElevation
+                            sx={{
+                                borderRadius: '8px',
+                                textTransform: 'none',
+                                fontWeight: 600,
+                                px: 3,
+                                bgcolor: '#2f65f0',
+                                '&:hover': {
+                                    bgcolor: '#1e4fd1'
+                                }
+                            }}
                         >
                             Tổng hợp
                         </Button>

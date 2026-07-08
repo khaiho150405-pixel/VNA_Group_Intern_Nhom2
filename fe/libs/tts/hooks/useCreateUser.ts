@@ -29,7 +29,9 @@ export const useCreateUser = () => {
                     r.role !== 'enterprise' && 
                     r.type !== 'DN' && 
                     r.id !== 5 && 
-                    r.name !== 'Doanh nghiệp'
+                    r.name !== 'Doanh nghiệp' &&
+                    r.role !== 'superAdmin' &&
+                    r.id !== 4
                 );
                 dispatch({ type: 'onChange', name: 'roles', value: roleList });
             } catch (error) { console.error(error); }

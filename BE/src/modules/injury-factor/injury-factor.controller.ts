@@ -10,6 +10,7 @@ import {
   Query,
   UseGuards,
   UseInterceptors,
+  Request,
 } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { ResponseInterceptor } from "src/commons";
@@ -32,12 +33,13 @@ export class InjuryFactorController {
     @Query("status") status?: string,
     @Query("page") page?: string,
     @Query("limit") limit?: string,
+    @Request() req?: any,
   ) {
     return await this.injuryFactorService.findAll({
       name, code, status,
       page: page ? +page : 1,
       limit: limit ? +limit : 10,
-    });
+    }, req?.user);
   }
 
   @Get("dropdown/active")
@@ -60,36 +62,36 @@ export class InjuryFactorController {
   @Get(":id")
   @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
   @ApiOperation({ summary: "Lấy chi tiết yếu tố chấn thương" })
-  async findById(@Param("id") id: string) {
-    const data = await this.injuryFactorService.findById(+id);
+  async findById(@Param("id") id: string, @Request() req?: any) {
+    const data = await this.injuryFactorService.findById(+id, req?.user);
     return Response.get(data);
   }
 
   @Post()
   @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
   @ApiOperation({ summary: "Tạo mới yếu tố chấn thương" })
-  async create(@Body() body: any) {
-    return await this.injuryFactorService.create(body);
+  async create(@Body() body: any, @Request() req?: any) {
+    return await this.injuryFactorService.create(body, req?.user);
   }
 
   @Put(":id")
   @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
   @ApiOperation({ summary: "Cập nhật yếu tố chấn thương" })
-  async update(@Param("id") id: string, @Body() body: any) {
-    return await this.injuryFactorService.update(+id, body);
+  async update(@Param("id") id: string, @Body() body: any, @Request() req?: any) {
+    return await this.injuryFactorService.update(+id, body, req?.user);
   }
 
   @Delete("destroys")
   @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
   @ApiOperation({ summary: "Xóa nhiều yếu tố chấn thương" })
-  async removeMany(@Body("ids") ids: number[]) {
-    return await this.injuryFactorService.removeMany(ids);
+  async removeMany(@Body("ids") ids: number[], @Request() req?: any) {
+    return await this.injuryFactorService.removeMany(ids, req?.user);
   }
 
   @Delete(":id")
   @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
   @ApiOperation({ summary: "Xóa yếu tố chấn thương" })
-  async remove(@Param("id") id: string) {
-    return await this.injuryFactorService.remove(+id);
+  async remove(@Param("id") id: string, @Request() req?: any) {
+    return await this.injuryFactorService.remove(+id, req?.user);
   }
 }

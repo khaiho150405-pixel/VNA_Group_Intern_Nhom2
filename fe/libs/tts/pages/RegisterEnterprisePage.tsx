@@ -718,6 +718,22 @@ export const RegisterEnterprisePage = () => {
               onClick={() => (activeStep === 0 ? router.push('/login') : setActiveStep(0))}
               className={classes.cancelBtn}
               disableRipple
+              sx={{
+                textTransform: 'none',
+                color: '#666',
+                fontSize: '0.85rem',
+                borderRadius: '6px',
+                padding: '4px 16px',
+                minWidth: 'auto',
+                backgroundColor: 'transparent',
+                boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
+                transition: 'all 0.2s ease-in-out',
+                '&:hover': {
+                  backgroundColor: '#f5f5f7',
+                  color: '#333',
+                  boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)'
+                }
+              }}
             >
               {activeStep === 0 ? 'Huỷ bỏ' : 'Trở về'}
             </Button>

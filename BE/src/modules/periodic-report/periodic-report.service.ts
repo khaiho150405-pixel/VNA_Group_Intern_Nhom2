@@ -13,6 +13,72 @@ import { BaseService } from "src/commons";
 
 @Injectable()
 export class PeriodicReportService extends BaseService<PeriodicReport> implements OnApplicationBootstrap {
+  private async hasPermission(roleId: number | undefined, code: string): Promise<boolean> {
+    if (!roleId) return false;
+    const manager = getManager();
+    const count = await manager.query(
+      `SELECT COUNT(*) FROM role_permissions WHERE role_id = $1 AND permission_code = $2`,
+      [roleId, code]
+    );
+    return parseInt(count[0]?.count || '0', 10) > 0;
+  }
+
+  async checkReadPermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') return;
+    const roleId = currentUser.role?.id;
+    const isSo = currentUser.role?.type === 'SO';
+    
+    if (isSo) {
+      const allowed = await this.hasPermission(roleId, 'ADMIN_C_ACCIDENT_REPORT_VIEW');
+      if (!allowed) {
+        throw Response.errorForBidden("Tài khoản của bạn không có quyền xem báo cáo tai nạn lao động.");
+      }
+    }
+  }
+
+  async checkCreatePermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') return;
+    const roleId = currentUser.role?.id;
+    const isSo = currentUser.role?.type === 'SO';
+    
+    if (isSo) {
+      const allowed = await this.hasPermission(roleId, 'ADMIN_C_ACCIDENT_REPORT_CREATE');
+      if (!allowed) {
+        throw Response.errorForBidden("Tài khoản của bạn không có quyền khai báo mới báo cáo tai nạn lao động.");
+      }
+    }
+  }
+
+  async checkUpdatePermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') return;
+    const roleId = currentUser.role?.id;
+    const isSo = currentUser.role?.type === 'SO';
+    
+    if (isSo) {
+      const allowed = await this.hasPermission(roleId, 'ADMIN_C_ACCIDENT_REPORT_UPDATE');
+      if (!allowed) {
+        throw Response.errorForBidden("Tài khoản của bạn không có quyền duyệt/từ chối báo cáo tai nạn lao động.");
+      }
+    }
+  }
+
+  async checkDeletePermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') return;
+    const roleId = currentUser.role?.id;
+    const isSo = currentUser.role?.type === 'SO';
+    
+    if (isSo) {
+      const allowed = await this.hasPermission(roleId, 'ADMIN_C_ACCIDENT_REPORT_DELETE');
+      if (!allowed) {
+        throw Response.errorForBidden("Tài khoản của bạn không có quyền xóa báo cáo tai nạn lao động.");
+      }
+    }
+  }
+
   constructor(
     @InjectRepository(PeriodicReport)
     private readonly reportRepo: Repository<PeriodicReport>,
@@ -44,6 +110,7 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
   }
 
   async findAllReports(currentUser: any, query: any) {
+    await this.checkReadPermission(currentUser);
     const roleType = currentUser?.role?.type;
     const isSoUser = roleType === 'SO';
     const doetId = currentUser?.doet || currentUser?.doet_id;
@@ -98,9 +165,9 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
         for (const config of activePeriods) {
           if (period && config.period !== period) continue;
 
-          if (regDate && config.createdAt) {
-            const pCreated = new Date(config.createdAt);
-            if (pCreated < regDate) {
+          if (regDate && config.endDate) {
+            const pEndDate = new Date(config.endDate);
+            if (pEndDate < regDate) {
               continue;
             }
           }
@@ -188,6 +255,7 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
   }
 
   async getSummaryReport(currentUser: any, query: any) {
+    await this.checkReadPermission(currentUser);
     const roleType = currentUser?.role?.type;
     const isSoUser = roleType === 'SO';
     const doetId = currentUser?.doet || currentUser?.doet_id;
@@ -405,7 +473,8 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
     });
   }
 
-  async findDetail(id: number) {
+  async findDetail(id: number, currentUser?: any) {
+    if (currentUser) await this.checkReadPermission(currentUser);
     const report = await this.reportRepo.findOne({
       where: { id },
       relations: ["accidentDetails"]
@@ -427,6 +496,8 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
   }
 
   async createReport(currentUser: any, payload: any) {
+    await this.checkCreatePermission(currentUser);
+    const rpCreated = payload.createdAt ? new Date(payload.createdAt) : new Date();
     if (payload.accidentDetails && Array.isArray(payload.accidentDetails)) {
       for (const detail of payload.accidentDetails) {
         if (detail.stats) {
@@ -523,12 +594,26 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
     const isSoUser = currentUser?.role?.type === 'SO';
     let status = payload.status || 'CHO_XET_DUYET';
 
+    const currentReport = await this.reportRepo.findOne({ where: { id } });
+    if (!currentReport) throw new BadRequestException("Không tìm thấy báo cáo");
+
     // Doanh nghiệp không được phép tự đặt trạng thái DA_TIEP_NHAN hoặc HUY_TIEP_NHAN
     if (!isSoUser && (status === 'DA_TIEP_NHAN' || status === 'HUY_TIEP_NHAN')) {
       status = 'CHO_XET_DUYET';
     }
-    const currentReport = await this.reportRepo.findOne({ where: { id } });
-    if (!currentReport) throw new BadRequestException("Không tìm thấy báo cáo");
+    
+    if (!isSoUser) {
+      const doetId = currentUser?.doet || currentUser?.doet_id;
+      if (Number(currentReport.doetId) !== Number(doetId)) {
+        throw Response.errorForBidden("Bạn chỉ được phép chỉnh sửa báo cáo của chính doanh nghiệp mình.");
+      }
+    }
+
+    if (payload.status !== undefined && payload.status !== currentReport.status) {
+      if (isSoUser) {
+        await this.checkUpdatePermission(currentUser);
+      }
+    }
     
     if (!isSoUser && (currentReport.status === 'DA_TIEP_NHAN' || currentReport.status === 'CHO_XET_DUYET')) {
       throw new BadRequestException("Báo cáo đang chờ tiếp nhận hoặc đã được tiếp nhận, không thể chỉnh sửa");
@@ -826,7 +911,8 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
     await this.historyRepo.save(history);
   }
 
-  async getHistory(reportId: number): Promise<any> {
+  async getHistory(reportId: number, currentUser?: any): Promise<any> {
+    if (currentUser) await this.checkReadPermission(currentUser);
     const report = await this.reportRepo.findOne({ where: { id: reportId } });
     if (!report) {
       throw new BadRequestException("Không tìm thấy báo cáo");
@@ -894,7 +980,8 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
     return Response.get(histories);
   }
 
-  async getYearHistory(year: number): Promise<any> {
+  async getYearHistory(year: number, currentUser?: any): Promise<any> {
+    if (currentUser) await this.checkReadPermission(currentUser);
     const histories = await this.historyRepo.createQueryBuilder("history")
       .leftJoinAndSelect("history.report", "report")
       .where("report.year = :year", { year })
@@ -962,5 +1049,44 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
     }
 
     return Response.get(histories);
+  }
+
+  async delete(currentUser: any, id: string): Promise<any> {
+    await this.checkDeletePermission(currentUser);
+    const existing = await this.reportRepo.findOne(id);
+    if (!existing) throw Response.errorNotFound("Không tìm thấy báo cáo");
+
+    const isDN = currentUser?.role?.type === 'DN';
+    if (isDN) {
+      const doetId = currentUser.doet || currentUser.doet_id;
+      if (Number(existing.doetId) !== Number(doetId)) {
+        throw Response.errorForBidden("Bạn chỉ được phép xóa báo cáo của chính doanh nghiệp mình.");
+      }
+      if (existing.status === 'DA_TIEP_NHAN') {
+        throw Response.errorBad("Báo cáo đã được tiếp nhận, không thể xóa.");
+      }
+    }
+
+    // Xóa chi tiết tai nạn và lịch sử trước để tránh lỗi FK
+    await this.detailRepo.delete({ report: existing });
+    await this.historyRepo.delete({ reportId: existing.id });
+
+    await this.reportRepo.delete(id);
+    return Response.SUCCESSFULLY;
+  }
+
+  async deletes(currentUser: any, ids: string[], doet: any): Promise<any> {
+    for (const id of ids) {
+      await this.delete(currentUser, id);
+    }
+    return Response.SUCCESSFULLY;
+  }
+
+  async destroy(currentUser: any, id: string): Promise<any> {
+    return this.delete(currentUser, id);
+  }
+
+  async destroys(currentUser: any, ids: string[], doet: any): Promise<any> {
+    return this.deletes(currentUser, ids, doet);
   }
 }

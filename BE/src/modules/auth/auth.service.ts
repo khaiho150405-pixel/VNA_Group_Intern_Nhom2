@@ -98,6 +98,18 @@ export class AuthService {
     try {
       const _doet = (doet && doet.id) ? doet.id : (data.doet_id || null);
       const user = new CurrentUser(_doet, data);
+      
+      // Get permissions
+      const manager = getManager();
+      const perms = user.role?.id ? await manager.query(
+        `SELECT permission_code FROM role_permissions WHERE role_id = $1`,
+        [user.role.id]
+      ) : [];
+      const permissionCodes = perms.map((p: any) => p.permission_code);
+      if (user.role) {
+        (user.role as any).permissions = permissionCodes;
+      }
+
       const tokenPayload = {
         ...user,
         passwordHash: data.password
@@ -173,6 +185,17 @@ export class AuthService {
 
       const _doet = (doet && doet.id) ? doet.id : (payload.doet || null);
       const user = new CurrentUser(_doet, payload);
+
+      // Get permissions dynamically to keep session updated
+      const perms = user.role?.id ? await manage.query(
+        `SELECT permission_code FROM role_permissions WHERE role_id = $1`,
+        [user.role.id]
+      ) : [];
+      const permissionCodes = perms.map((p: any) => p.permission_code);
+      if (user.role) {
+        (user.role as any).permissions = permissionCodes;
+      }
+
       const views = await this.viewService.getViewsByRoleId(user.role?.id as any);
       const rs = new LoginModel({
         user,

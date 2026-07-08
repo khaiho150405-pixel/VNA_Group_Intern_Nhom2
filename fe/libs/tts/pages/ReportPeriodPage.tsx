@@ -42,6 +42,7 @@ import { Theme } from "@mui/material/styles";
 import { reportPeriodService } from "@tts/services";
 import { CustomCalendar } from "@core/components/CustomCalendar";
 import { formatDateInput, formatDateDisplay } from "@core/utils/helper";
+import { usePermission } from "@core/hooks/usePermission";
 
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
@@ -243,6 +244,7 @@ interface PeriodConfig {
 export const ReportPeriodPage = () => {
   const classes = useStyles();
   const { enqueueSnackbar } = useSnackbar();
+  const { hasPermission } = usePermission();
 
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<PeriodConfig[]>([]);
@@ -650,14 +652,16 @@ export const ReportPeriodPage = () => {
         <Box className={classes.pageHeader}>
           <Typography className={classes.headerTitle}>Danh sách cấu hình báo cáo</Typography>
           <Box className={classes.actions}>
-            <Button
-              className={classes.addBtn}
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={handleOpenAdd}
-            >
-              Thêm mới
-            </Button>
+            {hasPermission('ADMIN_C_REPORT_PERIOD_CREATE') && (
+              <Button
+                className={classes.addBtn}
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={handleOpenAdd}
+              >
+                Thêm mới
+              </Button>
+            )}
           </Box>
         </Box>
 
@@ -842,12 +846,14 @@ export const ReportPeriodPage = () => {
                     data.map((item) => (
                       <TableRow key={item.id} hover>
                         <TableCell className={classes.bodyCell}>
-                          <IconButton
-                            className={classes.actionIcon}
-                            onClick={() => handleOpenEdit(item)}
-                          >
-                            <EditIcon sx={{ fontSize: 18 }} />
-                          </IconButton>
+                          {hasPermission('ADMIN_C_REPORT_PERIOD_UPDATE') && (
+                            <IconButton
+                              className={classes.actionIcon}
+                              onClick={() => handleOpenEdit(item)}
+                            >
+                              <EditIcon sx={{ fontSize: 18 }} />
+                            </IconButton>
+                          )}
                         </TableCell>
                         <TableCell className={classes.bodyCell}>{item.year}</TableCell>
                         <TableCell className={classes.bodyCell}>{item.reportName}</TableCell>
@@ -860,6 +866,7 @@ export const ReportPeriodPage = () => {
                           <Switch
                             size="small"
                             checked={item.status === "ACTIVE"}
+                            disabled={!hasPermission('ADMIN_C_REPORT_PERIOD_UPDATE')}
                             onChange={() => handleStatusToggle(item)}
                             color="primary"
                           />

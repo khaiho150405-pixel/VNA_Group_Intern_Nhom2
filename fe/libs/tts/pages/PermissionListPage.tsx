@@ -92,16 +92,17 @@ export const PermissionListPage = () => {
   const classes = useUserListStyles();
   const { user } = useAuth();
   const { enqueueSnackbar } = useSnackbar();
+
   const [loading, setLoading] = useState(true);
   const [permissions, setPermissions] = useState<any[]>([]);
+  const isTestUser = user?.username === 'testuser';
 
-  // Filters state matching table columns
-  const [filters, setFilters] = useState({
+  // Filtering / Search state
+  const [filters, setFilters] = useState<any>({
     page: 1,
     limit: 10,
-    type: '',
-    code: '',
-    name: ''
+    search: '',
+    type: ''
   });
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
@@ -114,8 +115,6 @@ export const PermissionListPage = () => {
     'ADMIN_G_LOAI_HINH_KD': true,
     'ADMIN_G_NGANH_NGHE_KD': true,
   });
-
-  const isTestUser = user?.username === 'testuser';
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -171,7 +170,7 @@ export const PermissionListPage = () => {
   };
 
   const handleFilterChange = (field: string, value: any) => {
-    setFilters(prev => ({
+    setFilters((prev: any) => ({
       ...prev,
       [field]: value,
       page: field === 'page' ? value : 1
@@ -384,7 +383,7 @@ export const PermissionListPage = () => {
                                   <TableCell className={classes.bodyCell} sx={{ color: '#64748b' }}>
                                     {comp.type}
                                   </TableCell>
-                                  <TableCell className={classes.bodyCell} sx={{ pl: 4, fontFamily: 'monospace', color: '#334155' }}>
+                                  <TableCell className={classes.bodyCell} sx={{ pl: 4, color: '#334155' }}>
                                     {comp.code}
                                   </TableCell>
                                   <TableCell className={classes.bodyCell} sx={{ pl: 3, color: '#475569' }}>
@@ -404,26 +403,24 @@ export const PermissionListPage = () => {
 
           {!loading && total > 0 && (
             <Box className={classes.footer}>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                <Select
-                  value={filters.limit}
-                  onChange={(e) => handleFilterChange("limit", Number(e.target.value))}
-                  className={classes.pageSizeSelect}
-                  size="small"
-                >
-                  <MenuItem value={10}>10</MenuItem>
-                  <MenuItem value={20}>20</MenuItem>
-                  <MenuItem value={50}>50</MenuItem>
-                </Select>
-                <Typography className={classes.pageInfo}>
-                  {startIndex} - {endIndex} of {total}
-                </Typography>
-                <CustomPagination
-                  count={Math.max(1, Math.ceil(total / filters.limit))}
-                  page={filters.page}
-                  onChange={(page) => handleFilterChange("page", page)}
-                />
-              </Box>
+              <Select
+                value={filters.limit}
+                onChange={(e) => handleFilterChange("limit", Number(e.target.value))}
+                className={classes.pageSizeSelect}
+                size="small"
+              >
+                <MenuItem value={10}>10</MenuItem>
+                <MenuItem value={20}>20</MenuItem>
+                <MenuItem value={50}>50</MenuItem>
+              </Select>
+              <Typography className={classes.pageInfo}>
+                {startIndex} - {endIndex} of {total}
+              </Typography>
+              <CustomPagination
+                count={Math.max(1, Math.ceil(total / filters.limit))}
+                page={filters.page}
+                onChange={(page) => handleFilterChange("page", page)}
+              />
             </Box>
           )}
         </Box>

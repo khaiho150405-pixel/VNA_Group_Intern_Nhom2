@@ -1,6 +1,6 @@
-import { Controller, Get, Query, UseGuards, UseInterceptors, ClassSerializerInterceptor } from "@nestjs/common";
+import { Controller, Get, Query, UseGuards, UseInterceptors, ClassSerializerInterceptor, Request, Param } from "@nestjs/common";
 import { ApiTags, ApiOperation } from "@nestjs/swagger";
-import { BaseController, ResponseInterceptor } from "src/commons";
+import { BaseController, ResponseInterceptor, GetAllDto } from "src/commons";
 import { AuthGuard } from "src/commons/guards/authGuard";
 import { Occupation } from "./occupation.entity";
 import { OccupationService } from "./occupation.service";
@@ -32,11 +32,32 @@ export class OccupationController extends BaseController<Occupation, OccupationS
     @Query("trangthai") trangthai?: string,
     @Query("page") page?: string,
     @Query("limit") limit?: string,
+    @Request() req?: any,
   ) {
     return await this.occupationService.findAll({
       manghe, tennghe, cap, trangthai,
       page: page ? +page : 1,
       limit: limit ? +limit : 10,
-    });
+    }, req?.user);
+  }
+
+  @Get()
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
+  @ApiOperation({ summary: 'Lấy danh sách nghề nghiệp' })
+  async get(@Query() getAllDto: GetAllDto, @Request() req) {
+    await this.occupationService.checkReadPermission(req.user);
+    return await super.get(getAllDto, req);
+  }
+
+  @Get(':id')
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
+  @ApiOperation({ summary: 'Lấy chi tiết nghề nghiệp' })
+  async getDetail(
+    @Query() getAllDto: GetAllDto,
+    @Param('id') id: string,
+    @Request() req
+  ) {
+    await this.occupationService.checkReadPermission(req.user);
+    return await super.getDetail(getAllDto, id, req);
   }
 }

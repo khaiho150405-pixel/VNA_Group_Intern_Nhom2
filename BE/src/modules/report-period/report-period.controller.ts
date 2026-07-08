@@ -13,8 +13,8 @@ export class ReportPeriodController {
 
   @Get()
   @ApiOperation({ summary: "Lấy danh sách kỳ báo cáo" })
-  async getList(@Query() query: any) {
-    return await this.reportPeriodService.findAll(query);
+  async getList(@Query() query: any, @Request() req: any) {
+    return await this.reportPeriodService.findAll(query, req.user);
   }
 
   @Get("for-enterprise")
@@ -25,25 +25,25 @@ export class ReportPeriodController {
 
   @Get(":id")
   @ApiOperation({ summary: "Chi tiết kỳ báo cáo" })
-  async getDetail(@Param("id") id: string) {
-    return await this.reportPeriodService.findById(+id);
+  async getDetail(@Param("id") id: string, @Request() req: any) {
+    return await this.reportPeriodService.findById(+id, req.user);
   }
 
   @Post()
   @ApiOperation({ summary: "Tạo kỳ báo cáo mới" })
-  async create(@Body() payload: any) {
-    return await this.reportPeriodService.create(payload);
+  async create(@Body() payload: any, @Request() req: any) {
+    return await this.reportPeriodService.create(payload, req.user);
   }
 
   @Put(":id")
   @ApiOperation({ summary: "Cập nhật kỳ báo cáo" })
-  async update(@Param("id") id: string, @Body() payload: any) {
-    return await this.reportPeriodService.update(+id, payload);
+  async update(@Param("id") id: string, @Body() payload: any, @Request() req: any) {
+    return await this.reportPeriodService.update(+id, payload, req.user);
   }
 
   @Delete(":id")
   @ApiOperation({ summary: "Xóa kỳ báo cáo" })
-  async delete(@Param("id") id: string) {
-    return await this.reportPeriodService.remove(+id);
+  async delete(@Param("id") id: string, @Request() req: any) {
+    return await this.reportPeriodService.remove(+id, req.user);
   }
 }

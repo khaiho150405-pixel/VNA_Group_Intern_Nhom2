@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
+import axios, { AxiosError } from "axios";
 import {
   Box,
   Typography,
@@ -39,6 +40,7 @@ import { Theme } from "@mui/material/styles";
 
 import { ConfirmDialog } from "@core/components/ConfirmDialog";
 import { BulkSelectionBar } from "@core/components/BulkSelectionBar";
+import { usePermission } from "@core/hooks/usePermission";
 
 import { businessLineService } from "@tts/services";
 
@@ -265,6 +267,7 @@ const AutocompleteAny = Autocomplete as any;
 export const BusinessLinePage = () => {
   const classes = useStyles();
   const { enqueueSnackbar } = useSnackbar();
+  const { hasPermission } = usePermission();
 
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<BusinessLine[]>([]);
@@ -547,18 +550,80 @@ export const BusinessLinePage = () => {
     }
   };
 
-  const handleStatusToggle = async (item: BusinessLine) => {
-    const nextStatus = item.trangthai === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+  const handleStatusToggle = useCallback(async (item: BusinessLine) => {
+    const previousStatus = item.trangthai;
+    const nextStatus = previousStatus === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+
+    // Optimistic UI update
+    setData((prev) =>
+      prev.map((row) =>
+        row.id === item.id ? { ...row, trangthai: nextStatus } : row
+      )
+    );
+
     try {
       await businessLineService.update(item.id, { ...item, trangthai: nextStatus });
-      enqueueSnackbar("Cập nhật trạng thái thành công", { variant: "success" });
+      enqueueSnackbar("Cập nhật trạng thái thành công.", { variant: "success" });
       fetchList();
       fetchAllBusinessLines();
-    } catch (err: any) {
-      console.error("Error updating status", err);
-      enqueueSnackbar("Lỗi khi cập nhật trạng thái", { variant: "error" });
+    } catch (error: unknown) {
+      // Rollback UI on failure
+      setData((prev) =>
+        prev.map((row) =>
+          row.id === item.id ? { ...row, trangthai: previousStatus } : row
+        )
+      );
+
+      // Extract error message from backend response
+      let errorMessage = "Cập nhật trạng thái thất bại.";
+
+      if (axios.isAxiosError(error)) {
+        const axiosErr = error as AxiosError<{
+          message?: string | string[];
+          error?: string;
+          errors?: { message?: string | string[] } | string;
+        }>;
+        const responseData = axiosErr.response?.data;
+
+        if (responseData) {
+          // Priority 1: errors.message (from custom ServiceErrorsFilter)
+          if (responseData.errors) {
+            if (typeof responseData.errors === "string") {
+              errorMessage = responseData.errors;
+            } else if (
+              typeof responseData.errors === "object" &&
+              responseData.errors.message
+            ) {
+              const errMsg = responseData.errors.message;
+              errorMessage = Array.isArray(errMsg) ? errMsg[0] : errMsg;
+            }
+          }
+          // Priority 2: response.data.message (string or array)
+          else if (responseData.message) {
+            errorMessage = Array.isArray(responseData.message)
+              ? responseData.message[0]
+              : responseData.message;
+          }
+          // Priority 3: response.data.error
+          else if (responseData.error) {
+            errorMessage = responseData.error;
+          }
+        }
+
+        // Debug logging only in development
+        if (process.env.NODE_ENV === "development") {
+          console.debug("[BusinessLine Status Toggle] Debug Info:", {
+            httpStatus: axiosErr.response?.status,
+            responseBody: responseData,
+            requestUrl: axiosErr.config?.url,
+            requestPayload: axiosErr.config?.data,
+          });
+        }
+      }
+
+      enqueueSnackbar(errorMessage, { variant: "error" });
     }
-  };
+  }, [enqueueSnackbar]);
 
   const isAllSelected = data.length > 0 && data.every((item) => selectedIds.includes(String(item.id)));
   const isIndeterminate = !isAllSelected && data.some((item) => selectedIds.includes(String(item.id)));
@@ -578,22 +643,26 @@ export const BusinessLinePage = () => {
       <Box className={classes.pageHeader}>
         <Typography className={classes.headerTitle}>Danh sách ngành nghề kinh doanh</Typography>
         <Box className={classes.actions}>
-          <Button
-            className={classes.importBtn}
-            variant="outlined"
-            startIcon={<UploadIcon />}
-            onClick={() => enqueueSnackbar("Chức năng đang được phát triển", { variant: "info" })}
-          >
-            Thêm từ file
-          </Button>
-          <Button
-            className={classes.addBtn}
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleOpenAdd}
-          >
-            Thêm mới
-          </Button>
+          {hasPermission('ADMIN_C_NGANH_NGHE_KD_CREATE') && (
+            <>
+              <Button
+                className={classes.importBtn}
+                variant="outlined"
+                startIcon={<UploadIcon />}
+                onClick={() => enqueueSnackbar("Chức năng đang được phát triển", { variant: "info" })}
+              >
+                Thêm từ file
+              </Button>
+              <Button
+                className={classes.addBtn}
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={handleOpenAdd}
+              >
+                Thêm mới
+              </Button>
+            </>
+          )}
         </Box>
       </Box>
 
@@ -607,12 +676,14 @@ export const BusinessLinePage = () => {
                   {/* Table Header Row */}
                   <TableRow>
                     <TableCell padding="checkbox" className={classes.headerCell} width={50}>
-                      <Checkbox
-                        size="small"
-                        checked={isAllSelected}
-                        indeterminate={isIndeterminate}
-                        onChange={handleSelectAll}
-                      />
+                      {hasPermission('ADMIN_C_NGANH_NGHE_KD_DELETE') && (
+                        <Checkbox
+                          size="small"
+                          checked={isAllSelected}
+                          indeterminate={isIndeterminate}
+                          onChange={handleSelectAll}
+                        />
+                      )}
                     </TableCell>
                     <TableCell className={classes.headerCell} width={80} align="center">Thao tác</TableCell>
                     <TableCell className={classes.headerCell} width={150}>Mã ngành</TableCell>
@@ -691,20 +762,24 @@ export const BusinessLinePage = () => {
                     data.map((item) => (
                       <TableRow key={item.id} hover selected={selectedIds.includes(String(item.id))}>
                         <TableCell padding="checkbox" className={classes.bodyCell}>
-                          <Checkbox
-                            size="small"
-                            checked={selectedIds.includes(String(item.id))}
-                            onChange={() => handleSelectOne(String(item.id))}
-                          />
+                          {hasPermission('ADMIN_C_NGANH_NGHE_KD_DELETE') && (
+                            <Checkbox
+                              size="small"
+                              checked={selectedIds.includes(String(item.id))}
+                              onChange={() => handleSelectOne(String(item.id))}
+                            />
+                          )}
                         </TableCell>
                         <TableCell className={classes.bodyCell} align="center">
-                          <IconButton
-                            className={classes.actionIcon}
-                            onClick={() => handleOpenEdit(item)}
-                            size="small"
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
+                          {hasPermission('ADMIN_C_NGANH_NGHE_KD_UPDATE') && (
+                            <IconButton
+                              className={classes.actionIcon}
+                              onClick={() => handleOpenEdit(item)}
+                              size="small"
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          )}
                         </TableCell>
                         <TableCell className={classes.bodyCell}>{item.manganh}</TableCell>
                         <TableCell className={classes.bodyCell}>{getDashPrefix(item.cap)}{item.tennganh}</TableCell>
@@ -713,6 +788,7 @@ export const BusinessLinePage = () => {
                           <Switch
                             size="small"
                             checked={item.trangthai === "ACTIVE"}
+                            disabled={!hasPermission('ADMIN_C_NGANH_NGHE_KD_UPDATE')}
                             onChange={() => handleStatusToggle(item)}
                             color="primary"
                           />
@@ -750,7 +826,7 @@ export const BusinessLinePage = () => {
       </Box>
 
       {/* Bulk Selection Actions */}
-      {selectedIds.length > 0 && (
+      {selectedIds.length > 0 && hasPermission('ADMIN_C_NGANH_NGHE_KD_DELETE') && (
         <BulkSelectionBar
           count={selectedIds.length}
           onDelete={() => setConfirmBulkDeleteOpen(true)}
@@ -768,35 +844,24 @@ export const BusinessLinePage = () => {
       />
 
       {/* Create/Edit Modal Dialog */}
+      {/* Create/Edit Modal Dialog */}
       <DialogAny
         open={dialogOpen}
         onClose={handleCloseDialog}
         maxWidth="xs"
         fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: "12px",
-            overflow: "hidden"
-          }
-        }}
+        sx={{ '& .MuiDialog-paper': { borderRadius: '12px' } }}
       >
-        <DialogTitle
-          sx={{
-            m: 0,
-            p: 2,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            fontSize: "1.1rem",
-            fontWeight: 600,
-            color: "#fff",
-            backgroundColor: "#2f65f0",
-          }}
-        >
-          {editId ? "Cập nhật nghề kinh doanh" : "Thêm mới ngành nghề kinh doanh"}
+        <DialogTitle sx={{ py: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0' }}>
+          <Typography sx={{ fontWeight: 700, fontSize: '1.2rem', color: '#1e293b' }}>
+            {editId ? "Chỉnh sửa ngành nghề" : "Thêm mới ngành nghề"}
+          </Typography>
+          <IconButton size="small" onClick={handleCloseDialog}>
+            <CloseIcon />
+          </IconButton>
         </DialogTitle>
-        <DialogContent sx={{ p: 3, pt: 2.5, pb: 1, borderColor: "#eef0f4" }}>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, pt: 1.5 }}>
+        <DialogContent sx={{ py: 3 }}>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, pt: 3 }}>
             <TextFieldAny
               fullWidth
               size="small"
@@ -807,7 +872,7 @@ export const BusinessLinePage = () => {
               disabled={editId !== null}
               error={!!formErrors.manganh}
               helperText={formErrors.manganh}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ inputLabel: { shrink: true } }}
               sx={{
                 "& .MuiOutlinedInput-root": {
                   borderRadius: "8px",
@@ -831,7 +896,7 @@ export const BusinessLinePage = () => {
               }}
               error={!!formErrors.tennganh}
               helperText={formErrors.tennganh}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ inputLabel: { shrink: true } }}
               sx={{
                 "& .MuiOutlinedInput-root": {
                   borderRadius: "8px",
@@ -854,7 +919,6 @@ export const BusinessLinePage = () => {
                   label="Nhóm ngành cha"
                   error={parentNotFound}
                   helperText={parentNotFound ? "Không có nhóm ngành cha" : ""}
-                  InputLabelProps={{ shrink: true }}
                   sx={{
                     "& .MuiOutlinedInput-root": {
                       borderRadius: "8px",
@@ -877,7 +941,7 @@ export const BusinessLinePage = () => {
               label="Trạng thái *"
               value={form.trangthai}
               onChange={(e: any) => setForm({ ...form, trangthai: e.target.value })}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ inputLabel: { shrink: true } }}
               SelectProps={{
                 MenuProps: { PaperProps: { sx: { borderRadius: "8px" } } }
               }}
@@ -895,23 +959,31 @@ export const BusinessLinePage = () => {
             </TextFieldAny>
           </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 2, px: 3, pt: 1, pb: 2.5, justifyContent: "flex-end", gap: 1 }}>
+        <DialogActions sx={{ p: 2, borderTop: '1px solid #e2e8f0', justifyContent: "flex-end", gap: 1.5 }}>
           <Button
             onClick={handleCloseDialog}
+            variant="outlined"
             sx={{
-              color: "#5a6478",
-              textTransform: "none",
-              fontWeight: 500,
-              "&:hover": { backgroundColor: "#f3f5f9" },
+              borderRadius: '8px',
+              textTransform: 'none',
+              px: 3,
+              color: '#666',
+              border: '1px solid #dfe3eb',
+              fontWeight: 600,
+              fontSize: '0.85rem',
+              '&:hover': {
+                backgroundColor: '#f8fafc',
+                borderColor: '#cbd5e1'
+              }
             }}
           >
-            Huỷ bỏ
+            Hủy bỏ
           </Button>
           <Button
             onClick={handleSave}
             disabled={loading}
             variant="contained"
-            startIcon={<SaveIcon />}
+            disableElevation
             sx={{
               backgroundColor: "#2f65f0",
               color: "#fff",
@@ -919,10 +991,8 @@ export const BusinessLinePage = () => {
               fontWeight: 600,
               px: 3,
               borderRadius: "8px",
-              boxShadow: "0px 4px 10px rgba(47, 101, 240, 0.2)",
               "&:hover": {
                 backgroundColor: "#1e4fd1",
-                boxShadow: "0px 6px 14px rgba(47, 101, 240, 0.3)",
               },
             }}
           >

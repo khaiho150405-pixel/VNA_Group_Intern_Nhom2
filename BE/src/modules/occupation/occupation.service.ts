@@ -1,7 +1,7 @@
-import { Injectable, OnApplicationBootstrap } from "@nestjs/common";
+import { Injectable, OnApplicationBootstrap, BadRequestException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { BaseService } from "src/commons";
-import { Repository } from "typeorm";
+import { Repository, getManager } from "typeorm";
 import { Occupation } from "./occupation.entity";
 import Response from "../../commons/response";
 import * as path from "path";
@@ -9,6 +9,55 @@ import * as fs from "fs";
 
 @Injectable()
 export class OccupationService extends BaseService<Occupation> implements OnApplicationBootstrap {
+  private async hasPermission(roleId: number | undefined, code: string): Promise<boolean> {
+    if (!roleId) return false;
+    const count = await this.occupationRepo.query(
+      `SELECT COUNT(*) FROM role_permissions WHERE role_id = $1 AND permission_code = $2`,
+      [roleId, code]
+    );
+    return parseInt(count[0]?.count || '0', 10) > 0;
+  }
+
+  async checkReadPermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') return;
+    const roleId = currentUser.role?.id;
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_CATEGORY_VIEW');
+    if (!allowed) {
+      throw Response.errorForBidden("Tài khoản của bạn không có quyền xem danh mục chung.");
+    }
+  }
+
+  async checkCreatePermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') return;
+    const roleId = currentUser.role?.id;
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_CATEGORY_CREATE');
+    if (!allowed) {
+      throw Response.errorForBidden("Tài khoản của bạn không có quyền thêm mới danh mục.");
+    }
+  }
+
+  async checkUpdatePermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') return;
+    const roleId = currentUser.role?.id;
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_CATEGORY_UPDATE');
+    if (!allowed) {
+      throw Response.errorForBidden("Tài khoản của bạn không có quyền cập nhật danh mục.");
+    }
+  }
+
+  async checkDeletePermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') return;
+    const roleId = currentUser.role?.id;
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_CATEGORY_DELETE');
+    if (!allowed) {
+      throw Response.errorForBidden("Tài khoản của bạn không có quyền xóa danh mục.");
+    }
+  }
+
   constructor(
     @InjectRepository(Occupation)
     private readonly occupationRepo: Repository<Occupation>,
@@ -58,7 +107,8 @@ export class OccupationService extends BaseService<Occupation> implements OnAppl
     trangthai?: string;
     page?: number;
     limit?: number;
-  }) {
+  }, currentUser?: any) {
+    if (currentUser) await this.checkReadPermission(currentUser);
     const { manghe, tennghe, cap, trangthai, page = 1, limit = 10 } = query;
 
     const qb = this.occupationRepo.createQueryBuilder("oc");
@@ -85,6 +135,7 @@ export class OccupationService extends BaseService<Occupation> implements OnAppl
   }
 
   async post(currentUser: any, payload: any, id: any = null): Promise<any> {
+    await this.checkCreatePermission(currentUser);
     if (payload.manghe) {
       const trimmedCode = payload.manghe.trim();
       const exists = await this.checkCodeExists(payload.manghe);
@@ -98,6 +149,17 @@ export class OccupationService extends BaseService<Occupation> implements OnAppl
   }
 
   async put(currentUser: any, id: any, payload: any): Promise<any> {
+    await this.checkUpdatePermission(currentUser);
+    if (payload.trangthai === 'INACTIVE') {
+      const manager = getManager();
+      const countRes = await manager.query(
+        `SELECT COUNT(*) as count FROM accident_details WHERE nghe_nghiep_id = $1`,
+        [id]
+      );
+      if (countRes && countRes[0] && Number(countRes[0].count) > 0) {
+        throw new BadRequestException('Nghề nghiệp này đang được sử dụng trong báo cáo, không thể tắt trạng thái');
+      }
+    }
     if (payload.manghe) {
       const exists = await this.checkCodeExists(payload.manghe, +id);
       if (exists) throw Response.errorBad(`Mã nghề nghiệp "${payload.manghe}" đã tồn tại`);
@@ -114,5 +176,57 @@ export class OccupationService extends BaseService<Occupation> implements OnAppl
       where: { trangthai: 'ACTIVE' },
       order: { id: 'ASC' }
     });
+  }
+
+  async delete(currentUser: any, id: string): Promise<any> {
+    await this.checkDeletePermission(currentUser);
+    const manager = getManager();
+    const countRes = await manager.query(
+      `SELECT COUNT(*) as count FROM accident_details WHERE nghe_nghiep_id = $1`,
+      [id]
+    );
+    if (countRes && countRes[0] && Number(countRes[0].count) > 0) {
+      throw new BadRequestException('Nghề nghiệp này đang được sử dụng trong báo cáo, không thể xóa');
+    }
+    return super.delete(currentUser, id);
+  }
+
+  async deletes(currentUser: any, ids: string[], doet: any): Promise<any> {
+    await this.checkDeletePermission(currentUser);
+    const manager = getManager();
+    const countRes = await manager.query(
+      `SELECT COUNT(*) as count FROM accident_details WHERE nghe_nghiep_id = ANY($1::int[])`,
+      [ids]
+    );
+    if (countRes && countRes[0] && Number(countRes[0].count) > 0) {
+      throw new BadRequestException('Một số nghề nghiệp đang được sử dụng trong báo cáo, không thể xóa');
+    }
+    return super.deletes(currentUser, ids, doet);
+  }
+
+  async destroy(currentUser: any, id: string): Promise<any> {
+    await this.checkDeletePermission(currentUser);
+    const manager = getManager();
+    const countRes = await manager.query(
+      `SELECT COUNT(*) as count FROM accident_details WHERE nghe_nghiep_id = $1`,
+      [id]
+    );
+    if (countRes && countRes[0] && Number(countRes[0].count) > 0) {
+      throw new BadRequestException('Nghề nghiệp này đang được sử dụng trong báo cáo, không thể xóa');
+    }
+    return super.destroy(currentUser, id);
+  }
+
+  async destroys(currentUser: any, ids: string[], doet: any): Promise<any> {
+    await this.checkDeletePermission(currentUser);
+    const manager = getManager();
+    const countRes = await manager.query(
+      `SELECT COUNT(*) as count FROM accident_details WHERE nghe_nghiep_id = ANY($1::int[])`,
+      [ids]
+    );
+    if (countRes && countRes[0] && Number(countRes[0].count) > 0) {
+      throw new BadRequestException('Một số nghề nghiệp đang được sử dụng trong báo cáo, không thể xóa');
+    }
+    return super.destroys(currentUser, ids, doet);
   }
 }

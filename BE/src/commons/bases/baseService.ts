@@ -24,7 +24,16 @@ const ignoreDoet = [
   "categories",
   "roles",
   "infoBeneficiaries",
-  "users"
+  "users",
+  "permissions",
+  "report_periods",
+  "injury_factors",
+  "injury_types",
+  "occupation",
+  "business_line",
+  "loai_hinh_kinh_doanh",
+  "accident_details",
+  "periodic_report_histories"
 ];
 
 @Injectable()

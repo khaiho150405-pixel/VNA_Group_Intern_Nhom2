@@ -56,17 +56,60 @@ export class RoleService extends BaseService<Role> {
     }
   }
 
-  // Check superAdmin action permission
-  private checkAdminPermission(currentUser: any) {
-    if (!currentUser || currentUser.username !== 'testuser') {
-      throw Response.errorForBidden('Chỉ tài khoản testuser mới có quyền quản trị vai trò.');
+  private async hasPermission(roleId: number | undefined, code: string): Promise<boolean> {
+    if (!roleId) return false;
+    const count = await this.manager.query(
+      `SELECT COUNT(*) FROM role_permissions WHERE role_id = $1 AND permission_code = $2`,
+      [roleId, code]
+    );
+    return parseInt(count[0]?.count || '0', 10) > 0;
+  }
+
+  async checkReadPermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') return;
+    const roleId = currentUser.role?.id;
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_ROLE_VIEW');
+    if (!allowed) {
+      throw Response.errorForBidden("Tài khoản của bạn không có quyền xem thông tin vai trò.");
     }
   }
+
+  private async checkCreatePermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') return;
+    const roleId = currentUser.role?.id;
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_ROLE_CREATE');
+    if (!allowed) {
+      throw Response.errorForBidden("Tài khoản của bạn không có quyền thêm mới vai trò.");
+    }
+  }
+
+  private async checkUpdatePermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') return;
+    const roleId = currentUser.role?.id;
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_ROLE_UPDATE');
+    if (!allowed) {
+      throw Response.errorForBidden("Tài khoản của bạn không có quyền cập nhật vai trò.");
+    }
+  }
+
+  private async checkDeletePermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') return;
+    const roleId = currentUser.role?.id;
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_ROLE_DELETE');
+    if (!allowed) {
+      throw Response.errorForBidden("Tài khoản của bạn không có quyền xóa vai trò.");
+    }
+  }
+
 
   // Post / Create Role
   async post(currentUser: any, itemDto: any, doet: any): Promise<any> {
     try {
-      this.checkAdminPermission(currentUser);
+      await this.checkCreatePermission(currentUser);
 
       const existingRole = await this.roleRepository.findOne({
         where: { role: itemDto.role },
@@ -113,7 +156,7 @@ export class RoleService extends BaseService<Role> {
   // Put / Update Role
   async put(currentUser: any, id: string, itemDto: any): Promise<any> {
     try {
-      this.checkAdminPermission(currentUser);
+      await this.checkUpdatePermission(currentUser);
 
       const role = await this.roleRepository.findOne(id);
       if (!role) {
@@ -182,7 +225,7 @@ export class RoleService extends BaseService<Role> {
   // Delete single role
   async delete(currentUser: any, id: string): Promise<any> {
     try {
-      this.checkAdminPermission(currentUser);
+      await this.checkDeletePermission(currentUser);
 
       const role = await this.roleRepository.findOne(id);
       if (!role) {
@@ -221,7 +264,7 @@ export class RoleService extends BaseService<Role> {
   // Delete multiple roles
   async deletes(currentUser: any, ids: string[], doet: any): Promise<any> {
     try {
-      this.checkAdminPermission(currentUser);
+      await this.checkDeletePermission(currentUser);
 
       const roles = await this.roleRepository.findByIds(ids);
       const hasSuperAdmin = roles.some(

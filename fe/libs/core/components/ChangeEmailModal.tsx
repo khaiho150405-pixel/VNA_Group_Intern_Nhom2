@@ -120,10 +120,13 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
   cancelBtn: {
     textTransform: 'none',
-    color: VNA_COLORS.gray,
-    padding: 0,
-    borderRadius: 8,
-    '&:hover': { backgroundColor: '#f5f5f7', color: '#333' }
+    color: '#666',
+    fontSize: '0.875rem',
+    borderRadius: 6,
+    padding: theme.spacing(0.6, 2.25),
+    boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
+    transition: 'all 0.2s ease-in-out',
+    '&:hover': { backgroundColor: '#f5f5f7', color: '#333', boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)' },
   },
   errorBox: {
     display: 'flex',

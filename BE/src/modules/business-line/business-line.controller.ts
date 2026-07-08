@@ -1,6 +1,6 @@
-import { Controller, Get, Query, UseGuards, UseInterceptors, ClassSerializerInterceptor } from "@nestjs/common";
+import { Controller, Get, Query, UseGuards, UseInterceptors, ClassSerializerInterceptor, Request, Param } from "@nestjs/common";
 import { ApiTags, ApiOperation } from "@nestjs/swagger";
-import { BaseController, ResponseInterceptor } from "src/commons";
+import { BaseController, ResponseInterceptor, GetAllDto } from "src/commons";
 import { AuthGuard } from "src/commons/guards/authGuard";
 import { BusinessLine } from "./business-line.entity";
 import { BusinessLineService } from "./business-line.service";
@@ -24,12 +24,13 @@ export class BusinessLineController extends BaseController<BusinessLine, Busines
     @Query("trangthai") trangthai?: string,
     @Query("page") page?: string,
     @Query("limit") limit?: string,
+    @Request() req?: any,
   ) {
     return await this.businessLineService.findAll({
       manganh, tennganh, cap, trangthai,
       page: page ? +page : 1,
       limit: limit ? +limit : 10,
-    });
+    }, req?.user);
   }
 
   @Get("dropdown/active")
@@ -38,6 +39,26 @@ export class BusinessLineController extends BaseController<BusinessLine, Busines
   async getActiveLevel4Dropdown() {
     const data = await this.businessLineService.getActiveLevel4ForDropdown();
     return Response.get(data);
+  }
+
+  @Get()
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
+  @ApiOperation({ summary: 'Lấy danh sách ngành nghề kinh doanh' })
+  async get(@Query() getAllDto: GetAllDto, @Request() req) {
+    await this.businessLineService.checkReadPermission(req.user);
+    return await super.get(getAllDto, req);
+  }
+
+  @Get(':id')
+  @UseInterceptors(ResponseInterceptor, ClassSerializerInterceptor)
+  @ApiOperation({ summary: 'Lấy chi tiết ngành nghề kinh doanh' })
+  async getDetail(
+    @Query() getAllDto: GetAllDto,
+    @Param('id') id: string,
+    @Request() req
+  ) {
+    await this.businessLineService.checkReadPermission(req.user);
+    return await super.getDetail(getAllDto, id, req);
   }
 }
 

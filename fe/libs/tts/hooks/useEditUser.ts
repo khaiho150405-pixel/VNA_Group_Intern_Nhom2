@@ -73,7 +73,9 @@ export const useEditUser = () => {
                     r.role !== 'enterprise' && 
                     r.type !== 'DN' && 
                     r.id !== 5 && 
-                    r.name !== 'Doanh nghiệp'
+                    r.name !== 'Doanh nghiệp' &&
+                    r.role !== 'superAdmin' &&
+                    r.id !== 4
                 );
 
                 const userData = userRes.data || userRes;

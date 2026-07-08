@@ -825,6 +825,14 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
             onChange={(_, v) => setField('loaiHinhId', v?.id || undefined)}
             getOptionLabel={(opt) => opt?.tenloaihinh || ''}
             isOptionEqualToValue={(o, v) => o.id === v.id}
+            renderOption={(props, option) => {
+              const { key, ...optionProps } = props;
+              return (
+                <li key={option.id} {...optionProps}>
+                  {option.tenloaihinh}
+                </li>
+              );
+            }}
             disabled={isView}
             size="small"
             fullWidth
@@ -843,6 +851,14 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
             onChange={(_, v) => setField('businessLineId', v?.id || undefined)}
             getOptionLabel={(opt) => opt ? `${opt.manganh} - ${opt.tennganh}` : ''}
             isOptionEqualToValue={(o, v) => o.id === v.id}
+            renderOption={(props, option) => {
+              const { key, ...optionProps } = props;
+              return (
+                <li key={option.id} {...optionProps}>
+                  {option.manganh} - {option.tennganh}
+                </li>
+              );
+            }}
             disabled={isView}
             size="small"
             fullWidth
@@ -907,6 +923,14 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
             onChange={(_, v) => handleProvinceChange(v)}
             getOptionLabel={(opt) => opt?.full_name || opt?.name || ''}
             isOptionEqualToValue={(o, v) => o.id === v.id}
+            renderOption={(props, option) => {
+              const { key, ...optionProps } = props;
+              return (
+                <li key={option.id} {...optionProps}>
+                  {option.full_name || option.name}
+                </li>
+              );
+            }}
             disabled={isView}
             size="small"
             fullWidth
@@ -925,6 +949,14 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
             onChange={(_, v) => handleWardChange('reg', v)}
             getOptionLabel={(opt) => opt?.full_name || opt?.name || ''}
             isOptionEqualToValue={(o, v) => o.id === v.id}
+            renderOption={(props, option) => {
+              const { key, ...optionProps } = props;
+              return (
+                <li key={option.id} {...optionProps}>
+                  {option.full_name || option.name}
+                </li>
+              );
+            }}
             disabled={wardDisabled}
             size="small"
             fullWidth
@@ -972,6 +1004,7 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
                 variant="text"
                 onClick={() => setShowEmailModal(true)}
                 sx={{ textTransform: 'none', whiteSpace: 'nowrap', minWidth: 'auto' }}
+                style= {{ fontWeight: 600 }}
               >
                 Thay đổi
               </Button>
@@ -1005,6 +1038,14 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
             onChange={(_, v) => handleOpProvinceChange(v)}
             getOptionLabel={(opt) => opt?.full_name || opt?.name || ''}
             isOptionEqualToValue={(o, v) => o.id === v.id}
+            renderOption={(props, option) => {
+              const { key, ...optionProps } = props;
+              return (
+                <li key={option.id} {...optionProps}>
+                  {option.full_name || option.name}
+                </li>
+              );
+            }}
             disabled={isView}
             size="small"
             fullWidth
@@ -1016,6 +1057,14 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
             onChange={(_, v) => handleWardChange('op', v)}
             getOptionLabel={(opt) => opt?.full_name || opt?.name || ''}
             isOptionEqualToValue={(o, v) => o.id === v.id}
+            renderOption={(props, option) => {
+              const { key, ...optionProps } = props;
+              return (
+                <li key={option.id} {...optionProps}>
+                  {option.full_name || option.name}
+                </li>
+              );
+            }}
             disabled={opWardDisabled}
             size="small"
             fullWidth
@@ -1135,15 +1184,15 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center',
-          mb: 3,
-          px: 2,
-          py: 1.5,
+          mb: 0,
+          padding: '16px 24px',
           backgroundColor: '#fff',
-          borderRadius: 1,
+          borderBottom: '1px solid #eef0f4',
           boxShadow: '0px 2px 12px rgba(0, 0, 0, 0.04)',
           position: 'sticky',
           top: 0,
-          zIndex: 10
+          zIndex: 10,
+          minHeight: '64px',
         }}>
           <Typography sx={{ 
             fontSize: '1.25rem', 
@@ -1239,7 +1288,15 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
           </Box>
         </Box>
       </>)}
-        <Box className={classes.stepperWrapper}>
+        <Box 
+          className={classes.stepperWrapper}
+          sx={{
+            position: isProfile ? 'sticky' : 'static',
+            top: isProfile ? '64px' : 'auto',
+            zIndex: isProfile ? 9 : 'auto',
+            boxShadow: isProfile ? '0px 2px 12px rgba(0, 0, 0, 0.04)' : 'none',
+          }}
+        >
           <Stepper
             activeStep={activeStep}
             className={classes.stepper}

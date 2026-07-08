@@ -25,20 +25,20 @@ export class PeriodicReportController {
 
   @Get(":id")
   @ApiOperation({ summary: "Lấy chi tiết báo cáo" })
-  async getDetail(@Param("id") id: string) {
-    return await this.reportService.findDetail(+id);
+  async getDetail(@Param("id") id: string, @Request() req: any) {
+    return await this.reportService.findDetail(+id, req.user);
   }
 
   @Get(":id/history")
   @ApiOperation({ summary: "Lấy lịch sử duyệt/từ chối của báo cáo" })
-  async getHistory(@Param("id") id: string) {
-    return await this.reportService.getHistory(+id);
+  async getHistory(@Param("id") id: string, @Request() req: any) {
+    return await this.reportService.getHistory(+id, req.user);
   }
 
   @Get("history/year/:year")
   @ApiOperation({ summary: "Lấy lịch sử duyệt/từ chối của tất cả báo cáo trong năm" })
-  async getYearHistory(@Param("year") year: string) {
-    return await this.reportService.getYearHistory(+year);
+  async getYearHistory(@Param("year") year: string, @Request() req: any) {
+    return await this.reportService.getYearHistory(+year, req.user);
   }
 
   @Post()
@@ -61,7 +61,7 @@ export class PeriodicReportController {
 
   @Delete(":id")
   @ApiOperation({ summary: "Xóa báo cáo" })
-  async delete(@Param("id") id: string) {
-    return await this.reportService.delete(null, id);
+  async delete(@Param("id") id: string, @Request() req: any) {
+    return await this.reportService.delete(req.user, id);
   }
 }

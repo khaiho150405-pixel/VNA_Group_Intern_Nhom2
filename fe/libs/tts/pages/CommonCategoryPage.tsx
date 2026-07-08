@@ -8,10 +8,12 @@ import { useStyles } from "@tts/logic/common-category/style";
 import { InjuryFactorView } from "../components/common-category/InjuryFactorView";
 import { InjuryTypeView } from "../components/common-category/InjuryTypeView";
 import { OccupationView } from "../components/common-category/OccupationView";
+import { usePermission } from "@core/hooks/usePermission";
 
 export const CommonCategoryPage = () => {
   const classes = useStyles();
   const { enqueueSnackbar } = useSnackbar();
+  const { hasPermission } = usePermission();
   const [category, setCategory] = useState("INJURY_FACTOR");
   const viewRef = useRef<any>(null);
 
@@ -39,12 +41,16 @@ export const CommonCategoryPage = () => {
           <Button className={classes.importBtn} variant="outlined" startIcon={<DownloadIcon />} onClick={handleExport}>
             Xuất danh sách
           </Button>
-          <Button className={classes.importBtn} variant="outlined" startIcon={<UploadIcon />} onClick={handleImport}>
-            Thêm từ file
-          </Button>
-          <Button className={classes.addBtn} variant="contained" startIcon={<AddIcon />} onClick={handleAdd}>
-            Thêm mới
-          </Button>
+          {hasPermission('ADMIN_C_CATEGORY_CREATE') && (
+            <>
+              <Button className={classes.importBtn} variant="outlined" startIcon={<UploadIcon />} onClick={handleImport}>
+                Thêm từ file
+              </Button>
+              <Button className={classes.addBtn} variant="contained" startIcon={<AddIcon />} onClick={handleAdd}>
+                Thêm mới
+              </Button>
+            </>
+          )}
         </Box>
       </Box>
 

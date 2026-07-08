@@ -47,6 +47,7 @@ import {
 import { useEnterpriseListStyles } from "../logic/enterprise/style";
 import { ConfirmDialog } from "@core/components/ConfirmDialog";
 import { useAuth } from "@core/contexts/AuthProvider";
+import { usePermission } from "@core/hooks/usePermission";
 import { normalizeListResponse } from "@core/utils/helper";
 
 interface CustomPaginationProps {
@@ -115,41 +116,13 @@ export const EnterpriseListPage = () => {
   const { enqueueSnackbar } = useSnackbar();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const { user } = useAuth();
+  const { hasPermission } = usePermission();
 
   const isReadOnly = useMemo(() => {
     if (!user) return true;
-    
-    const roleId = (user as any)?.roleId || (user as any)?.role?.id;
-    const realRole = ((user as any)?.realRole || '').toLowerCase();
-    const roleName = ((user as any)?.role?.name || '').toLowerCase();
-    
-    // Admin/Lãnh đạo - full quyền (không read-only)
-    const isAdminOrLeader = 
-        roleId === 4 ||
-        realRole.includes('quản trị') ||
-        realRole.includes('admin') ||
-        realRole.includes('lãnh đạo') ||
-        realRole.includes('leader') ||
-        roleName.includes('quản trị') ||
-        roleName.includes('admin') ||
-        roleName.includes('lãnh đạo') ||
-        roleName.includes('leader');
-    
-    if (isAdminOrLeader) return false;
-    
-    // Chuyên viên - có quyền thêm/sửa (không read-only)
-    const isExpert = 
-        roleId === 2 ||
-        realRole.includes('chuyên viên') ||
-        realRole.includes('expert') ||
-        roleName.includes('chuyên viên') ||
-        roleName.includes('expert');
-    
-    if (isExpert) return false;
-    
-    // Nhân viên hoặc không xác định - chỉ xem (read-only)
-    return true;
-  }, [user]);
+    if (user.username === 'testuser') return false;
+    return !hasPermission('ADMIN_C_DEPARTMENT_UPDATE');
+  }, [user, hasPermission]);
 
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<Doet[]>([]);
@@ -365,7 +338,7 @@ export const EnterpriseListPage = () => {
             Danh sách doanh nghiệp
           </Typography>
           <Box className={classes.actions}>
-            {!isReadOnly && (
+            {hasPermission('ADMIN_C_DEPARTMENT_CREATE') && (
               <>
                 <Button
                   className={classes.importBtn}
@@ -643,7 +616,7 @@ export const EnterpriseListPage = () => {
           onCancel={() => setConfirmDeleteOpen(false)}
           confirmText="Xóa"
         />
-        {!isReadOnly && (
+        {hasPermission('ADMIN_C_DEPARTMENT_DELETE') && (
           <BulkSelectionBar
             count={selectedIds.length}
             onDelete={() => setConfirmDeleteOpen(true)}

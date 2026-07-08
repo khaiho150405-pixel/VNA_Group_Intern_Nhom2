@@ -365,7 +365,7 @@ export class DoetService extends BaseService<Doet> {
   async getMyCompany(currentUser: any) {
     const doetId = currentUser?.doet || currentUser?.doet_id;
     if (!currentUser || !doetId) {
-      throw Response.errorForBidden("Tài khoản không thuộc doanh nghiệp nào");
+      return Response.get(null);
     }
     const doet = await this.doetRepository.findOne({ where: { id: doetId } });
     if (!doet) {

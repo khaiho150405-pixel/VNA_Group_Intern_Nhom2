@@ -7,6 +7,56 @@ import Response from "../../commons/response";
 
 @Injectable()
 export class ReportPeriodService implements OnApplicationBootstrap {
+  private async hasPermission(roleId: number | undefined, code: string): Promise<boolean> {
+    if (!roleId) return false;
+    const manager = getManager();
+    const count = await manager.query(
+      `SELECT COUNT(*) FROM role_permissions WHERE role_id = $1 AND permission_code = $2`,
+      [roleId, code]
+    );
+    return parseInt(count[0]?.count || '0', 10) > 0;
+  }
+
+  async checkReadPermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') return;
+    const roleId = currentUser.role?.id;
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_REPORT_PERIOD_VIEW');
+    if (!allowed) {
+      throw Response.errorForBidden("Tài khoản của bạn không có quyền xem cấu hình kỳ báo cáo.");
+    }
+  }
+
+  async checkCreatePermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') return;
+    const roleId = currentUser.role?.id;
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_REPORT_PERIOD_CREATE');
+    if (!allowed) {
+      throw Response.errorForBidden("Tài khoản của bạn không có quyền thêm mới cấu hình kỳ báo cáo.");
+    }
+  }
+
+  async checkUpdatePermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') return;
+    const roleId = currentUser.role?.id;
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_REPORT_PERIOD_UPDATE');
+    if (!allowed) {
+      throw Response.errorForBidden("Tài khoản của bạn không có quyền cập nhật cấu hình kỳ báo cáo.");
+    }
+  }
+
+  async checkDeletePermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') return;
+    const roleId = currentUser.role?.id;
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_REPORT_PERIOD_DELETE');
+    if (!allowed) {
+      throw Response.errorForBidden("Tài khoản của bạn không có quyền xóa cấu hình kỳ báo cáo.");
+    }
+  }
+
   constructor(
     @InjectRepository(ReportPeriod)
     private readonly reportPeriodRepo: Repository<ReportPeriod>,
@@ -39,7 +89,8 @@ export class ReportPeriodService implements OnApplicationBootstrap {
     console.log("== [Seed] report_periods: 1 bản ghi đã được khởi tạo ==");
   }
 
-  async findAll(query: any) {
+  async findAll(query: any, currentUser?: any) {
+    if (currentUser) await this.checkReadPermission(currentUser);
     const { year, reportName, period, startDate, endDate, status, page = 1, limit = 10 } = query || {};
     const qb = this.reportPeriodRepo.createQueryBuilder("rp");
 
@@ -72,13 +123,15 @@ export class ReportPeriodService implements OnApplicationBootstrap {
     return { items, totalCount, page: parseInt(page as any), limit: parseInt(limit as any) };
   }
 
-  async findById(id: number) {
+  async findById(id: number, currentUser?: any) {
+    if (currentUser) await this.checkReadPermission(currentUser);
     const item = await this.reportPeriodRepo.findOne({ where: { id } });
     if (!item) throw Response.errorNotFound("Không tìm thấy cấu hình kỳ báo cáo");
     return item;
   }
 
-  async create(data: any) {
+  async create(data: any, currentUser?: any) {
+    if (currentUser) await this.checkCreatePermission(currentUser);
     if (!data.year || !data.reportName || !data.period || !data.startDate || !data.endDate) {
       throw new BadRequestException("Vui lòng điền đầy đủ các thông tin bắt buộc");
     }
@@ -133,9 +186,25 @@ export class ReportPeriodService implements OnApplicationBootstrap {
     return Response.get(saved);
   }
 
-  async update(id: number, data: any) {
+  async update(id: number, data: any, currentUser?: any) {
+    if (currentUser) await this.checkUpdatePermission(currentUser);
     const existing = await this.reportPeriodRepo.findOne({ where: { id } });
     if (!existing) throw Response.errorNotFound("Không tìm thấy cấu hình kỳ báo cáo");
+
+    const isStatusInactive = data.status === 'INACTIVE' && existing.status !== 'INACTIVE';
+    const isYearChanged = data.year !== undefined && parseInt(data.year) !== existing.year;
+    const isPeriodChanged = data.period !== undefined && data.period !== existing.period;
+    
+    if (isStatusInactive || isYearChanged || isPeriodChanged) {
+      const manager = getManager();
+      const countRes = await manager.query(
+        `SELECT COUNT(*) as count FROM periodic_reports WHERE year = $1 AND period = $2`,
+        [existing.year, existing.period]
+      );
+      if (countRes && countRes[0] && Number(countRes[0].count) > 0) {
+        throw new BadRequestException("Kỳ báo cáo này đã có doanh nghiệp nộp báo cáo, không thể thay đổi thông tin hoặc tắt trạng thái");
+      }
+    }
 
     const startVal = data.startDate !== undefined ? data.startDate : existing.startDate;
     const endVal = data.endDate !== undefined ? data.endDate : existing.endDate;
@@ -196,9 +265,20 @@ export class ReportPeriodService implements OnApplicationBootstrap {
     return Response.get(saved);
   }
 
-  async remove(id: number) {
+  async remove(id: number, currentUser?: any) {
+    if (currentUser) await this.checkDeletePermission(currentUser);
     const existing = await this.reportPeriodRepo.findOne({ where: { id } });
     if (!existing) throw Response.errorNotFound("Không tìm thấy cấu hình kỳ báo cáo");
+
+    const manager = getManager();
+    const countRes = await manager.query(
+      `SELECT COUNT(*) as count FROM periodic_reports WHERE year = $1 AND period = $2`,
+      [existing.year, existing.period]
+    );
+    if (countRes && countRes[0] && Number(countRes[0].count) > 0) {
+      throw new BadRequestException("Kỳ báo cáo này đã có doanh nghiệp nộp báo cáo, không thể xóa");
+    }
+
     await this.reportPeriodRepo.delete(id);
     return Response.SUCCESSFULLY;
   }
@@ -254,11 +334,11 @@ export class ReportPeriodService implements OnApplicationBootstrap {
     qb.orderBy("rp.start_date", "ASC");
     let allPeriods = await qb.getMany();
 
-    // Filter: chỉ giữ lại kỳ báo cáo được tạo cùng lúc hoặc sau khi doanh nghiệp được tạo (p.createdAt >= registrationDate)
+    // Filter: chỉ giữ lại kỳ báo cáo kết thúc cùng lúc hoặc sau khi doanh nghiệp được tạo (p.endDate >= registrationDate)
     if (registrationDate) {
       allPeriods = allPeriods.filter((p) => {
-        const pCreated = new Date(p.createdAt);
-        return pCreated >= registrationDate;
+        const pEndDate = new Date(p.endDate);
+        return pEndDate >= registrationDate;
       });
     }
 

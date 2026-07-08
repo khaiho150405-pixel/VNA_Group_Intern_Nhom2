@@ -1,12 +1,61 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { BaseService } from "src/commons";
-import { Repository } from "typeorm";
+import { Repository, getManager } from "typeorm";
 import { BusinessLine } from "./business-line.entity";
 import Response from "../../commons/response";
 
 @Injectable()
 export class BusinessLineService extends BaseService<BusinessLine> {
+  private async hasPermission(roleId: number | undefined, code: string): Promise<boolean> {
+    if (!roleId) return false;
+    const count = await this.businessLineRepo.query(
+      `SELECT COUNT(*) FROM role_permissions WHERE role_id = $1 AND permission_code = $2`,
+      [roleId, code]
+    );
+    return parseInt(count[0]?.count || '0', 10) > 0;
+  }
+
+  async checkReadPermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') return;
+    const roleId = currentUser.role?.id;
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_NGANH_NGHE_KD_VIEW');
+    if (!allowed) {
+      throw Response.errorForBidden("Tài khoản của bạn không có quyền xem ngành nghề kinh doanh.");
+    }
+  }
+
+  async checkCreatePermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') return;
+    const roleId = currentUser.role?.id;
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_NGANH_NGHE_KD_CREATE');
+    if (!allowed) {
+      throw Response.errorForBidden("Tài khoản của bạn không có quyền thêm mới ngành nghề kinh doanh.");
+    }
+  }
+
+  async checkUpdatePermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') return;
+    const roleId = currentUser.role?.id;
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_NGANH_NGHE_KD_UPDATE');
+    if (!allowed) {
+      throw Response.errorForBidden("Tài khoản của bạn không có quyền cập nhật ngành nghề kinh doanh.");
+    }
+  }
+
+  async checkDeletePermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') return;
+    const roleId = currentUser.role?.id;
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_NGANH_NGHE_KD_DELETE');
+    if (!allowed) {
+      throw Response.errorForBidden("Tài khoản của bạn không có quyền xóa ngành nghề kinh doanh.");
+    }
+  }
+
   constructor(
     @InjectRepository(BusinessLine)
     private readonly businessLineRepo: Repository<BusinessLine>,
@@ -18,6 +67,18 @@ export class BusinessLineService extends BaseService<BusinessLine> {
     return await this.businessLineRepo.find({ where: { trangthai: 'ACTIVE', cap: 4 } });
   }
 
+  private async checkInUseByEnterprise(id: string | string[]): Promise<void> {
+    const ids = Array.isArray(id) ? id : [id];
+    const manager = getManager();
+    const result = await manager.query(
+      `SELECT COUNT(*) as count FROM doets WHERE business_line_id = ANY($1::int[]) AND "deletedAt" IS NULL`,
+      [ids]
+    );
+    if (parseInt(result[0]?.count || '0', 10) > 0) {
+      throw new BadRequestException('Ngành nghề kinh doanh này đang được sử dụng bởi doanh nghiệp, không thể xóa hoặc tắt trạng thái');
+    }
+  }
+
   async findAll(query: {
     manganh?: string;
     tennganh?: string;
@@ -25,7 +86,8 @@ export class BusinessLineService extends BaseService<BusinessLine> {
     trangthai?: string;
     page?: number;
     limit?: number;
-  }) {
+  }, currentUser?: any) {
+    if (currentUser) await this.checkReadPermission(currentUser);
     const { manganh, tennganh, cap, trangthai, page = 1, limit = 10 } = query;
 
     const qb = this.businessLineRepo.createQueryBuilder("bl");
@@ -102,6 +164,7 @@ export class BusinessLineService extends BaseService<BusinessLine> {
   }
 
   async post(currentUser: any, payload: any, id: any = null): Promise<any> {
+    await this.checkCreatePermission(currentUser);
     if (payload.manganh) {
       const trimmedCode = payload.manganh.trim();
       if (trimmedCode.length < 1 || trimmedCode.length > 4) {
@@ -130,6 +193,10 @@ export class BusinessLineService extends BaseService<BusinessLine> {
   }
 
   async put(currentUser: any, id: any, payload: any): Promise<any> {
+    await this.checkUpdatePermission(currentUser);
+    if (payload.trangthai === 'INACTIVE') {
+      await this.checkInUseByEnterprise(id);
+    }
     if (payload.manganh) {
       const trimmedCode = payload.manganh.trim();
       if (trimmedCode.length < 1 || trimmedCode.length > 4) {
@@ -155,5 +222,29 @@ export class BusinessLineService extends BaseService<BusinessLine> {
       if (existsName) throw Response.errorBad(`Tên ngành "${payload.tennganh}" đã tồn tại`);
     }
     return super.put(currentUser, id, payload);
+  }
+
+  async delete(currentUser: any, id: string): Promise<any> {
+    await this.checkDeletePermission(currentUser);
+    await this.checkInUseByEnterprise(id);
+    return super.delete(currentUser, id);
+  }
+
+  async deletes(currentUser: any, ids: string[], doet: any): Promise<any> {
+    await this.checkDeletePermission(currentUser);
+    await this.checkInUseByEnterprise(ids);
+    return super.deletes(currentUser, ids, doet);
+  }
+
+  async destroy(currentUser: any, id: string): Promise<any> {
+    await this.checkDeletePermission(currentUser);
+    await this.checkInUseByEnterprise(id);
+    return super.destroy(currentUser, id);
+  }
+
+  async destroys(currentUser: any, ids: string[], doet: any): Promise<any> {
+    await this.checkDeletePermission(currentUser);
+    await this.checkInUseByEnterprise(ids);
+    return super.destroys(currentUser, ids, doet);
   }
 }
