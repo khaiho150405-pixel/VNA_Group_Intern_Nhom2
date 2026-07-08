@@ -381,21 +381,9 @@ export const ReportPeriodPage = () => {
     if (isNaN(dateObj.getTime())) return;
     const forcedStartStr = formatDateInput(dateObj);
 
-    let forcedEndStr = form.endDate;
-    if (form.period === '6_THANG') {
-      const endObj = new Date(dateObj);
-      endObj.setMonth(endObj.getMonth() + 6);
-      forcedEndStr = formatDateInput(endObj);
-    } else if (form.period === 'CA_NAM') {
-      const endObj = new Date(dateObj);
-      endObj.setFullYear(endObj.getFullYear() + 1);
-      forcedEndStr = formatDateInput(endObj);
-    }
-
     setForm(prev => ({
       ...prev,
-      startDate: forcedStartStr,
-      endDate: forcedEndStr
+      startDate: forcedStartStr
     }));
   };
 
@@ -408,20 +396,8 @@ export const ReportPeriodPage = () => {
     if (isNaN(dateObj.getTime())) return;
     const forcedEndStr = formatDateInput(dateObj);
 
-    let forcedStartStr = form.startDate;
-    if (form.period === '6_THANG') {
-      const startObj = new Date(dateObj);
-      startObj.setMonth(startObj.getMonth() - 6);
-      forcedStartStr = formatDateInput(startObj);
-    } else if (form.period === 'CA_NAM') {
-      const startObj = new Date(dateObj);
-      startObj.setFullYear(startObj.getFullYear() - 1);
-      forcedStartStr = formatDateInput(startObj);
-    }
-
     setForm(prev => ({
       ...prev,
-      startDate: forcedStartStr,
       endDate: forcedEndStr
     }));
   };

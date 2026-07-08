@@ -6,7 +6,7 @@ import {
     TableContainer, TableHead, TableRow, Checkbox,
     IconButton, TextField, Select, MenuItem, CircularProgress,
     TablePagination, Autocomplete, InputAdornment, Divider, Grid,
-    Dialog, DialogTitle, DialogContent, DialogActions, Pagination, Tooltip, Paper
+    Dialog, DialogTitle, DialogContent, DialogActions, Pagination, Tooltip, Paper, FormControl, InputLabel
 } from '@mui/material';
 import {
     Visibility as VisibilityIcon,
@@ -131,7 +131,38 @@ export const AccidentReportPage = () => {
     const [rejectReason, setRejectReason] = useState('');
     const [rejectReasons, setRejectReasons] = useState<Record<string, string>>({});
     const [commonReason, setCommonReason] = useState<string>('');
-    const [actionType, setActionType] = useState<'DA_TIEP_NHAN' | 'HUY_TIEP_NHAN' | null>(null);
+    const [actionType, setActionType] = useState<'DA_TIEP_NHAN' | 'HUY_TIEP_NHAN' | 'CHO_XET_DUYET' | null>(null);
+
+    const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
+    const [summaryFilter, setSummaryFilter] = useState<{ year: number, period: string, province: any, ward: any }>({
+        year: new Date().getFullYear(),
+        period: 'CA_NAM',
+        province: null,
+        ward: null
+    });
+    const [summaryWards, setSummaryWards] = useState<any[]>([]);
+
+    useEffect(() => {
+        if (!isSo) return;
+        if (summaryFilter.province?.code) {
+            const fetchWards = async () => {
+                try {
+                    const res: any = await DoetService.getDistricts(summaryFilter.province.code);
+                    const items = res?.data || res || [];
+                    if (Array.isArray(items)) {
+                        const mapped = items.map((d: any) => ({ code: String(d.id), name: d.full_name || d.name }));
+                        const sorted = mapped.sort((a: any, b: any) => a.name.localeCompare(b.name, 'vi'));
+                        setSummaryWards(sorted);
+                    }
+                } catch (error) {
+                    console.error("Lỗi lấy data phường xã", error);
+                }
+            };
+            fetchWards();
+        } else {
+            setSummaryWards([]);
+        }
+    }, [summaryFilter.province, isSo]);
 
     const handleOpenHistory = async () => {
         const year = headerFilters.year || new Date().getFullYear();
@@ -164,7 +195,7 @@ export const AccidentReportPage = () => {
         }
     };
 
-    const handleConfirmAction = (type: 'DA_TIEP_NHAN' | 'HUY_TIEP_NHAN') => {
+    const handleConfirmAction = (type: 'DA_TIEP_NHAN' | 'HUY_TIEP_NHAN' | 'CHO_XET_DUYET') => {
         setActionType(type);
         if (type === 'HUY_TIEP_NHAN') {
             setRejectReason('');
@@ -242,7 +273,9 @@ export const AccidentReportPage = () => {
             enqueueSnackbar(
                 actionType === 'DA_TIEP_NHAN'
                     ? "Duyệt báo cáo thành công"
-                    : "Hủy duyệt báo cáo thành công",
+                    : actionType === 'CHO_XET_DUYET'
+                        ? "Hủy duyệt báo cáo thành công"
+                        : "Từ chối báo cáo thành công",
                 { variant: 'success' }
             );
             setSelectedIds([]);
@@ -468,8 +501,8 @@ export const AccidentReportPage = () => {
     }
 
     const selectedItems = data.filter((item: any) => selectedIds.includes(item.id));
-    const hasDaTiepNhan = selectedItems.some((item: any) => item.status === 'DA_TIEP_NHAN');
-    const hasHuyTiepNhan = selectedItems.some((item: any) => item.status === 'HUY_TIEP_NHAN');
+    const allChoTiepNhan = selectedItems.length > 0 && selectedItems.every((item: any) => item.status === 'CHO_XET_DUYET');
+    const allDaTiepNhan = selectedItems.length > 0 && selectedItems.every((item: any) => item.status === 'DA_TIEP_NHAN');
 
     return (
         <Box className={classes.root}>
@@ -496,11 +529,13 @@ export const AccidentReportPage = () => {
                             variant="outlined"
                             className={classes.importBtn}
                             onClick={() => {
-                                const params = new URLSearchParams();
-                                if (headerFilters.year) params.append('year', headerFilters.year.toString());
-                                if (headerFilters.province?.id) params.append('provinceId', headerFilters.province.id.toString());
-                                if (headerFilters.ward?.id) params.append('wardId', headerFilters.ward.id.toString());
-                                router.push(`/accident-reports/summary?${params.toString()}`);
+                                setSummaryFilter({
+                                    year: headerFilters.year || new Date().getFullYear(),
+                                    period: 'CA_NAM',
+                                    province: headerFilters.province || null,
+                                    ward: headerFilters.ward || null
+                                });
+                                setSummaryDialogOpen(true);
                             }}
                         >
                             Báo cáo tổng hợp
@@ -768,42 +803,61 @@ export const AccidentReportPage = () => {
                         <Typography sx={{ fontSize: '0.9rem', color: '#333', whiteSpace: 'nowrap' }}>
                             báo cáo được chọn
                         </Typography>
-                        {!hasHuyTiepNhan && (
+                        {allChoTiepNhan && (
+                            <>
+                                <Button
+                                    variant="contained"
+                                    size="small"
+                                    onClick={() => handleConfirmAction('HUY_TIEP_NHAN')}
+                                    sx={{
+                                        textTransform: 'none',
+                                        borderRadius: '6px',
+                                        bgcolor: '#ff453a',
+                                        '&:hover': { bgcolor: '#e63930', boxShadow: '0px 8px 20px rgba(255, 69, 58, 0.35)' },
+                                        fontWeight: 600,
+                                        px: 2,
+                                        boxShadow: '0px 4px 12px rgba(255, 69, 58, 0.2)',
+                                        transition: 'all 0.2s ease-in-out',
+                                    }}
+                                >
+                                    Từ chối
+                                </Button>
+                                <Button
+                                    variant="contained"
+                                    size="small"
+                                    onClick={() => handleConfirmAction('DA_TIEP_NHAN')}
+                                    sx={{
+                                        textTransform: 'none',
+                                        borderRadius: '6px',
+                                        bgcolor: '#2e7d32',
+                                        '&:hover': { bgcolor: '#1b5e20', boxShadow: '0px 8px 20px rgba(46, 125, 50, 0.35)' },
+                                        fontWeight: 600,
+                                        px: 2,
+                                        boxShadow: '0px 4px 12px rgba(46, 125, 50, 0.2)',
+                                        transition: 'all 0.2s ease-in-out',
+                                    }}
+                                >
+                                    Duyệt
+                                </Button>
+                            </>
+                        )}
+                        {allDaTiepNhan && (
                             <Button
                                 variant="contained"
                                 size="small"
-                                onClick={() => handleConfirmAction('HUY_TIEP_NHAN')}
+                                onClick={() => handleConfirmAction('CHO_XET_DUYET')}
                                 sx={{
                                     textTransform: 'none',
                                     borderRadius: '6px',
-                                    bgcolor: '#ff453a',
-                                    '&:hover': { bgcolor: '#e63930', boxShadow: '0px 8px 20px rgba(255, 69, 58, 0.35)' },
+                                    bgcolor: '#f59e0b',
+                                    '&:hover': { bgcolor: '#d97706', boxShadow: '0px 8px 20px rgba(245, 158, 11, 0.35)' },
                                     fontWeight: 600,
                                     px: 2,
-                                    boxShadow: '0px 4px 12px rgba(255, 69, 58, 0.2)',
+                                    boxShadow: '0px 4px 12px rgba(245, 158, 11, 0.2)',
                                     transition: 'all 0.2s ease-in-out',
                                 }}
                             >
                                 Hủy duyệt
-                            </Button>
-                        )}
-                        {!hasDaTiepNhan && (
-                            <Button
-                                variant="contained"
-                                size="small"
-                                onClick={() => handleConfirmAction('DA_TIEP_NHAN')}
-                                sx={{
-                                    textTransform: 'none',
-                                    borderRadius: '6px',
-                                    bgcolor: '#2e7d32',
-                                    '&:hover': { bgcolor: '#1b5e20', boxShadow: '0px 8px 20px rgba(46, 125, 50, 0.35)' },
-                                    fontWeight: 600,
-                                    px: 2,
-                                    boxShadow: '0px 4px 12px rgba(46, 125, 50, 0.2)',
-                                    transition: 'all 0.2s ease-in-out',
-                                }}
-                            >
-                                Duyệt
                             </Button>
                         )}
                         <IconButton size="small" onClick={() => setSelectedIds([])} sx={{ color: '#999' }}>
@@ -814,11 +868,13 @@ export const AccidentReportPage = () => {
 
                 <ConfirmDialog
                     open={confirmOpen}
-                    title="Xác nhận duyệt"
-                    message={`Bạn có chắc chắn muốn duyệt và tiếp nhận ${selectedIds.length} báo cáo đã chọn? Sau khi tiếp nhận, doanh nghiệp sẽ không thể chỉnh sửa báo cáo.`}
+                    title={actionType === 'DA_TIEP_NHAN' ? "Xác nhận duyệt" : "Xác nhận hủy duyệt"}
+                    message={actionType === 'DA_TIEP_NHAN' 
+                        ? `Bạn có chắc chắn muốn duyệt và tiếp nhận ${selectedIds.length} báo cáo đã chọn? Sau khi tiếp nhận, doanh nghiệp sẽ không thể chỉnh sửa báo cáo.`
+                        : `Bạn có chắc chắn muốn hủy duyệt ${selectedIds.length} báo cáo đã chọn? Trạng thái sẽ trở về "Chờ tiếp nhận".`}
                     onConfirm={handleExecuteAction}
                     onCancel={() => setConfirmOpen(false)}
-                    confirmText="Duyệt"
+                    confirmText={actionType === 'DA_TIEP_NHAN' ? "Duyệt" : "Hủy duyệt"}
                     isDestructive={false}
                 />
 
@@ -1059,6 +1115,84 @@ export const AccidentReportPage = () => {
                             }}
                         >
                             Đóng
+                        </Button>
+                    </DialogActions>
+                </Dialog>
+
+                <Dialog open={summaryDialogOpen} onClose={() => setSummaryDialogOpen(false)} maxWidth="sm" fullWidth>
+                    <DialogTitle sx={{ fontWeight: 'bold' }}>Tổng hợp báo cáo</DialogTitle>
+                    <DialogContent dividers>
+                        <Grid container spacing={3}>
+                            <Grid size={{ xs: 12, sm: 6 }}>
+                                <FormControl fullWidth size="small">
+                                    <InputLabel>Năm báo cáo</InputLabel>
+                                    <Select
+                                        value={summaryFilter.year}
+                                        label="Năm báo cáo"
+                                        onChange={(e) => setSummaryFilter(p => ({ ...p, year: Number(e.target.value) }))}
+                                    >
+                                        {years.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
+                                    </Select>
+                                </FormControl>
+                            </Grid>
+                            <Grid size={{ xs: 12, sm: 6 }}>
+                                <FormControl fullWidth size="small">
+                                    <InputLabel>Kỳ báo cáo</InputLabel>
+                                    <Select
+                                        value={summaryFilter.period}
+                                        label="Kỳ báo cáo"
+                                        onChange={(e) => setSummaryFilter(p => ({ ...p, period: e.target.value as string }))}
+                                    >
+                                        <MenuItem value="SAU_THANG">6 tháng đầu năm</MenuItem>
+                                        <MenuItem value="CA_NAM">Cả năm</MenuItem>
+                                    </Select>
+                                </FormControl>
+                            </Grid>
+                            <Grid size={{ xs: 12 }}>
+                                <Autocomplete
+                                    size="small"
+                                    fullWidth
+                                    options={provinces || []}
+                                    getOptionLabel={(option: any) => option.name || ''}
+                                    value={summaryFilter.province}
+                                    onChange={(_, val: any) => setSummaryFilter(p => ({ ...p, province: val, ward: null }))}
+                                    renderInput={(params) => (
+                                        <TextField {...params} label="Tỉnh/Thành phố" placeholder="-- Chọn tỉnh/ thành phố --" />
+                                    )}
+                                />
+                            </Grid>
+                            <Grid size={{ xs: 12 }}>
+                                <Autocomplete
+                                    size="small"
+                                    fullWidth
+                                    options={summaryWards || []}
+                                    getOptionLabel={(option: any) => option.name || ''}
+                                    value={summaryFilter.ward}
+                                    onChange={(_, val: any) => setSummaryFilter(p => ({ ...p, ward: val }))}
+                                    disabled={!summaryFilter.province}
+                                    renderInput={(params) => (
+                                        <TextField {...params} label="Phường/Xã (Quận/Huyện)" placeholder="-- Chọn phường/ xã (quận/ huyện) --" />
+                                    )}
+                                />
+                            </Grid>
+                        </Grid>
+                    </DialogContent>
+                    <DialogActions sx={{ px: 3, py: 2 }}>
+                        <Button onClick={() => setSummaryDialogOpen(false)} sx={{ color: '#64748b' }}>Hủy bỏ</Button>
+                        <Button
+                            onClick={() => {
+                                const params = new URLSearchParams();
+                                if (summaryFilter.year) params.append('year', summaryFilter.year.toString());
+                                if (summaryFilter.period) params.append('period', summaryFilter.period);
+                                if (summaryFilter.province?.code) params.append('provinceId', summaryFilter.province.code);
+                                if (summaryFilter.ward?.code) params.append('wardId', summaryFilter.ward.code);
+                                setSummaryDialogOpen(false);
+                                router.push(`/accident-reports/summary?${params.toString()}`);
+                            }}
+                            variant="contained"
+                            sx={{ bgcolor: '#2f65f0' }}
+                        >
+                            Tổng hợp
                         </Button>
                     </DialogActions>
                 </Dialog>

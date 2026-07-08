@@ -109,18 +109,14 @@ export class ReportPeriodService implements OnApplicationBootstrap {
       throw new BadRequestException(`Đã tồn tại cấu hình kỳ báo cáo ${data.period === 'CA_NAM' ? 'Cả năm' : '6 tháng'} cho năm ${targetYear}`);
     }
 
-    // Kiểm tra trùng thời gian (overlap) giữa các kỳ báo cáo trong cùng năm
-    const otherPeriods = await this.reportPeriodRepo.find({
-      where: {
-        year: targetYear
-      }
-    });
+    // Kiểm tra trùng thời gian (overlap) giữa tất cả các kỳ báo cáo
+    const otherPeriods = await this.reportPeriodRepo.find();
     for (const op of otherPeriods) {
       const opStart = new Date(op.startDate);
       const opEnd = new Date(op.endDate);
       if (start <= opEnd && opStart <= end) {
         throw new BadRequestException(
-          `Thời gian kỳ báo cáo trùng với kỳ báo cáo "${op.period === 'CA_NAM' ? 'Cả năm' : '6 tháng'}" (${opStart.toLocaleDateString('vi-VN')} - ${opEnd.toLocaleDateString('vi-VN')})`
+          `Thời gian kỳ báo cáo trùng với kỳ báo cáo "${op.period === 'CA_NAM' ? 'Cả năm' : '6 tháng'} năm ${op.year}" (${opStart.toLocaleDateString('vi-VN')} - ${opEnd.toLocaleDateString('vi-VN')})`
         );
       }
     }
@@ -175,19 +171,15 @@ export class ReportPeriodService implements OnApplicationBootstrap {
       }
     }
 
-    // Kiểm tra trùng thời gian (overlap) giữa các kỳ báo cáo trong cùng năm
-    const otherPeriods = await this.reportPeriodRepo.find({
-      where: {
-        year: nextYear
-      }
-    });
+    // Kiểm tra trùng thời gian (overlap) giữa tất cả các kỳ báo cáo
+    const otherPeriods = await this.reportPeriodRepo.find();
     for (const op of otherPeriods) {
       if (op.id === id) continue; // Bỏ qua chính kỳ báo cáo đang cập nhật
       const opStart = new Date(op.startDate);
       const opEnd = new Date(op.endDate);
       if (startParsed <= opEnd && opStart <= endParsed) {
         throw new BadRequestException(
-          `Thời gian kỳ báo cáo trùng với kỳ báo cáo "${op.period === 'CA_NAM' ? 'Cả năm' : '6 tháng'}" (${opStart.toLocaleDateString('vi-VN')} - ${opEnd.toLocaleDateString('vi-VN')})`
+          `Thời gian kỳ báo cáo trùng với kỳ báo cáo "${op.period === 'CA_NAM' ? 'Cả năm' : '6 tháng'} năm ${op.year}" (${opStart.toLocaleDateString('vi-VN')} - ${opEnd.toLocaleDateString('vi-VN')})`
         );
       }
     }
