@@ -3622,10 +3622,10 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                       <Typography variant="body2" sx={{ color: '#111827', fontWeight: 500 }}>
                         <strong>{item.userName}</strong>{' '}
                         <span style={{ color: '#5b6982', fontWeight: 400 }}>
-                          {item.status === 'CHO_XET_DUYET' && 'đã gửi báo cáo'}
+                          {item.status === 'CHO_XET_DUYET' && (item.userRole === 'SO' ? 'đã hủy duyệt báo cáo' : 'đã gửi báo cáo')}
                           {item.status === 'DA_TIEP_NHAN' && 'đã duyệt báo cáo'}
                           {item.status === 'HUY_TIEP_NHAN' && 'từ chối báo cáo'}
-                          {item.status === 'DANG_BAO_CAO' && 'đang chỉnh sửa báo cáo'}
+                          {item.status === 'DANG_BAO_CAO' && (item.userRole === 'SO' ? 'đã hủy duyệt báo cáo' : 'đang chỉnh sửa báo cáo')}
                         </span>
                       </Typography>
                       {item.status === 'HUY_TIEP_NHAN' && item.rejectReason && (

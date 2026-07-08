@@ -45,8 +45,8 @@ export class PeriodicReportController {
   @ApiOperation({ summary: "Tạo báo cáo mới" })
   async create(@Body() payload: any, @Request() req: any) {
     const user = req.user;
-    if (user && user.doet) {
-      payload.doetId = user.doet;
+    if (user && (user.doet || user.doet_id)) {
+      payload.doetId = user.doet || user.doet_id;
     } else {
       payload.doetId = 'testuser';
     }

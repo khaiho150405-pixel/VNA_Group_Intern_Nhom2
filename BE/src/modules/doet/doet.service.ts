@@ -89,7 +89,7 @@ export class DoetService extends BaseService<Doet> {
     }
 
     // Sở - Kiểm tra quyền xem trong DB
-    const allowed = await this.hasPermission(roleId, 'ADMIN_C_DEPARTMENT_VIEW');
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_ENTERPRISE_VIEW');
     if (!allowed) {
       const level = this.getPermissionLevel(currentUser);
       if (level < 0) {
@@ -106,7 +106,7 @@ export class DoetService extends BaseService<Doet> {
     }
     const roleId = currentUser.role?.id;
 
-    const allowed = await this.hasPermission(roleId, 'ADMIN_C_DEPARTMENT_CREATE');
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_ENTERPRISE_CREATE');
     if (!allowed) {
       const level = this.getPermissionLevel(currentUser);
       if (level < 1) {
@@ -126,7 +126,7 @@ export class DoetService extends BaseService<Doet> {
     }
     const roleId = currentUser.role?.id;
 
-    const allowed = await this.hasPermission(roleId, 'ADMIN_C_DEPARTMENT_UPDATE');
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_ENTERPRISE_UPDATE');
     if (!allowed) {
       const level = this.getPermissionLevel(currentUser);
       if (level < 1) {
@@ -143,7 +143,7 @@ export class DoetService extends BaseService<Doet> {
     }
     const roleId = currentUser.role?.id;
 
-    const allowed = await this.hasPermission(roleId, 'ADMIN_C_DEPARTMENT_DELETE');
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_ENTERPRISE_DELETE');
     if (!allowed) {
       const level = this.getPermissionLevel(currentUser);
       if (level < 2) {

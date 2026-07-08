@@ -356,7 +356,29 @@ export const ReportPeriodPage = () => {
   const handleYearPeriodChange = (updatedYear: string, updatedPeriod: string) => {
     let newStart = form.startDate;
     let newEnd = form.endDate;
-    if (updatedYear) {
+    
+    if (updatedYear && updatedYear.length === 4) {
+      if (newStart) {
+        const d = new Date(newStart);
+        if (!isNaN(d.getTime())) {
+          d.setFullYear(parseInt(updatedYear));
+          newStart = formatDateInput(d);
+        }
+      }
+      if (newEnd) {
+        const d = new Date(newEnd);
+        if (!isNaN(d.getTime())) {
+          d.setFullYear(parseInt(updatedYear));
+          newEnd = formatDateInput(d);
+        }
+      }
+    }
+
+    if (newStart) {
+      newEnd = calculateEndDate(newStart, updatedPeriod);
+    } else if (newEnd) {
+      newStart = calculateStartDate(newEnd, updatedPeriod);
+    } else if (updatedYear) {
       if (updatedPeriod === '6_THANG') {
         newStart = `${updatedYear}-01-01`;
         newEnd = `${updatedYear}-06-30`;
@@ -365,6 +387,7 @@ export const ReportPeriodPage = () => {
         newEnd = `${updatedYear}-12-31`;
       }
     }
+
     setForm(prev => ({
       ...prev,
       year: updatedYear,
@@ -372,6 +395,32 @@ export const ReportPeriodPage = () => {
       startDate: newStart,
       endDate: newEnd
     }));
+  };
+
+  const calculateEndDate = (startDateStr: string, period: string): string => {
+    const start = new Date(startDateStr);
+    if (isNaN(start.getTime())) return "";
+    const end = new Date(start.getTime());
+    if (period === '6_THANG') {
+      end.setMonth(end.getMonth() + 6);
+    } else {
+      end.setFullYear(end.getFullYear() + 1);
+    }
+    end.setDate(end.getDate() - 1);
+    return formatDateInput(end);
+  };
+
+  const calculateStartDate = (endDateStr: string, period: string): string => {
+    const end = new Date(endDateStr);
+    if (isNaN(end.getTime())) return "";
+    const start = new Date(end.getTime());
+    start.setDate(start.getDate() + 1);
+    if (period === '6_THANG') {
+      start.setMonth(start.getMonth() - 6);
+    } else {
+      start.setFullYear(start.getFullYear() - 1);
+    }
+    return formatDateInput(start);
   };
 
   const handleFormStartDateChange = (dateStr: string) => {
@@ -382,10 +431,12 @@ export const ReportPeriodPage = () => {
     const dateObj = new Date(dateStr);
     if (isNaN(dateObj.getTime())) return;
     const forcedStartStr = formatDateInput(dateObj);
+    const calculatedEnd = calculateEndDate(forcedStartStr, form.period);
 
     setForm(prev => ({
       ...prev,
-      startDate: forcedStartStr
+      startDate: forcedStartStr,
+      endDate: calculatedEnd
     }));
   };
 
@@ -397,9 +448,11 @@ export const ReportPeriodPage = () => {
     const dateObj = new Date(dateStr);
     if (isNaN(dateObj.getTime())) return;
     const forcedEndStr = formatDateInput(dateObj);
+    const calculatedStart = calculateStartDate(forcedEndStr, form.period);
 
     setForm(prev => ({
       ...prev,
+      startDate: calculatedStart,
       endDate: forcedEndStr
     }));
   };

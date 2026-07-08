@@ -15,9 +15,13 @@ CREATE TABLE IF NOT EXISTS role_permissions (
   FOREIGN KEY (permission_code) REFERENCES permissions(code) ON DELETE CASCADE
 );
 
+-- Clear old permissions to ensure updated keys are correctly applied
+DELETE FROM role_permissions;
+DELETE FROM permissions;
+
 -- Seed Permission Groups (Vietnamese names)
 INSERT INTO permissions (code, name, type, parent_code, "order") VALUES
-('ADMIN_G_DEPARTMENT', 'Quản lý doanh nghiệp', 'Group', NULL, 1),
+('ADMIN_G_ENTERPRISE', 'Quản lý doanh nghiệp', 'Group', NULL, 1),
 ('ADMIN_G_ROLE', 'Quản lý vai trò', 'Group', NULL, 2),
 ('ADMIN_G_USER', 'Quản lý người dùng', 'Group', NULL, 3),
 ('ADMIN_G_ACCIDENT_REPORT', 'Quản lý báo cáo TNLĐ', 'Group', NULL, 4),
@@ -27,12 +31,12 @@ INSERT INTO permissions (code, name, type, parent_code, "order") VALUES
 ('ADMIN_G_NGANH_NGHE_KD', 'Quản lý ngành nghề kinh doanh', 'Group', NULL, 8)
 ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name, type = EXCLUDED.type, parent_code = EXCLUDED.parent_code, "order" = EXCLUDED."order";
 
--- Seed Department Component Permissions
+-- Seed Enterprise Component Permissions
 INSERT INTO permissions (code, name, type, parent_code, "order") VALUES
-('ADMIN_C_DEPARTMENT_VIEW', 'Xem doanh nghiệp', 'Component', 'ADMIN_G_DEPARTMENT', 1),
-('ADMIN_C_DEPARTMENT_CREATE', 'Thêm doanh nghiệp', 'Component', 'ADMIN_G_DEPARTMENT', 2),
-('ADMIN_C_DEPARTMENT_UPDATE', 'Sửa doanh nghiệp', 'Component', 'ADMIN_G_DEPARTMENT', 3),
-('ADMIN_C_DEPARTMENT_DELETE', 'Xóa doanh nghiệp', 'Component', 'ADMIN_G_DEPARTMENT', 4)
+('ADMIN_C_ENTERPRISE_VIEW', 'Xem doanh nghiệp', 'Component', 'ADMIN_G_ENTERPRISE', 1),
+('ADMIN_C_ENTERPRISE_CREATE', 'Thêm doanh nghiệp', 'Component', 'ADMIN_G_ENTERPRISE', 2),
+('ADMIN_C_ENTERPRISE_UPDATE', 'Sửa doanh nghiệp', 'Component', 'ADMIN_G_ENTERPRISE', 3),
+('ADMIN_C_ENTERPRISE_DELETE', 'Xóa doanh nghiệp', 'Component', 'ADMIN_G_ENTERPRISE', 4)
 ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name, type = EXCLUDED.type, parent_code = EXCLUDED.parent_code, "order" = EXCLUDED."order";
 
 -- Seed Role Component Permissions

@@ -159,7 +159,7 @@ export const RoleManagementPage = () => {
   const [roleToDelete, setRoleToDelete] = useState<any>(null);
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
-    'ADMIN_G_DEPARTMENT': true,
+    'ADMIN_G_ENTERPRISE': true,
     'ADMIN_G_ROLE': true,
     'ADMIN_G_USER': true,
     'ADMIN_G_ACCIDENT_REPORT': true,

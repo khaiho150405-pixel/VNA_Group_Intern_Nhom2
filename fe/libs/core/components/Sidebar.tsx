@@ -142,7 +142,7 @@ export const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
           return hasPermission('ADMIN_C_NGANH_NGHE_KD_VIEW');
         }
         if (item.path === '/doets') {
-          return hasPermission('ADMIN_C_DEPARTMENT_VIEW');
+          return hasPermission('ADMIN_C_ENTERPRISE_VIEW');
         }
         if (item.path === '/enterprise-profile') {
           return userRoleType === 'DN';

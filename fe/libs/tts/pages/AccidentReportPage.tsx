@@ -133,7 +133,7 @@ export const AccidentReportPage = () => {
     const [rejectReason, setRejectReason] = useState('');
     const [rejectReasons, setRejectReasons] = useState<Record<string, string>>({});
     const [commonReason, setCommonReason] = useState<string>('');
-    const [actionType, setActionType] = useState<'DA_TIEP_NHAN' | 'HUY_TIEP_NHAN' | 'CHO_XET_DUYET' | null>(null);
+    const [actionType, setActionType] = useState<'DA_TIEP_NHAN' | 'HUY_TIEP_NHAN' | 'CHO_XET_DUYET' | 'DANG_BAO_CAO' | null>(null);
 
     const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
     const [summaryFilter, setSummaryFilter] = useState<{ year: number, period: string, province: any, ward: any }>({
@@ -197,7 +197,7 @@ export const AccidentReportPage = () => {
         }
     };
 
-    const handleConfirmAction = (type: 'DA_TIEP_NHAN' | 'HUY_TIEP_NHAN' | 'CHO_XET_DUYET') => {
+    const handleConfirmAction = (type: 'DA_TIEP_NHAN' | 'HUY_TIEP_NHAN' | 'CHO_XET_DUYET' | 'DANG_BAO_CAO') => {
         setActionType(type);
         if (type === 'HUY_TIEP_NHAN') {
             setRejectReason('');
@@ -1084,10 +1084,10 @@ export const AccidentReportPage = () => {
                                                 <Typography variant="body2" sx={{ color: '#111827', fontWeight: 500 }}>
                                                     <strong>{item.userName}</strong>{' '}
                                                     <span style={{ color: '#5b6982', fontWeight: 400 }}>
-                                                        {item.status === 'CHO_XET_DUYET' && `đã gửi báo cáo (${item.report?.companyName || 'Doanh nghiệp'})`}
+                                                        {item.status === 'CHO_XET_DUYET' && (item.userRole === 'SO' ? `đã hủy duyệt báo cáo của ${item.report?.companyName || 'Doanh nghiệp'}` : `đã gửi báo cáo (${item.report?.companyName || 'Doanh nghiệp'})`)}
                                                         {item.status === 'DA_TIEP_NHAN' && `đã duyệt báo cáo của ${item.report?.companyName || 'Doanh nghiệp'}`}
                                                         {item.status === 'HUY_TIEP_NHAN' && `từ chối báo cáo của ${item.report?.companyName || 'Doanh nghiệp'}`}
-                                                        {item.status === 'DANG_BAO_CAO' && `đang chỉnh sửa báo cáo (${item.report?.companyName || 'Doanh nghiệp'})`}
+                                                        {item.status === 'DANG_BAO_CAO' && (item.userRole === 'SO' ? `đã hủy duyệt báo cáo của ${item.report?.companyName || 'Doanh nghiệp'}` : `đang chỉnh sửa báo cáo (${item.report?.companyName || 'Doanh nghiệp'})`)}
                                                     </span>
                                                 </Typography>
                                                 {item.status === 'HUY_TIEP_NHAN' && item.rejectReason && (

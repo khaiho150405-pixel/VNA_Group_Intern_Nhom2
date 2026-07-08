@@ -140,6 +140,26 @@ export class ReportPeriodService implements OnApplicationBootstrap {
     if (end < start) {
       throw new BadRequestException("Ngày kết thúc không được nhỏ hơn ngày bắt đầu");
     }
+
+    const expectedEnd = new Date(start.getTime());
+    if (data.period === '6_THANG') {
+      expectedEnd.setMonth(expectedEnd.getMonth() + 6);
+      expectedEnd.setDate(expectedEnd.getDate() - 1);
+    } else if (data.period === 'CA_NAM') {
+      expectedEnd.setFullYear(expectedEnd.getFullYear() + 1);
+      expectedEnd.setDate(expectedEnd.getDate() - 1);
+    }
+
+    const formatDate = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+
+    if (formatDate(end) !== formatDate(expectedEnd)) {
+      throw new BadRequestException(`Ngày kết thúc phải khớp với kỳ báo cáo đã chọn (${data.period === 'CA_NAM' ? '1 năm' : '6 tháng'} trừ 1 ngày từ ngày bắt đầu)`);
+    }
     const targetYear = parseInt(data.year);
 
     // Removed validation constraints comparing dates years to targetYear
@@ -194,8 +214,10 @@ export class ReportPeriodService implements OnApplicationBootstrap {
     const isStatusInactive = data.status === 'INACTIVE' && existing.status !== 'INACTIVE';
     const isYearChanged = data.year !== undefined && parseInt(data.year) !== existing.year;
     const isPeriodChanged = data.period !== undefined && data.period !== existing.period;
+    const isDateChanged = (data.startDate !== undefined && new Date(data.startDate).getTime() !== new Date(existing.startDate).getTime()) ||
+                          (data.endDate !== undefined && new Date(data.endDate).getTime() !== new Date(existing.endDate).getTime());
     
-    if (isStatusInactive || isYearChanged || isPeriodChanged) {
+    if (isStatusInactive || isYearChanged || isPeriodChanged || isDateChanged) {
       const manager = getManager();
       const countRes = await manager.query(
         `SELECT COUNT(*) as count FROM periodic_reports WHERE year = $1 AND period = $2`,
@@ -211,23 +233,48 @@ export class ReportPeriodService implements OnApplicationBootstrap {
 
     const startParsed = new Date(startVal);
     const endParsed = new Date(endVal);
-    if (endParsed < startParsed) {
-      throw new BadRequestException("Ngày kết thúc không được nhỏ hơn ngày bắt đầu");
+    const nextPeriod = data.period !== undefined ? data.period : existing.period;
+
+    const isDateOrPeriodChanged = data.startDate !== undefined || data.endDate !== undefined || data.period !== undefined;
+    if (isDateOrPeriodChanged) {
+      if (endParsed < startParsed) {
+        throw new BadRequestException("Ngày kết thúc không được nhỏ hơn ngày bắt đầu");
+      }
+
+      const expectedEndParsed = new Date(startParsed.getTime());
+      if (nextPeriod === '6_THANG') {
+        expectedEndParsed.setMonth(expectedEndParsed.getMonth() + 6);
+        expectedEndParsed.setDate(expectedEndParsed.getDate() - 1);
+      } else if (nextPeriod === 'CA_NAM') {
+        expectedEndParsed.setFullYear(expectedEndParsed.getFullYear() + 1);
+        expectedEndParsed.setDate(expectedEndParsed.getDate() - 1);
+      }
+
+      const formatDate = (d: Date) => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      };
+
+      if (formatDate(endParsed) !== formatDate(expectedEndParsed)) {
+        throw new BadRequestException(`Ngày kết thúc phải khớp với kỳ báo cáo đã chọn (${nextPeriod === 'CA_NAM' ? '1 năm' : '6 tháng'} trừ 1 ngày từ ngày bắt đầu)`);
+      }
     }
 
     const nextYear = data.year !== undefined ? parseInt(data.year) : existing.year;
     
-    // Removed validation constraints comparing dates years to nextYear
-    const minStart = new Date(nextYear, 0, 1);
-    if (startParsed < minStart) {
-      throw new BadRequestException(`Ngày bắt đầu phải lớn hơn hoặc bằng ngày 01/01 của năm báo cáo ${nextYear}`);
+    const isYearOrDateChanged = data.year !== undefined || isDateOrPeriodChanged;
+    if (isYearOrDateChanged) {
+      const minStart = new Date(nextYear, 0, 1);
+      if (startParsed < minStart) {
+        throw new BadRequestException(`Ngày bắt đầu phải lớn hơn hoặc bằng ngày 01/01 của năm báo cáo ${nextYear}`);
+      }
+      const maxStart = new Date(nextYear, 11, 31);
+      if (startParsed > maxStart) {
+        throw new BadRequestException(`Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày 31/12 của năm báo cáo ${nextYear}`);
+      }
     }
-    const maxStart = new Date(nextYear, 11, 31);
-    if (startParsed > maxStart) {
-      throw new BadRequestException(`Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày 31/12 của năm báo cáo ${nextYear}`);
-    }
-
-    const nextPeriod = data.period !== undefined ? data.period : existing.period;
 
     if (data.year !== undefined || data.period !== undefined) {
       const duplicate = await this.reportPeriodRepo.createQueryBuilder("rp")
@@ -240,16 +287,18 @@ export class ReportPeriodService implements OnApplicationBootstrap {
       }
     }
 
-    // Kiểm tra trùng thời gian (overlap) giữa tất cả các kỳ báo cáo
-    const otherPeriods = await this.reportPeriodRepo.find();
-    for (const op of otherPeriods) {
-      if (op.id === id) continue; // Bỏ qua chính kỳ báo cáo đang cập nhật
-      const opStart = new Date(op.startDate);
-      const opEnd = new Date(op.endDate);
-      if (startParsed <= opEnd && opStart <= endParsed) {
-        throw new BadRequestException(
-          `Thời gian kỳ báo cáo trùng với kỳ báo cáo "${op.period === 'CA_NAM' ? 'Cả năm' : '6 tháng'} năm ${op.year}" (${opStart.toLocaleDateString('vi-VN')} - ${opEnd.toLocaleDateString('vi-VN')})`
-        );
+    if (isDateOrPeriodChanged) {
+      // Kiểm tra trùng thời gian (overlap) giữa tất cả các kỳ báo cáo
+      const otherPeriods = await this.reportPeriodRepo.find();
+      for (const op of otherPeriods) {
+        if (op.id === id) continue; // Bỏ qua chính kỳ báo cáo đang cập nhật
+        const opStart = new Date(op.startDate);
+        const opEnd = new Date(op.endDate);
+        if (startParsed <= opEnd && opStart <= endParsed) {
+          throw new BadRequestException(
+            `Thời gian kỳ báo cáo trùng với kỳ báo cáo "${op.period === 'CA_NAM' ? 'Cả năm' : '6 tháng'} năm ${op.year}" (${opStart.toLocaleDateString('vi-VN')} - ${opEnd.toLocaleDateString('vi-VN')})`
+          );
+        }
       }
     }
 
@@ -334,13 +383,7 @@ export class ReportPeriodService implements OnApplicationBootstrap {
     qb.orderBy("rp.start_date", "ASC");
     let allPeriods = await qb.getMany();
 
-    // Filter: chỉ giữ lại kỳ báo cáo kết thúc cùng lúc hoặc sau khi doanh nghiệp được tạo (p.endDate >= registrationDate)
-    if (registrationDate) {
-      allPeriods = allPeriods.filter((p) => {
-        const pEndDate = new Date(p.endDate);
-        return pEndDate >= registrationDate;
-      });
-    }
+    // Show all active periods for the selected year regardless of registration date as requested
 
     // Kiểm tra kỳ nào đã được khai báo bởi doanh nghiệp
     const now = new Date();

@@ -121,7 +121,7 @@ export const EnterpriseListPage = () => {
   const isReadOnly = useMemo(() => {
     if (!user) return true;
     if (user.username === 'testuser') return false;
-    return !hasPermission('ADMIN_C_DEPARTMENT_UPDATE');
+    return !hasPermission('ADMIN_C_ENTERPRISE_UPDATE');
   }, [user, hasPermission]);
 
   const [loading, setLoading] = useState(false);
@@ -338,7 +338,7 @@ export const EnterpriseListPage = () => {
             Danh sách doanh nghiệp
           </Typography>
           <Box className={classes.actions}>
-            {hasPermission('ADMIN_C_DEPARTMENT_CREATE') && (
+            {hasPermission('ADMIN_C_ENTERPRISE_CREATE') && (
               <>
                 <Button
                   className={classes.importBtn}
@@ -616,7 +616,7 @@ export const EnterpriseListPage = () => {
           onCancel={() => setConfirmDeleteOpen(false)}
           confirmText="Xóa"
         />
-        {hasPermission('ADMIN_C_DEPARTMENT_DELETE') && (
+        {hasPermission('ADMIN_C_ENTERPRISE_DELETE') && (
           <BulkSelectionBar
             count={selectedIds.length}
             onDelete={() => setConfirmDeleteOpen(true)}
