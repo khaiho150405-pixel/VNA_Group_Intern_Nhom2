@@ -60,7 +60,7 @@ export class InjuryTypeService implements OnApplicationBootstrap {
   constructor(
     @InjectRepository(InjuryType)
     private readonly injuryTypeRepo: Repository<InjuryType>,
-  ) {}
+  ) { }
 
   async onApplicationBootstrap() {
     await this.seedDefaults();
@@ -112,7 +112,7 @@ export class InjuryTypeService implements OnApplicationBootstrap {
       qb.andWhere("it.status = :status", { status: status === "true" });
     }
 
-    qb.orderBy("it.id", "ASC")
+    qb.orderBy("it.code", "ASC")
       .skip((page - 1) * limit)
       .take(limit);
 
@@ -126,7 +126,7 @@ export class InjuryTypeService implements OnApplicationBootstrap {
   async getActiveForDropdown() {
     return await this.injuryTypeRepo.find({
       where: { status: true },
-      order: { id: "ASC" },
+      order: { code: "ASC" },
     });
   }
 

@@ -497,7 +497,7 @@ export const UserEditPage = () => {
                                                 inputLabel: { shrink: true },
                                                 select: { displayEmpty: true }
                                             }}
-                                            disabled={loading || !canEdit || getPermissionLevel(user) === 0 || !canAssignRole}
+                                            disabled={loading || !canEdit || getPermissionLevel(user) === 0 || !canAssignRole || username === 'testuser'}
                                         >
                                             <MenuItem value="" disabled selected>Chọn vai trò</MenuItem>
                                             {editableRoles && editableRoles.length > 0 ? (

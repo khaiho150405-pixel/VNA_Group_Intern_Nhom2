@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { BaseService } from "src/commons";
+import { BaseService, GetAllDto } from "src/commons";
 import { Repository, getManager } from "typeorm";
 import { BusinessLine } from "./business-line.entity";
 import Response from "../../commons/response";
@@ -63,6 +63,13 @@ export class BusinessLineService extends BaseService<BusinessLine> {
     super(businessLineRepo, (data) => Object.assign(new BusinessLine(), data));
   }
 
+  async get(getAllDto: GetAllDto, doet: any = null) {
+    if (!getAllDto.order || getAllDto.order === '{}') {
+      getAllDto.order = JSON.stringify({ manganh: "ASC" });
+    }
+    return super.get(getAllDto, doet);
+  }
+
   async getActiveLevel4ForDropdown() {
     return await this.businessLineRepo.find({ where: { trangthai: 'ACTIVE', cap: 4 } });
   }
@@ -105,7 +112,7 @@ export class BusinessLineService extends BaseService<BusinessLine> {
       qb.andWhere("bl.trangthai = :trangthai", { trangthai });
     }
 
-    qb.orderBy("bl.id", "ASC")
+    qb.orderBy("bl.manganh", "ASC")
       .skip((page - 1) * limit)
       .take(limit);
 

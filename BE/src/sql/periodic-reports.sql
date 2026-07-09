@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS accident_details (
 -- Dữ liệu mẫu (sẽ dùng cho giao diện test)
 INSERT INTO periodic_reports (id, doet_id, year, period, status, company_name, business_line_id, total_employees, female_employees, total_salary_fund, "tnldSummary", "tnldTroCapSummary")
 VALUES (
-    1, 'testuser', 2022, 'CA_NAM', 'DA_TIEP_NHAN', 
+    1, '1', 2022, 'CA_NAM', 'DA_TIEP_NHAN', 
     'CÔNG TY TNHH THƯƠNG MẠI DỊCH VỤ ABC', 1, 10, 5, 10200000,
     '{"tongSoVu": 1, "tongSoVuNguoiChet": 1, "tongSoVu2NguoiTroLen": 1, "tongSoNguoiBiNan": 10, "tongLaoDongNuBiNan": 5, "tongSoNguoiChet": 5, "tongSoNguoiThuongNang": 10, "chiPhiYTe": 10000000, "chiPhiTraLuong": 10000000, "chiPhiBoiThuong": 10000000, "tongNgayNghi": 20, "thietHaiTaiSan": 10000000}',
     '{"tongSoVu": 2, "tongSoVuNguoiChet": 1, "tongSoVu2NguoiTroLen": 1, "tongSoNguoiBiNan": 10, "tongLaoDongNuBiNan": 5, "tongSoNguoiChet": 5, "tongSoNguoiThuongNang": 10, "chiPhiYTe": 10000000, "chiPhiTraLuong": 10000000, "chiPhiBoiThuong": 10000000, "tongNgayNghi": 20, "thietHaiTaiSan": 10000000}'

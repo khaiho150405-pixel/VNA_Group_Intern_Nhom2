@@ -910,7 +910,7 @@ export const BusinessLinePage = () => {
             <AutocompleteAny
               size="small"
               options={parentGroup ? [parentGroup] : []}
-              getOptionLabel={(option: any) => `${option.manganh} - ${getDashPrefix(option.cap)}${option.tennganh}`}
+              getOptionLabel={(option: any) => `${option.manganh} - ${option.tennganh}`}
               value={parentGroup}
               disabled={editId !== null || form.manganh.trim().length <= 1}
               renderInput={(params: any) => (

@@ -63,7 +63,7 @@ export class ReportPeriodService implements OnApplicationBootstrap {
   ) {}
 
   async onApplicationBootstrap() {
-    await this.seedDefaults();
+    // await this.seedDefaults();
   }
 
   // Seed default test configurations matching the UI screenshot

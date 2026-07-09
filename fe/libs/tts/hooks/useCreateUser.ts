@@ -25,10 +25,10 @@ export const useCreateUser = () => {
                 } else {
                     roleList = response?.data?.items || response?.items || [];
                 }
-                roleList = roleList.filter((r: any) => 
-                    r.role !== 'enterprise' && 
-                    r.type !== 'DN' && 
-                    r.id !== 5 && 
+                roleList = roleList.filter((r: any) =>
+                    r.role !== 'enterprise' &&
+                    r.type !== 'DN' &&
+                    r.id !== 5 &&
                     r.name !== 'Doanh nghiệp' &&
                     r.role !== 'superAdmin' &&
                     r.id !== 4

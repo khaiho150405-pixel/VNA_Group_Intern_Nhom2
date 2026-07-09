@@ -611,7 +611,7 @@ export const OccupationView = React.forwardRef((props, ref) => {
             <AutocompleteAny
               size="small"
               options={parentGroup ? [parentGroup] : []}
-              getOptionLabel={(option: any) => `${option.manghe} - ${getDashPrefix(option.cap)}${option.tennghe}`}
+              getOptionLabel={(option: any) => `${option.manghe} - ${option.tennghe}`}
               value={parentGroup}
               disabled={editId !== null || form.manghe.trim().length <= 1}
               renderInput={(params: any) => (

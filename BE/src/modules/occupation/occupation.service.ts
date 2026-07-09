@@ -1,6 +1,6 @@
 import { Injectable, OnApplicationBootstrap, BadRequestException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { BaseService } from "src/commons";
+import { BaseService, GetAllDto } from "src/commons";
 import { Repository, getManager } from "typeorm";
 import { Occupation } from "./occupation.entity";
 import Response from "../../commons/response";
@@ -65,6 +65,15 @@ export class OccupationService extends BaseService<Occupation> implements OnAppl
     super(occupationRepo, (data) => Object.assign(new Occupation(), data));
   }
 
+  async get(getAllDto: GetAllDto, doet: any = null) {
+    if (!getAllDto.order || getAllDto.order === '{}') {
+      getAllDto.order = JSON.stringify({ manghe: "ASC" });
+    }
+    return super.get(getAllDto, doet);
+  }
+
+
+
   async onApplicationBootstrap() {
     await this.seedDefaults();
   }
@@ -126,7 +135,7 @@ export class OccupationService extends BaseService<Occupation> implements OnAppl
       qb.andWhere("oc.trangthai = :trangthai", { trangthai });
     }
 
-    qb.orderBy("oc.id", "ASC")
+    qb.orderBy("oc.manghe", "ASC")
       .skip((page - 1) * limit)
       .take(limit);
 
@@ -174,7 +183,7 @@ export class OccupationService extends BaseService<Occupation> implements OnAppl
   async getActiveForDropdown() {
     return await this.occupationRepo.find({
       where: { trangthai: 'ACTIVE' },
-      order: { id: 'ASC' }
+      order: { manghe: 'ASC' }
     });
   }
 

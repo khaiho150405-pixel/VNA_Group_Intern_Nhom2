@@ -63,22 +63,31 @@ export const useEditUser = () => {
                     roleService.getAll(),
                     userService.getById(userId)
                 ]);
+                const userData = userRes.data || userRes;
                 let roleList = [];
                 if (Array.isArray(rolesRes)) {
                     roleList = rolesRes;
                 } else {
                     roleList = rolesRes?.data?.items || rolesRes?.items || [];
                 }
-                roleList = roleList.filter((r: any) => 
-                    r.role !== 'enterprise' && 
-                    r.type !== 'DN' && 
-                    r.id !== 5 && 
-                    r.name !== 'Doanh nghiệp' &&
-                    r.role !== 'superAdmin' &&
-                    r.id !== 4
-                );
+                if (userData.username !== 'testuser') {
+                    roleList = roleList.filter((r: any) => 
+                        r.role !== 'enterprise' && 
+                        r.type !== 'DN' && 
+                        r.id !== 5 && 
+                        r.name !== 'Doanh nghiệp' &&
+                        r.role !== 'superAdmin' &&
+                        r.id !== 4
+                    );
+                } else {
+                    roleList = roleList.filter((r: any) => 
+                        r.role !== 'enterprise' && 
+                        r.type !== 'DN' && 
+                        r.id !== 5 && 
+                        r.name !== 'Doanh nghiệp'
+                    );
+                }
 
-                const userData = userRes.data || userRes;
                 const matchedRole = roleList.find((r: any) => r.name === userData.realRole);
                 const currentRoleId = matchedRole ? matchedRole.id : '';
 

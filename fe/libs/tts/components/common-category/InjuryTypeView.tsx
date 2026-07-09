@@ -572,7 +572,7 @@ export const InjuryTypeView = React.forwardRef((props, ref) => {
             <AutocompleteAny
               size="small"
               options={parentGroup ? [parentGroup] : []}
-              getOptionLabel={(option: any) => `${option.code} - ${getDashPrefix(option.level)}${option.name}`}
+              getOptionLabel={(option: any) => `${option.code} - ${option.name}`}
               value={parentGroup}
               disabled={editId !== null || form.code.trim().length <= 1}
               renderInput={(params: any) => (
