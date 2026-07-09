@@ -371,6 +371,8 @@ export class ReportPeriodService implements OnApplicationBootstrap {
       }
     }
 
+    const now = new Date();
+
     // Lấy tất cả kỳ báo cáo ACTIVE cho năm được chọn
     const { year, status } = query;
     const qb = this.reportPeriodRepo.createQueryBuilder("rp");
@@ -380,13 +382,14 @@ export class ReportPeriodService implements OnApplicationBootstrap {
     if (status) {
       qb.andWhere("rp.status = :status", { status });
     }
+    qb.andWhere("rp.start_date <= :now", { now });
+
     qb.orderBy("rp.start_date", "ASC");
     let allPeriods = await qb.getMany();
 
     // Show all active periods for the selected year regardless of registration date as requested
 
     // Kiểm tra kỳ nào đã được khai báo bởi doanh nghiệp
-    const now = new Date();
     const periodsWithStatus = await Promise.all(
       allPeriods.map(async (p) => {
         let displayStatus: string = p.status; // 'ACTIVE' | 'INACTIVE'

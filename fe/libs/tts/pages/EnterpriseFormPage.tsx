@@ -1178,139 +1178,166 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
 
   return (
     <Box sx={{ backgroundColor: '#ffffff', minHeight: '100vh', display: 'flex', flexDirection: 'column', overflow: 'visible' }}>
-        {isProfile && (<>
-        {/* Page Header */}
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          mb: 0,
-          padding: '16px 24px',
-          backgroundColor: '#fff',
-          borderBottom: '1px solid #eef0f4',
-          boxShadow: '0px 2px 12px rgba(0, 0, 0, 0.04)',
-          position: 'sticky',
-          top: 0,
-          zIndex: 10,
-          minHeight: '64px',
-        }}>
-          <Typography sx={{ 
-            fontSize: '1.25rem', 
-            fontWeight: 600,
-            color: '#1a1a1a'
+        {isProfile ? (
+          <Box sx={{ 
+            position: 'sticky',
+            top: 0,
+            zIndex: 10,
+            backgroundColor: '#fff',
+            boxShadow: '0px 2px 12px rgba(0, 0, 0, 0.04)',
+            borderBottom: '1px solid #eef0f4'
           }}>
-            {titleByMode}
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1.5 }}>
-            <Button 
-              className={classes.cancelBtn} 
-              disableRipple 
-              disabled={submitting}
-              onClick={() => router.push(isProfile ? '/' : '/doets')}
-              sx={{
-                textTransform: 'none',
-                color: '#666',
-                fontSize: '0.85rem',
-                borderRadius: '6px',
-                padding: '4px 16px',
-                minWidth: 'auto',
-                backgroundColor: 'transparent',
-                boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
-                transition: 'all 0.2s ease-in-out',
-                '&:hover': {
-                  backgroundColor: '#f5f5f7',
-                  color: '#333',
-                  boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)'
-                }
-              }}
-            >
-              Huỷ bỏ
-            </Button>
-            {activeStep === 0 ? (
-              <Button
-                variant="contained"
-                onClick={handleNext}
-                disabled={submitting || (isEdit || isProfile ? !hasChanges() : false)}
-                sx={{
-                  textTransform: 'none',
-                  backgroundColor: '#2f65f0',
-                  px: 3,
-                  py: 0.5,
-                  fontSize: '0.85rem',
-                  fontWeight: 600,
-                  borderRadius: '6px',
-                  boxShadow: '0px 4px 12px rgba(47, 101, 240, 0.2)',
-                  transition: 'all 0.2s ease-in-out',
-                  '&:hover': {
-                    backgroundColor: '#1e4fd1',
-                    boxShadow: '0px 8px 20px rgba(47, 101, 240, 0.35)'
-                  },
-                  ...(submitting || ((isEdit || isProfile) && !hasChanges()) ? {
-                    backgroundColor: '#b0b0b0 !important',
-                    cursor: 'not-allowed',
-                    boxShadow: 'none !important'
-                  } : {})
-                }}
-              >
-                {submitting ? 'Đang lưu...' : (isEdit || isProfile ? 'Chỉnh sửa' : 'Tiếp tục')}
-              </Button>
-            ) : (
-              !isView && (
-                <Button
-                  variant="contained"
-                  onClick={handleSubmit}
-                  disabled={submitting || ((isEdit || isProfile) && !hasChanges())}
+            {/* Page Header */}
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              mb: 0,
+              padding: '16px 24px',
+              backgroundColor: '#fff',
+              borderBottom: '1px solid #eef0f4',
+              minHeight: '64px',
+            }}>
+              <Typography sx={{ 
+                fontSize: '1.25rem', 
+                fontWeight: 600,
+                color: '#1a1a1a'
+              }}>
+                {titleByMode}
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1.5 }}>
+                <Button 
+                  className={classes.cancelBtn} 
+                  disableRipple 
+                  disabled={submitting}
+                  onClick={() => router.push(isProfile ? '/' : '/doets')}
                   sx={{
                     textTransform: 'none',
-                    backgroundColor: '#2f65f0',
-                    px: 3,
-                    py: 0.5,
+                    color: '#666',
                     fontSize: '0.85rem',
-                    fontWeight: 600,
                     borderRadius: '6px',
-                    boxShadow: '0px 4px 12px rgba(47, 101, 240, 0.2)',
+                    padding: '4px 16px',
+                    minWidth: 'auto',
+                    backgroundColor: 'transparent',
+                    boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
                     transition: 'all 0.2s ease-in-out',
                     '&:hover': {
-                      backgroundColor: '#1e4fd1',
-                      boxShadow: '0px 8px 20px rgba(47, 101, 240, 0.35)'
-                    },
-                    ...(submitting || ((isEdit || isProfile) && !hasChanges()) ? {
-                      backgroundColor: '#b0b0b0 !important',
-                      cursor: 'not-allowed',
-                      boxShadow: 'none !important'
-                    } : {})
+                      backgroundColor: '#f5f5f7',
+                      color: '#333',
+                      boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)'
+                    }
                   }}
                 >
-                  {submitting ? 'Đang lưu...' : 'Xác nhận'}
+                  Huỷ bỏ
                 </Button>
-              )
-            )}
+                {activeStep === 0 ? (
+                  <Button
+                    variant="contained"
+                    onClick={handleNext}
+                    disabled={submitting || (isEdit || isProfile ? !hasChanges() : false)}
+                    sx={{
+                      textTransform: 'none',
+                      backgroundColor: '#2f65f0',
+                      px: 3,
+                      py: 0.5,
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      borderRadius: '6px',
+                      boxShadow: '0px 4px 12px rgba(47, 101, 240, 0.2)',
+                      transition: 'all 0.2s ease-in-out',
+                      '&:hover': {
+                        backgroundColor: '#1e4fd1',
+                        boxShadow: '0px 8px 20px rgba(47, 101, 240, 0.35)'
+                      },
+                      ...(submitting || ((isEdit || isProfile) && !hasChanges()) ? {
+                        backgroundColor: '#b0b0b0 !important',
+                        cursor: 'not-allowed',
+                        boxShadow: 'none !important'
+                      } : {})
+                    }}
+                  >
+                    {submitting ? 'Đang lưu...' : (isEdit || isProfile ? 'Chỉnh sửa' : 'Tiếp tục')}
+                  </Button>
+                ) : (
+                  !isView && (
+                    <Button
+                      variant="contained"
+                      onClick={handleSubmit}
+                      disabled={submitting || ((isEdit || isProfile) && !hasChanges())}
+                      sx={{
+                        textTransform: 'none',
+                        backgroundColor: '#2f65f0',
+                        px: 3,
+                        py: 0.5,
+                        fontSize: '0.85rem',
+                        fontWeight: 600,
+                        borderRadius: '6px',
+                        boxShadow: '0px 4px 12px rgba(47, 101, 240, 0.2)',
+                        transition: 'all 0.2s ease-in-out',
+                        '&:hover': {
+                          backgroundColor: '#1e4fd1',
+                          boxShadow: '0px 8px 20px rgba(47, 101, 240, 0.35)'
+                        },
+                        ...(submitting || ((isEdit || isProfile) && !hasChanges()) ? {
+                          backgroundColor: '#b0b0b0 !important',
+                          cursor: 'not-allowed',
+                          boxShadow: 'none !important'
+                        } : {})
+                      }}
+                    >
+                      {submitting ? 'Đang lưu...' : 'Xác nhận'}
+                    </Button>
+                  )
+                )}
+              </Box>
+            </Box>
+            <Box 
+              className={classes.stepperWrapper}
+              sx={{
+                position: 'static',
+                boxShadow: 'none',
+                borderBottom: 'none',
+              }}
+            >
+              <Stepper
+                activeStep={activeStep}
+                className={classes.stepper}
+              >
+                <Step>
+                  <StepLabel slots={{ stepIcon: CustomStepIcon }}>Thông tin doanh nghiệp</StepLabel>
+                </Step>
+                <Step>
+                  <StepLabel slots={{ stepIcon: CustomStepIcon }}>
+                    {isEdit || isProfile ? 'Xác nhận chỉnh sửa' : 'Xác nhận đăng ký'}
+                  </StepLabel>
+                </Step>
+              </Stepper>
+            </Box>
           </Box>
-        </Box>
-      </>)}
-        <Box 
-          className={classes.stepperWrapper}
-          sx={{
-            position: isProfile ? 'sticky' : 'static',
-            top: isProfile ? '64px' : 'auto',
-            zIndex: isProfile ? 9 : 'auto',
-            boxShadow: isProfile ? '0px 2px 12px rgba(0, 0, 0, 0.04)' : 'none',
-          }}
-        >
-          <Stepper
-            activeStep={activeStep}
-            className={classes.stepper}
+        ) : (
+          <Box 
+            className={classes.stepperWrapper}
+            sx={{
+              position: 'sticky',
+              top: 0,
+              zIndex: 10,
+            }}
           >
-            <Step>
-              <StepLabel slots={{ stepIcon: CustomStepIcon }}>Thông tin doanh nghiệp</StepLabel>
-            </Step>
-            <Step>
-              <StepLabel slots={{ stepIcon: CustomStepIcon }}>
-                {isEdit || isProfile ? 'Xác nhận chỉnh sửa' : 'Xác nhận đăng ký'}
-              </StepLabel>
-            </Step>
-          </Stepper>
-        </Box>
+            <Stepper
+              activeStep={activeStep}
+              className={classes.stepper}
+            >
+              <Step>
+                <StepLabel slots={{ stepIcon: CustomStepIcon }}>Thông tin doanh nghiệp</StepLabel>
+              </Step>
+              <Step>
+                <StepLabel slots={{ stepIcon: CustomStepIcon }}>
+                  {isEdit || isProfile ? 'Xác nhận chỉnh sửa' : 'Xác nhận đăng ký'}
+                </StepLabel>
+              </Step>
+            </Stepper>
+          </Box>
+        )}
 
         {loading ? (
           <Box sx={{ padding: '24px 24px 32px 24px', flex: 1, backgroundColor: '#ffffff' }}>

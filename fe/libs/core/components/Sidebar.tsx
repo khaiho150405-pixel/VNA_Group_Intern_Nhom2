@@ -414,6 +414,7 @@ export const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
             sx={{ 
               flex: 1,
               marginLeft: (theme) => theme.spacing(1.5),
+              minWidth: 0,
             }}
           >
             <Typography 

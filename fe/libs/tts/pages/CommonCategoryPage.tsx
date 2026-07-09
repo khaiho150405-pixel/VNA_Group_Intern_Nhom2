@@ -2,7 +2,7 @@
 
 import React, { useRef, useState } from "react";
 import { Box, Typography, Button, Select, MenuItem } from "@mui/material";
-import { Add as AddIcon, FileUpload as UploadIcon, Download as DownloadIcon } from "@mui/icons-material";
+import { Add as AddIcon, FileUpload as UploadIcon } from "@mui/icons-material";
 import { useSnackbar } from "notistack";
 import { useStyles } from "@tts/logic/common-category/style";
 import { InjuryFactorView } from "../components/common-category/InjuryFactorView";
@@ -23,10 +23,6 @@ export const CommonCategoryPage = () => {
     }
   };
 
-  const handleExport = () => {
-    enqueueSnackbar("Chức năng xuất danh sách đang được phát triển", { variant: "info" });
-  };
-
   const handleImport = () => {
     enqueueSnackbar("Chức năng thêm từ file đang được phát triển", { variant: "info" });
   };
@@ -38,9 +34,6 @@ export const CommonCategoryPage = () => {
            <Typography className={classes.headerTitle}>Khai báo danh mục</Typography>
         </Box>
         <Box className={classes.actions}>
-          <Button className={classes.importBtn} variant="outlined" startIcon={<DownloadIcon />} onClick={handleExport}>
-            Xuất danh sách
-          </Button>
           {hasPermission('ADMIN_C_CATEGORY_CREATE') && (
             <>
               <Button className={classes.importBtn} variant="outlined" startIcon={<UploadIcon />} onClick={handleImport}>

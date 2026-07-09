@@ -941,9 +941,11 @@ export const BusinessLinePage = () => {
               label="Trạng thái *"
               value={form.trangthai}
               onChange={(e: any) => setForm({ ...form, trangthai: e.target.value })}
-              slotProps={{ inputLabel: { shrink: true } }}
-              SelectProps={{
-                MenuProps: { PaperProps: { sx: { borderRadius: "8px" } } }
+              slotProps={{ 
+                inputLabel: { shrink: true },
+                select: {
+                  MenuProps: { PaperProps: { sx: { borderRadius: "8px" } } }
+                }
               }}
               sx={{
                 "& .MuiOutlinedInput-root": {

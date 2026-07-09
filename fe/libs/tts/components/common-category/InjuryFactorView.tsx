@@ -30,8 +30,10 @@ import {
   Close as CloseIcon,
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
+  Download as DownloadIcon,
 } from "@mui/icons-material";
 import { useSnackbar } from "notistack";
+import * as XLSX from "xlsx";
 
 import { ConfirmDialog } from "@core/components/ConfirmDialog";
 import { BulkSelectionBar } from "@core/components/BulkSelectionBar";
@@ -365,6 +367,28 @@ export const InjuryFactorView = React.forwardRef((props, ref) => {
     return Math.min(total, filters.page * filters.limit);
   }, [filters.page, filters.limit, total]);
 
+  const handleExportExcel = () => {
+    if (!data || data.length === 0) {
+      enqueueSnackbar('Không có dữ liệu để xuất!', { variant: 'error' });
+      return;
+    }
+
+    const dataToExport = data.map((item: any, index: number) => ({
+      "STT": (filters.page - 1) * filters.limit + index + 1,
+      "Mã yếu tố": item.code || '',
+      "Yếu tố gây chấn thương": item.name || '',
+      "Trạng thái": item.status ? 'Sử dụng' : 'Không sử dụng'
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    worksheet['!cols'] = [{ wch: 5 }, { wch: 20 }, { wch: 45 }, { wch: 20 }];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "YeuToChanThuong");
+    XLSX.writeFile(workbook, "Danh_sach_yeu_to_chan_thuong.xlsx");
+    enqueueSnackbar('Xuất file Excel thành công!', { variant: 'success' });
+  };
+
   return (
     <React.Fragment>
       <Box className={classes.tableScroll} sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
@@ -372,21 +396,25 @@ export const InjuryFactorView = React.forwardRef((props, ref) => {
           <Table stickyHeader size="small">
             <TableHead>
               <TableRow>
-                <TableCell padding="checkbox" className={classes.headerCell} width={50}>
-                  <Checkbox
-                    size="small"
-                    checked={isAllSelected}
-                    indeterminate={isIndeterminate}
-                    onChange={handleSelectAll}
-                  />
-                </TableCell>
+                {hasPermission('ADMIN_C_CATEGORY_DELETE') && (
+                  <TableCell padding="checkbox" className={classes.headerCell} width={50}>
+                    <Checkbox
+                      size="small"
+                      checked={isAllSelected}
+                      indeterminate={isIndeterminate}
+                      onChange={handleSelectAll}
+                    />
+                  </TableCell>
+                )}
                 <TableCell className={classes.headerCell} width={150}>Mã yếu tố</TableCell>
                 <TableCell className={classes.headerCell}>Yếu tố gây chấn thương</TableCell>
                 <TableCell className={classes.headerCell} width={150} align="center">Trạng thái</TableCell>
               </TableRow>
 
               <TableRow>
-                <TableCell className={classes.filterCell}></TableCell>
+                {hasPermission('ADMIN_C_CATEGORY_DELETE') && (
+                  <TableCell className={classes.filterCell}></TableCell>
+                )}
                 <TableCell className={classes.filterCell}>
                   <TextField
                     className={classes.filterField}
@@ -435,20 +463,22 @@ export const InjuryFactorView = React.forwardRef((props, ref) => {
             <TableBody>
               {data.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} align="center" sx={{ py: 3, color: "#94a3b8" }}>
+                  <TableCell colSpan={hasPermission('ADMIN_C_CATEGORY_DELETE') ? 4 : 3} align="center" sx={{ py: 3, color: "#94a3b8" }}>
                     Không có dữ liệu
                   </TableCell>
                 </TableRow>
               ) : (
                 data.map((item) => (
                   <TableRow key={item.id} hover selected={selectedIds.includes(String(item.id))}>
-                    <TableCell padding="checkbox" className={classes.bodyCell}>
-                      <Checkbox
-                        size="small"
-                        checked={selectedIds.includes(String(item.id))}
-                        onChange={() => handleSelectOne(String(item.id))}
-                      />
-                    </TableCell>
+                    {hasPermission('ADMIN_C_CATEGORY_DELETE') && (
+                      <TableCell padding="checkbox" className={classes.bodyCell}>
+                        <Checkbox
+                          size="small"
+                          checked={selectedIds.includes(String(item.id))}
+                          onChange={() => handleSelectOne(String(item.id))}
+                        />
+                      </TableCell>
+                    )}
                     <TableCell className={classes.bodyCell} sx={{ color: '#333' }}>
                       {item.code}
                     </TableCell>
@@ -471,6 +501,16 @@ export const InjuryFactorView = React.forwardRef((props, ref) => {
       </Box>
 
       <Box className={classes.footer}>
+        <Button
+          size="small"
+          startIcon={<DownloadIcon fontSize="small" />}
+          className={classes.actionIcon}
+          sx={{ mr: 'auto', textTransform: 'none', fontWeight: 500 }}
+          disableRipple
+          onClick={handleExportExcel}
+        >
+          Xuất dữ liệu
+        </Button>
         <Select
           size="small"
           value={filters.limit}
@@ -524,7 +564,7 @@ export const InjuryFactorView = React.forwardRef((props, ref) => {
           </IconButton>
         </DialogTitle>
         <DialogContent sx={{ py: 3 }}>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, pt: 1.5 }}>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, pt: 3 }}>
             <TextField
               fullWidth
               size="small"
@@ -569,7 +609,7 @@ export const InjuryFactorView = React.forwardRef((props, ref) => {
             </TextField>
           </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 3, borderTop: '1px solid #e2e8f0', justifyContent: "flex-end", gap: 1.5 }}>
+        <DialogActions sx={{ p: 2, borderTop: '1px solid #e2e8f0', justifyContent: "flex-end", gap: 1.5 }}>
           <Button
             onClick={handleCloseDialog}
             variant="outlined"

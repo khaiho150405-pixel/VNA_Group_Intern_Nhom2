@@ -29,8 +29,10 @@ import {
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
   Save as SaveIcon,
+  Download as DownloadIcon,
 } from "@mui/icons-material";
 import { useSnackbar } from "notistack";
+import * as XLSX from "xlsx";
 import { useStyles } from "@tts/logic/common-category/style";
 
 import { ConfirmDialog } from "@core/components/ConfirmDialog";
@@ -393,6 +395,28 @@ export const OccupationView = React.forwardRef((props, ref) => {
     return Math.min(total, filters.page * filters.limit);
   }, [filters.page, filters.limit, total]);
 
+  const handleExportExcel = () => {
+    if (!data || data.length === 0) {
+      enqueueSnackbar('Không có dữ liệu để xuất!', { variant: 'error' });
+      return;
+    }
+
+    const dataToExport = data.map((item: any, index: number) => ({
+      "STT": (filters.page - 1) * filters.limit + index + 1,
+      "Mã nghề": item.manghe || '',
+      "Tên nghề nghiệp": item.tennghe || '',
+      "Cấp": `Cấp ${item.cap}`
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    worksheet['!cols'] = [{ wch: 5 }, { wch: 20 }, { wch: 45 }, { wch: 15 }];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "DanhMucNgheNghiep");
+    XLSX.writeFile(workbook, "Danh_sach_nghe_nghiep.xlsx");
+    enqueueSnackbar('Xuất file Excel thành công!', { variant: 'success' });
+  };
+
   return (
     <React.Fragment>
       <Box className={classes.tableScroll} sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
@@ -400,21 +424,25 @@ export const OccupationView = React.forwardRef((props, ref) => {
           <Table stickyHeader size="small">
             <TableHead>
               <TableRow>
-                <TableCell padding="checkbox" className={classes.headerCell} width={50}>
-                  <Checkbox
-                    size="small"
-                    checked={isAllSelected}
-                    indeterminate={isIndeterminate}
-                    onChange={handleSelectAll}
-                  />
-                </TableCell>
+                {hasPermission('ADMIN_C_CATEGORY_DELETE') && (
+                  <TableCell padding="checkbox" className={classes.headerCell} width={50}>
+                    <Checkbox
+                      size="small"
+                      checked={isAllSelected}
+                      indeterminate={isIndeterminate}
+                      onChange={handleSelectAll}
+                    />
+                  </TableCell>
+                )}
                 <TableCell className={classes.headerCell} align="center" style={{ width: 80 }}>Thao tác</TableCell>
                 <TableCell className={classes.headerCell} style={{ width: 150 }}>Mã nghề</TableCell>
                 <TableCell className={classes.headerCell}>Tên nghề nghiệp</TableCell>
                 <TableCell className={classes.headerCell} align="center" style={{ width: 120 }}>Cấp</TableCell>
               </TableRow>
               <TableRow>
-                <TableCell className={classes.filterCell} />
+                {hasPermission('ADMIN_C_CATEGORY_DELETE') && (
+                  <TableCell className={classes.filterCell} />
+                )}
                 <TableCell className={classes.filterCell} />
                 <TableCell className={classes.filterCell}>
                   <TextField
@@ -457,26 +485,28 @@ export const OccupationView = React.forwardRef((props, ref) => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={5} align="center" className={classes.bodyCell}>
+                  <TableCell colSpan={hasPermission('ADMIN_C_CATEGORY_DELETE') ? 5 : 4} align="center" className={classes.bodyCell}>
                     Đang tải dữ liệu...
                   </TableCell>
                 </TableRow>
               ) : data.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} align="center" className={classes.bodyCell}>
+                  <TableCell colSpan={hasPermission('ADMIN_C_CATEGORY_DELETE') ? 5 : 4} align="center" className={classes.bodyCell}>
                     Không tìm thấy nghề nghiệp nào.
                   </TableCell>
                 </TableRow>
               ) : (
                 data.map((item) => (
                   <TableRow key={item.id} hover selected={selectedIds.includes(String(item.id))}>
-                    <TableCell padding="checkbox" className={classes.bodyCell}>
-                      <Checkbox
-                        size="small"
-                        checked={selectedIds.includes(String(item.id))}
-                        onChange={() => handleSelectOne(String(item.id))}
-                      />
-                    </TableCell>
+                    {hasPermission('ADMIN_C_CATEGORY_DELETE') && (
+                      <TableCell padding="checkbox" className={classes.bodyCell}>
+                        <Checkbox
+                          size="small"
+                          checked={selectedIds.includes(String(item.id))}
+                          onChange={() => handleSelectOne(String(item.id))}
+                        />
+                      </TableCell>
+                    )}
                     <TableCell className={classes.bodyCell} align="center">
                       {hasPermission('ADMIN_C_CATEGORY_UPDATE') && (
                         <IconButton className={classes.actionIcon} onClick={() => handleOpenEdit(item)} size="small">
@@ -497,6 +527,16 @@ export const OccupationView = React.forwardRef((props, ref) => {
 
       {/* Pagination Footer */}
       <Box className={classes.footer}>
+        <Button
+          size="small"
+          startIcon={<DownloadIcon fontSize="small" />}
+          className={classes.actionIcon}
+          sx={{ mr: 'auto', textTransform: 'none', fontWeight: 500 }}
+          disableRipple
+          onClick={handleExportExcel}
+        >
+          Xuất dữ liệu
+        </Button>
         <Select
           size="small"
           value={filters.limit}
@@ -562,7 +602,7 @@ export const OccupationView = React.forwardRef((props, ref) => {
           </IconButton>
         </DialogTitle>
         <DialogContent sx={{ py: 3 }}>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, pt: 1.5 }}>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, pt: 3 }}>
             <TextFieldAny
               fullWidth
               size="small"
@@ -642,9 +682,11 @@ export const OccupationView = React.forwardRef((props, ref) => {
               label="Trạng thái *"
               value={form.trangthai}
               onChange={(e: any) => setForm({ ...form, trangthai: e.target.value })}
-              slotProps={{ inputLabel: { shrink: true } }}
-              SelectProps={{
-                MenuProps: { PaperProps: { sx: { borderRadius: "8px" } } }
+              slotProps={{ 
+                inputLabel: { shrink: true },
+                select: {
+                  MenuProps: { PaperProps: { sx: { borderRadius: "8px" } } }
+                }
               }}
               sx={{
                 "& .MuiOutlinedInput-root": {
@@ -660,7 +702,7 @@ export const OccupationView = React.forwardRef((props, ref) => {
             </TextFieldAny>
           </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 3, borderTop: '1px solid #e2e8f0', justifyContent: "flex-end", gap: 1.5 }}>
+        <DialogActions sx={{ p: 2, borderTop: '1px solid #e2e8f0', justifyContent: "flex-end", gap: 1.5 }}>
           <Button
             onClick={handleCloseDialog}
             variant="outlined"
