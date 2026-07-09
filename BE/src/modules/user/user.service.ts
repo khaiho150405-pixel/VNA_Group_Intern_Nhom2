@@ -8,6 +8,7 @@ import { User } from "./user.entity";
 import { Role } from "../role/role.entity";
 import { Doet } from "../doet/doet.entity";
 import * as argon from "argon2";
+import * as ExcelJS from 'exceljs';
 
 @Injectable()
 export class UserService extends BaseService<User> implements OnApplicationBootstrap {
@@ -880,7 +881,7 @@ export class UserService extends BaseService<User> implements OnApplicationBoots
               }
             }
 
-            if (!isTestUser && !hasUserUpdatePermission && !selfAllowed) {
+            if (!isTestUser && !hasUserUpdatePermission && !selfAllowed && !isSelfUpdate) {
               throw Response.errorForBidden("Bạn không có quyền gán hoặc sửa đổi vai trò Sở.");
             }
 
@@ -900,7 +901,7 @@ export class UserService extends BaseService<User> implements OnApplicationBoots
             }
 
             // 1. Add old role key to allowedRoles
-            if (oldRoleKey && !allowed.includes(oldRoleKey)) {
+            if (!updateData.skipRoleSwap && oldRoleKey && !allowed.includes(oldRoleKey)) {
               allowed.push(oldRoleKey);
             }
 
@@ -946,6 +947,8 @@ export class UserService extends BaseService<User> implements OnApplicationBoots
         user.status = newDbStatus;
         delete updateData.status;
       }
+
+      delete updateData.skipRoleSwap;
 
       // Merge other fields
       Object.assign(user, updateData);
@@ -1054,6 +1057,108 @@ export class UserService extends BaseService<User> implements OnApplicationBoots
       return await super.deletes(currentUser, ids, doet);
     } catch (error) {
       if (error?.status) throw error;
+      throw Response.errorInternal(error);
+    }
+  }
+
+  async getImportTemplate(res: any): Promise<any> {
+    try {
+      const allRoles = await this.manager.find(Role);
+      const roles = allRoles.filter((r: any) =>
+        r.role !== 'enterprise' &&
+        r.type !== 'DN' &&
+        r.id !== 5 &&
+        r.name !== 'Doanh nghiệp' &&
+        r.role !== 'superAdmin' &&
+        r.id !== 4
+      );
+      const roleNames = roles.map(r => r.name);
+
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet("Template");
+
+      sheet.columns = [
+        { header: "Tên đăng nhập", key: "username", width: 25 },
+        { header: "Mật khẩu", key: "password", width: 20 },
+        { header: "Họ và tên", key: "fullName", width: 30 },
+        { header: "Vai trò", key: "role", width: 25 },
+        { header: "Email", key: "email", width: 30 }
+      ];
+
+      sheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+      sheet.getRow(1).fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF2F65F0" }
+      };
+      sheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+      sheet.getRow(1).height = 25;
+
+      if (roleNames.length > 0) {
+        const formulaStr = `"${roleNames.join(',')}"`;
+        for (let i = 2; i <= 200; i++) {
+          sheet.getCell(`D${i}`).dataValidation = {
+            type: 'list',
+            allowBlank: true,
+            formulae: [formulaStr]
+          };
+        }
+      }
+
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
+      res.setHeader(
+        "Content-Disposition",
+        "attachment; filename=" + encodeURIComponent("Mau_Template_Import_Nguoi_Dung.xlsx")
+      );
+
+      await workbook.xlsx.write(res);
+      res.end();
+    } catch (error) {
+      throw Response.errorInternal(error);
+    }
+  }
+
+  async checkDuplicates(
+    usernames: string[],
+    emails: string[]
+  ): Promise<{ duplicateUsernames: string[]; duplicateEmails: string[] }> {
+    try {
+      const cleanUsernames = (usernames || []).map(u => u.trim()).filter(Boolean);
+      const cleanEmails = (emails || []).map(e => e.trim()).filter(Boolean);
+
+      const duplicateUsernames: string[] = [];
+      const duplicateEmails: string[] = [];
+
+      if (cleanUsernames.length > 0) {
+        const existed = await this.userRepository.find({
+          select: ["username"],
+          where: {
+            username: In(cleanUsernames),
+            deletedAt: IsNull()
+          }
+        });
+        existed.forEach(u => duplicateUsernames.push(u.username.trim()));
+      }
+
+      if (cleanEmails.length > 0) {
+        const existed = await this.userRepository.find({
+          select: ["email"],
+          where: {
+            email: In(cleanEmails),
+            deletedAt: IsNull()
+          }
+        });
+        existed.forEach(u => duplicateEmails.push(u.email.trim()));
+      }
+
+      return {
+        duplicateUsernames,
+        duplicateEmails
+      };
+    } catch (error) {
       throw Response.errorInternal(error);
     }
   }

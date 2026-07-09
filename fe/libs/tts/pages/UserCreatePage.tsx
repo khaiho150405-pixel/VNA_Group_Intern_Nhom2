@@ -102,7 +102,8 @@ export const UserCreatePage = () => {
         loading,
         roles,
         provinces,
-        districts
+        districts,
+        allowedRoles
     } = state;
 
     const handleAvatarClick = () => {
@@ -424,6 +425,7 @@ export const UserCreatePage = () => {
                                         value={email} onChange={(e) => handleInputChange('email', e.target.value)} disabled={loading}
                                     />
                                 </Grid>
+
                             </Grid>
 
                             <Typography className={classes.sectionTitle} style={{ marginTop: '12px' }}>Thông tin liên hệ</Typography>

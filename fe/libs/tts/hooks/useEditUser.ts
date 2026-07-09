@@ -71,19 +71,19 @@ export const useEditUser = () => {
                     roleList = rolesRes?.data?.items || rolesRes?.items || [];
                 }
                 if (userData.username !== 'testuser') {
-                    roleList = roleList.filter((r: any) => 
-                        r.role !== 'enterprise' && 
-                        r.type !== 'DN' && 
-                        r.id !== 5 && 
+                    roleList = roleList.filter((r: any) =>
+                        r.role !== 'enterprise' &&
+                        r.type !== 'DN' &&
+                        r.id !== 5 &&
                         r.name !== 'Doanh nghiệp' &&
                         r.role !== 'superAdmin' &&
                         r.id !== 4
                     );
                 } else {
-                    roleList = roleList.filter((r: any) => 
-                        r.role !== 'enterprise' && 
-                        r.type !== 'DN' && 
-                        r.id !== 5 && 
+                    roleList = roleList.filter((r: any) =>
+                        r.role !== 'enterprise' &&
+                        r.type !== 'DN' &&
+                        r.id !== 5 &&
                         r.name !== 'Doanh nghiệp'
                     );
                 }

@@ -12,7 +12,8 @@ import {
     InputAdornment,
     CircularProgress,
     IconButton,
-    Autocomplete
+    Autocomplete,
+    Checkbox
 } from '@mui/material';
 import { PhotoCamera, Save, Event, Delete } from '@mui/icons-material';
 import { ChangeEmailModal } from '@core/components/ChangeEmailModal';
@@ -144,6 +145,21 @@ export const UserEditPage = () => {
         return false;
     }, [user, userId, state.username, state.role, state.roles, userPermissions]);
 
+    const resolveRoleKeys = (val: any) => {
+        const arr = Array.isArray(val) ? val : (val ? String(val).split(',').filter(Boolean) : []);
+        return (roles || [])
+            .filter((r: any) =>
+                arr.some(
+                    (v: string) =>
+                        String(v).toLowerCase().trim() === String(r.role).toLowerCase().trim() ||
+                        String(v).trim() === String(r.id).trim() ||
+                        String(v).toLowerCase().trim() === String(r.name).toLowerCase().trim()
+                )
+            )
+            .map((r: any) => r.role)
+            .sort();
+    };
+
     const hasChanges = () => {
         if (!state.initialSnapshot) return false;
         if (state.avatarFile !== null) return true;
@@ -154,12 +170,17 @@ export const UserEditPage = () => {
             return isNaN(d.getTime()) ? String(val) : d.toISOString().slice(0, 10);
         };
 
-        const keys = ['displayName', 'birthday', 'gender', 'title', 'role', 'city', 'district', 'address', 'avatarUrl', 'active'];
+        const keys = ['displayName', 'birthday', 'gender', 'title', 'role', 'city', 'district', 'address', 'avatarUrl', 'active', 'allowedRoles'];
         return keys.some(key => {
             const val1 = (state as any)[key];
             const val2 = state.initialSnapshot?.[key];
             if (key === 'birthday') {
                 return normalizeDate(val1) !== normalizeDate(val2);
+            }
+            if (key === 'allowedRoles') {
+                const keys1 = resolveRoleKeys(val1);
+                const keys2 = resolveRoleKeys(val2);
+                return JSON.stringify(keys1) !== JSON.stringify(keys2);
             }
             const normalize = (v: any) => (v === null || v === undefined ? '' : String(v));
             return normalize(val1) !== normalize(val2);
@@ -200,6 +221,32 @@ export const UserEditPage = () => {
             String(r.id) === String(role)
         );
     }, [roles, allowedRoles, role]);
+
+    const selectedRoleKeys = React.useMemo(() => {
+        const list: string[] = [];
+        
+        // 1. Add primary role key
+        if (role) {
+            const primaryRoleObj = roles.find((r: any) => String(r.id) === String(role) || String(r.role) === String(role));
+            if (primaryRoleObj && primaryRoleObj.role) {
+                list.push(primaryRoleObj.role);
+            }
+        }
+        
+        // 2. Add allowedRoles keys
+        (allowedRoles || []).forEach((val: string) => {
+            const rObj = roles.find((r: any) =>
+                String(val).toLowerCase().trim() === String(r.role).toLowerCase().trim() ||
+                String(val).trim() === String(r.id).trim() ||
+                String(val).toLowerCase().trim() === String(r.name).toLowerCase().trim()
+            );
+            if (rObj && rObj.role && !list.includes(rObj.role)) {
+                list.push(rObj.role);
+            }
+        });
+        
+        return list;
+    }, [role, allowedRoles, roles]);
 
     const handleAvatarClick = () => {
         fileInputRef.current?.click();
@@ -492,7 +539,28 @@ export const UserEditPage = () => {
                                         <TextField
                                             select fullWidth label={<RequiredLabel label="Vai trò" />} variant="outlined" size="small"
                                             className={classes.field} value={role}
-                                            onChange={(e) => handleInputChange('role', e.target.value)}
+                                            onChange={(e) => {
+                                                const nextRoleId = e.target.value;
+                                                const oldRoleId = role;
+                                                
+                                                if (roles && roles.length > 0) {
+                                                    const oldRoleObj = roles.find((r: any) => String(r.id) === String(oldRoleId) || String(r.role) === String(oldRoleId));
+                                                    const newRoleObj = roles.find((r: any) => String(r.id) === String(nextRoleId) || String(r.role) === String(nextRoleId));
+                                                    
+                                                    let nextAllowed = [...(allowedRoles || [])];
+                                                    
+                                                    if (oldRoleObj && oldRoleObj.role && !nextAllowed.includes(oldRoleObj.role)) {
+                                                        nextAllowed.push(oldRoleObj.role);
+                                                    }
+                                                    
+                                                    if (newRoleObj && newRoleObj.role) {
+                                                        nextAllowed = nextAllowed.filter(k => k !== newRoleObj.role);
+                                                    }
+                                                    
+                                                    handleInputChange('allowedRoles', nextAllowed);
+                                                }
+                                                handleInputChange('role', nextRoleId);
+                                            }}
                                             slotProps={{
                                                 inputLabel: { shrink: true },
                                                 select: { displayEmpty: true }
@@ -519,6 +587,69 @@ export const UserEditPage = () => {
                                             value={email} onChange={(e) => handleInputChange('email', e.target.value)} disabled={loading || !canEdit}
                                         />
                                     </Grid>
+                                    {user?.username === 'testuser' && username !== 'testuser' && (
+                                        <Grid size={{ xs: 12, md: 6 }}>
+                                            <TextField
+                                                select
+                                                fullWidth
+                                                label="Danh sách quyền"
+                                                variant="outlined"
+                                                size="small"
+                                                className={classes.field}
+                                                value={selectedRoleKeys}
+                                                onChange={(e) => {
+                                                    const nextSelected = Array.isArray(e.target.value) ? e.target.value : [e.target.value];
+                                                    let primaryRoleKey = '';
+                                                    if (role) {
+                                                        const primaryRoleObj = roles.find((r: any) => String(r.id) === String(role) || String(r.role) === String(role));
+                                                        if (primaryRoleObj) {
+                                                            primaryRoleKey = primaryRoleObj.role;
+                                                        }
+                                                    }
+                                                    if (nextSelected.includes(primaryRoleKey) || nextSelected.length === 0) {
+                                                        const nextAllowed = nextSelected.filter(k => k !== primaryRoleKey);
+                                                        handleInputChange('allowedRoles', nextAllowed);
+                                                    } else {
+                                                        const nextPrimaryRoleKey = nextSelected[0];
+                                                        const nextPrimaryRoleObj = roles.find((r: any) => r.role === nextPrimaryRoleKey);
+                                                        if (nextPrimaryRoleObj) {
+                                                            handleInputChange('role', nextPrimaryRoleObj.id);
+                                                        }
+                                                        const nextAllowed = nextSelected.filter(k => k !== nextPrimaryRoleKey);
+                                                        handleInputChange('allowedRoles', nextAllowed);
+                                                    }
+                                                }}
+                                                slotProps={{
+                                                    select: {
+                                                        multiple: true,
+                                                        renderValue: (selected: any) => {
+                                                            const selectedList = selected as string[];
+                                                            return selectedList
+                                                                .map((roleKey) => {
+                                                                    const rObj = roles.find((r: any) => r.role === roleKey);
+                                                                    return rObj ? rObj.name : roleKey;
+                                                                })
+                                                                .join(', ');
+                                                        }
+                                                    }
+                                                }}
+                                                disabled={loading || !canEdit}
+                                            >
+                                                {roles && roles
+                                                    .filter((r: any) => r.id !== 4 && r.role !== 'superAdmin')
+                                                    .map((r: any) => {
+                                                        const isChecked = selectedRoleKeys.includes(r.role);
+                                                        return (
+                                                            <MenuItem key={r.id} value={r.role}>
+                                                                <Checkbox size="small" checked={isChecked} />
+                                                                <span style={{ marginLeft: 8 }}>{r.name}</span>
+                                                            </MenuItem>
+                                                        );
+                                                    })
+                                                }
+                                            </TextField>
+                                        </Grid>
+                                    )}
                                 </Grid>
 
                                 <Typography className={classes.sectionTitle} style={{ marginTop: '12px' }}>Thông tin liên hệ</Typography>

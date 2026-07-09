@@ -821,7 +821,8 @@ export const RoleManagementPage = () => {
               updatePromises.push(userService.update(userId, {
                 roleId: Number(bestRoleObj.id),
                 realRole: bestRoleObj.name,
-                allowedRoles: updatedAllowed
+                allowedRoles: updatedAllowed,
+                skipRoleSwap: true
               }));
             } else {
               updatePromises.push(userService.update(userId, { allowedRoles: otherAllowedRoles }));
@@ -1123,141 +1124,141 @@ export const RoleManagementPage = () => {
           {/* Tab 1: Quyền hạn */}
           {activeTab === 0 && (
             <Box sx={{ mt: 3, border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#fff' }}>
-              <Box sx={{ maxHeight: 350, overflowY: 'auto' }}>
-                <Table size="small" stickyHeader>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell className={classes.headerCell} width={60} />
-                      <TableCell padding="checkbox" className={classes.headerCell} width={60}>
-                        <Checkbox
-                          size="small"
-                          checked={isDialogAllChecked}
-                          indeterminate={isDialogIndeterminate}
-                          onChange={handleDialogSelectAll}
-                        />
-                      </TableCell>
-                      <TableCell className={classes.headerCell} width={300}>Mã quyền</TableCell>
-                      <TableCell className={classes.headerCell}>Tên quyền</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className={classes.filterCell} />
-                      <TableCell className={classes.filterCell} />
-                      <TableCell className={classes.filterCell}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          placeholder="Tìm kiếm..."
-                          value={dialogFilters.code}
-                          onChange={(e) => handleDialogFilterChange("code", e.target.value)}
-                          className={classes.filterField}
-                        />
-                      </TableCell>
-                      <TableCell className={classes.filterCell}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          placeholder="Tìm kiếm..."
-                          value={dialogFilters.name}
-                          onChange={(e) => handleDialogFilterChange("name", e.target.value)}
-                          className={classes.filterField}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {dialogPaginatedGroups.length === 0 ? (
+                <Box sx={{ maxHeight: 350, overflowY: 'auto' }}>
+                  <Table size="small" stickyHeader>
+                    <TableHead>
                       <TableRow>
-                        <TableCell colSpan={4} align="center" sx={{ py: 4, color: "#94a3b8" }}>
-                          Không có dữ liệu
+                        <TableCell className={classes.headerCell} width={60} />
+                        <TableCell padding="checkbox" className={classes.headerCell} width={60}>
+                          <Checkbox
+                            size="small"
+                            checked={isDialogAllChecked}
+                            indeterminate={isDialogIndeterminate}
+                            onChange={handleDialogSelectAll}
+                          />
+                        </TableCell>
+                        <TableCell className={classes.headerCell} width={300}>Mã quyền</TableCell>
+                        <TableCell className={classes.headerCell}>Tên quyền</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className={classes.filterCell} />
+                        <TableCell className={classes.filterCell} />
+                        <TableCell className={classes.filterCell}>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            placeholder="Tìm kiếm..."
+                            value={dialogFilters.code}
+                            onChange={(e) => handleDialogFilterChange("code", e.target.value)}
+                            className={classes.filterField}
+                          />
+                        </TableCell>
+                        <TableCell className={classes.filterCell}>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            placeholder="Tìm kiếm..."
+                            value={dialogFilters.name}
+                            onChange={(e) => handleDialogFilterChange("name", e.target.value)}
+                            className={classes.filterField}
+                          />
                         </TableCell>
                       </TableRow>
-                    ) : (
-                      dialogPaginatedGroups.map((group) => {
-                        const isExpanded = !!expandedGroups[group.code];
-                        const children = getComponentsForGroup(group.code);
-                        const childCodes = children.map(c => c.code);
+                    </TableHead>
+                    <TableBody>
+                      {dialogPaginatedGroups.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={4} align="center" sx={{ py: 4, color: "#94a3b8" }}>
+                            Không có dữ liệu
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        dialogPaginatedGroups.map((group) => {
+                          const isExpanded = !!expandedGroups[group.code];
+                          const children = getComponentsForGroup(group.code);
+                          const childCodes = children.map(c => c.code);
 
-                        const isGroupAllChecked = childCodes.length > 0 && childCodes.every(code => selectedPermissionCodes.includes(code));
-                        const isGroupIndeterminate = !isGroupAllChecked && childCodes.some(code => selectedPermissionCodes.includes(code));
+                          const isGroupAllChecked = childCodes.length > 0 && childCodes.every(code => selectedPermissionCodes.includes(code));
+                          const isGroupIndeterminate = !isGroupAllChecked && childCodes.some(code => selectedPermissionCodes.includes(code));
 
-                        return (
-                          <React.Fragment key={group.code}>
-                            {/* Group Permission Row */}
-                            <TableRow hover onClick={() => toggleGroup(group.code)} sx={{ cursor: 'pointer', bgcolor: '#fafafa' }}>
-                              <TableCell className={classes.bodyCell} align="center" onClick={(e) => { e.stopPropagation(); toggleGroup(group.code); }}>
-                                <IconButton size="small">
-                                  {isExpanded ? <KeyboardArrowUpIcon fontSize="small" /> : <KeyboardArrowDownIcon fontSize="small" />}
-                                </IconButton>
-                              </TableCell>
-                              <TableCell className={classes.bodyCell} padding="checkbox" onClick={(e) => e.stopPropagation()}>
-                                <Checkbox
-                                  size="small"
-                                  checked={isGroupAllChecked}
-                                  indeterminate={isGroupIndeterminate}
-                                  onChange={() => handleToggleGroup(group.code)}
-                                />
-                              </TableCell>
-                              <TableCell className={classes.bodyCell} sx={{ fontWeight: 600, color: '#1e3a8a' }}>
-                                {group.code}
-                              </TableCell>
-                              <TableCell className={classes.bodyCell} sx={{ fontWeight: 600 }}>
-                                {group.name}
-                              </TableCell>
-                            </TableRow>
+                          return (
+                            <React.Fragment key={group.code}>
+                              {/* Group Permission Row */}
+                              <TableRow hover onClick={() => toggleGroup(group.code)} sx={{ cursor: 'pointer', bgcolor: '#fafafa' }}>
+                                <TableCell className={classes.bodyCell} align="center" onClick={(e) => { e.stopPropagation(); toggleGroup(group.code); }}>
+                                  <IconButton size="small">
+                                    {isExpanded ? <KeyboardArrowUpIcon fontSize="small" /> : <KeyboardArrowDownIcon fontSize="small" />}
+                                  </IconButton>
+                                </TableCell>
+                                <TableCell className={classes.bodyCell} padding="checkbox" onClick={(e) => e.stopPropagation()}>
+                                  <Checkbox
+                                    size="small"
+                                    checked={isGroupAllChecked}
+                                    indeterminate={isGroupIndeterminate}
+                                    onChange={() => handleToggleGroup(group.code)}
+                                  />
+                                </TableCell>
+                                <TableCell className={classes.bodyCell} sx={{ fontWeight: 600, color: '#1e3a8a' }}>
+                                  {group.code}
+                                </TableCell>
+                                <TableCell className={classes.bodyCell} sx={{ fontWeight: 600 }}>
+                                  {group.name}
+                                </TableCell>
+                              </TableRow>
 
-                            {/* Component Permission Rows */}
-                            {isExpanded && group.matchingComponents.map((comp: any) => {
-                              const isCompChecked = selectedPermissionCodes.includes(comp.code);
-                              return (
-                                <TableRow key={comp.code} hover>
-                                  <TableCell className={classes.bodyCell} />
-                                  <TableCell className={classes.bodyCell} padding="checkbox">
-                                    <Checkbox
-                                      size="small"
-                                      checked={isCompChecked}
-                                      onChange={() => handleToggleComponent(comp.code, group.code)}
-                                    />
-                                  </TableCell>
-                                  <TableCell className={classes.bodyCell} sx={{ pl: 4, fontFamily: 'monospace', color: '#334155' }}>
-                                    {comp.code}
-                                  </TableCell>
-                                  <TableCell className={classes.bodyCell} sx={{ color: '#475569' }}>
-                                    {comp.name}
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
-                          </React.Fragment>
-                        );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </Box>
-
-              {dialogTotalCount > 0 && (
-                <Box className={classes.footer}>
-                  <Select
-                    value={dialogFilters.limit}
-                    onChange={(e) => handleDialogFilterChange("limit", Number(e.target.value))}
-                    className={classes.pageSizeSelect}
-                    size="small"
-                  >
-                    <MenuItem value={10}>10</MenuItem>
-                    <MenuItem value={20}>20</MenuItem>
-                    <MenuItem value={50}>50</MenuItem>
-                  </Select>
-                  <Typography className={classes.pageInfo}>
-                    {dialogStartIndex} - {dialogEndIndex} of {dialogTotalCount}
-                  </Typography>
-                  <CustomPagination
-                    count={Math.max(1, Math.ceil(dialogTotalCount / dialogFilters.limit))}
-                    page={dialogFilters.page}
-                    onChange={(page) => handleDialogFilterChange("page", page)}
-                  />
+                              {/* Component Permission Rows */}
+                              {isExpanded && group.matchingComponents.map((comp: any) => {
+                                const isCompChecked = selectedPermissionCodes.includes(comp.code);
+                                return (
+                                  <TableRow key={comp.code} hover>
+                                    <TableCell className={classes.bodyCell} />
+                                    <TableCell className={classes.bodyCell} padding="checkbox">
+                                      <Checkbox
+                                        size="small"
+                                        checked={isCompChecked}
+                                        onChange={() => handleToggleComponent(comp.code, group.code)}
+                                      />
+                                    </TableCell>
+                                    <TableCell className={classes.bodyCell} sx={{ pl: 4, fontFamily: 'monospace', color: '#334155' }}>
+                                      {comp.code}
+                                    </TableCell>
+                                    <TableCell className={classes.bodyCell} sx={{ color: '#475569' }}>
+                                      {comp.name}
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                            </React.Fragment>
+                          );
+                        })
+                      )}
+                    </TableBody>
+                  </Table>
                 </Box>
-              )}
-            </Box>
+
+                {dialogTotalCount > 0 && (
+                  <Box className={classes.footer}>
+                    <Select
+                      value={dialogFilters.limit}
+                      onChange={(e) => handleDialogFilterChange("limit", Number(e.target.value))}
+                      className={classes.pageSizeSelect}
+                      size="small"
+                    >
+                      <MenuItem value={10}>10</MenuItem>
+                      <MenuItem value={20}>20</MenuItem>
+                      <MenuItem value={50}>50</MenuItem>
+                    </Select>
+                    <Typography className={classes.pageInfo}>
+                      {dialogStartIndex} - {dialogEndIndex} of {dialogTotalCount}
+                    </Typography>
+                    <CustomPagination
+                      count={Math.max(1, Math.ceil(dialogTotalCount / dialogFilters.limit))}
+                      page={dialogFilters.page}
+                      onChange={(page) => handleDialogFilterChange("page", page)}
+                    />
+                  </Box>
+                )}
+              </Box>
           )}
 
           {/* Tab 2: Người dùng sở hữu */}
@@ -1287,8 +1288,6 @@ export const RoleManagementPage = () => {
                     <TableHead>
                       <TableRow>
                         <TableCell padding="checkbox" className={classes.headerCell} width={60} />
-
-
                         <TableCell className={classes.headerCell}>Tên đăng nhập</TableCell>
                         <TableCell className={classes.headerCell}>Họ và tên</TableCell>
                       </TableRow>
