@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { BaseService, GetAllDto } from "src/commons";
 import { Repository, getManager } from "typeorm";
@@ -82,7 +82,7 @@ export class BusinessLineService extends BaseService<BusinessLine> {
       [ids]
     );
     if (parseInt(result[0]?.count || '0', 10) > 0) {
-      throw new BadRequestException('Ngành nghề kinh doanh này đang được sử dụng bởi doanh nghiệp, không thể xóa hoặc tắt trạng thái');
+      throw Response.errorBad('Ngành nghề kinh doanh này đang được sử dụng bởi doanh nghiệp, không thể xóa hoặc tắt trạng thái');
     }
   }
 

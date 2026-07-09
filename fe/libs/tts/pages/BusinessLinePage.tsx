@@ -436,7 +436,18 @@ export const BusinessLinePage = () => {
       fetchAllBusinessLines();
     } catch (err: any) {
       console.error("Error bulk deleting", err);
-      enqueueSnackbar(err?.response?.data?.message || "Lỗi khi xóa", { variant: "error" });
+      const resData = err?.response?.data;
+      let errorMsg = "Lỗi khi xóa";
+      if (resData?.errors) {
+        if (typeof resData.errors === "string") errorMsg = resData.errors;
+        else if (typeof resData.errors === "object" && resData.errors.message) {
+          const errMsg = resData.errors.message;
+          errorMsg = Array.isArray(errMsg) ? errMsg[0] : errMsg;
+        }
+      } else if (resData?.message && resData.message !== "BAD REQUEST") {
+        errorMsg = Array.isArray(resData.message) ? resData.message[0] : resData.message;
+      }
+      enqueueSnackbar(errorMsg, { variant: "error" });
     } finally {
       setLoading(false);
     }

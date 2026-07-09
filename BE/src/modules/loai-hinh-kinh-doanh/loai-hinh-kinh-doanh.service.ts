@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { BaseService } from "src/commons";
 import { Repository, getManager } from "typeorm";
@@ -76,7 +76,7 @@ export class LoaiHinhKinhDoanhService extends BaseService<LoaiHinhKinhDoanh> {
       [ids]
     );
     if (parseInt(result[0]?.count || '0', 10) > 0) {
-      throw new BadRequestException('Loại hình kinh doanh này đang được sử dụng bởi doanh nghiệp, không thể xóa hoặc tắt trạng thái');
+      throw Response.errorBad('Loại hình kinh doanh này đang được sử dụng bởi doanh nghiệp, không thể xóa hoặc tắt trạng thái');
     }
   }
 
