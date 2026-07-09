@@ -4,8 +4,9 @@ import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
     Box, Typography, Button, Table, TableBody, TableCell,
     TableContainer, TableHead, TableRow, Checkbox,
-    Switch, IconButton, TextField, Select, MenuItem, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions, Tooltip, Pagination,
-    Autocomplete
+    Switch, IconButton, TextField, Select, MenuItem, CircularProgress,
+    Dialog, DialogTitle, DialogContent, DialogActions, Tooltip, Pagination,
+    Autocomplete, Chip
 } from '@mui/material';
 import {
     Delete as DeleteIcon,
@@ -135,6 +136,8 @@ export const UserManagementPage = () => {
     });
     const [editImportErrors, setEditImportErrors] = useState<Record<string, string>>({});
     const [showImportPassword, setShowImportPassword] = useState(false);
+    const [dupUsernames, setDupUsernames] = useState<string[]>([]);
+    const [dupEmails, setDupEmails] = useState<string[]>([]);
 
     const { user, login, logout } = useAuth();
     // Phân quyền: 0=VIEW (Nhân viên), 1=WRITE (Chuyên viên), 2=FULL (Admin/Lãnh đạo)
@@ -409,7 +412,13 @@ export const UserManagementPage = () => {
         enqueueSnackbar('Xuất file Excel thành công!', { variant: 'success' });
     };
 
-    const validateRow = (row: any) => {
+    const validateRow = (
+        row: any,
+        index?: number,
+        list: any[] = importUsers,
+        currentDupUsernames: string[] = dupUsernames,
+        currentDupEmails: string[] = dupEmails
+    ) => {
         const errors: Record<string, string> = {};
         if (!row.username || row.username.trim() === '') {
             errors.username = 'Tên đăng nhập không được để trống';
@@ -417,6 +426,18 @@ export const UserManagementPage = () => {
             const usernamePattern = /^[a-zA-Z0-9_.-]{3,50}$/;
             if (!usernamePattern.test(row.username)) {
                 errors.username = 'Yêu cầu 3-50 ký tự (chữ không dấu, số, ., _, -)';
+            } else {
+                const currentUsername = row.username.trim().toLowerCase();
+                const isDuplicateInFile = list.some((u, i) =>
+                    i !== index &&
+                    u.username &&
+                    u.username.trim().toLowerCase() === currentUsername
+                );
+                if (isDuplicateInFile) {
+                    errors.username = 'Trùng tên đăng nhập trong danh sách';
+                } else if (currentDupUsernames.some(u => u.toLowerCase().trim() === currentUsername)) {
+                    errors.username = 'Tên đăng nhập đã tồn tại trên hệ thống';
+                }
             }
         }
 
@@ -424,6 +445,18 @@ export const UserManagementPage = () => {
             const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
             if (!emailPattern.test(row.email)) {
                 errors.email = 'Email không hợp lệ';
+            } else {
+                const currentEmail = row.email.trim().toLowerCase();
+                const isDuplicateInFile = list.some((u, i) =>
+                    i !== index &&
+                    u.email &&
+                    u.email.trim().toLowerCase() === currentEmail
+                );
+                if (isDuplicateInFile) {
+                    errors.email = 'Trùng Email trong danh sách';
+                } else if (currentDupEmails.some(e => e.toLowerCase().trim() === currentEmail)) {
+                    errors.email = 'Email đã tồn tại trên hệ thống';
+                }
             }
         }
 
@@ -436,12 +469,75 @@ export const UserManagementPage = () => {
         if (!row.realRole || row.realRole.trim() === '') {
             errors.realRole = 'Vai trò là bắt buộc';
         } else {
-            const roleNames = roles.map(r => r.name.trim());
+            const roleNames = roles.map((r: any) => r.name.trim());
             if (!roleNames.includes(row.realRole.trim())) {
                 errors.realRole = 'Vai trò không hợp lệ';
             }
         }
         return errors;
+    };
+
+    const fetchDuplicates = async (list: any[]): Promise<{ dupUsernames: string[]; dupEmails: string[] }> => {
+        const usernames = list.map(u => (u.username || '').toString().trim()).filter(Boolean);
+        const emails = list.map(e => (e.email || '').toString().trim()).filter(Boolean);
+        try {
+            const res = await (userService as any).checkDuplicates(usernames, emails);
+            const result = {
+                dupUsernames: res.duplicateUsernames || [],
+                dupEmails: res.duplicateEmails || []
+            };
+            setDupUsernames(result.dupUsernames);
+            setDupEmails(result.dupEmails);
+            return result;
+        } catch (error) {
+            console.error('Lỗi khi kiểm tra tài khoản trùng lặp:', error);
+            return { dupUsernames: [], dupEmails: [] };
+        }
+    };
+
+    const doImport = async (users: any[]) => {
+        try {
+            setLoading(true);
+            const dataToImport = users.map(u => ({
+                fullName: u.fullName,
+                username: u.username,
+                email: u.email,
+                password: u.password,
+                realRole: u.realRole,
+                roleId: u.roleId
+            }));
+            const response = await userService.import(dataToImport);
+            const successCount = response.success || 0;
+            const errorCount = response.err || 0;
+            if (errorCount > 0) {
+                enqueueSnackbar(`Nhập thành công ${successCount} dòng. Thất bại ${errorCount} dòng (Trùng lặp).`, { variant: 'warning' });
+            } else {
+                enqueueSnackbar(`Nhập thành công ${successCount} tài khoản!`, { variant: 'success' });
+            }
+            setIsPreviewOpen(false);
+            setImportUsers([]);
+            fetchData();
+        } catch (error) {
+            enqueueSnackbar('Lỗi khi lưu dữ liệu vào cơ sở dữ liệu', { variant: 'error' });
+        } finally {
+            setLoading(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    const handleDownloadTemplate = async () => {
+        try {
+            const blob = await userService.getImportTemplate();
+            const url = window.URL.createObjectURL(new Blob([blob]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', 'Mau_Template_Import_Nguoi_Dung.xlsx');
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode?.removeChild(link);
+        } catch (error) {
+            enqueueSnackbar('Lỗi khi tải file template', { variant: 'error' });
+        }
     };
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -467,12 +563,14 @@ export const UserManagementPage = () => {
                     let realRole = '';
                     let roleId: number | undefined = undefined;
 
-                    const roleClean = rawRole.toLowerCase();
-                    const matchedRole = roles.find(r =>
-                        r.name.toLowerCase().includes(roleClean) ||
-                        roleClean.includes(r.name.toLowerCase()) ||
-                        (r.role && r.role.toLowerCase() === roleClean)
-                    );
+                    const roleClean = rawRole.toLowerCase().trim();
+                    // Only match when roleClean is non-empty, and use exact match to avoid '' matching everything
+                    const matchedRole = roleClean
+                        ? roles.find((r: any) =>
+                            r.name.toLowerCase().trim() === roleClean ||
+                            (r.role && r.role.toLowerCase().trim() === roleClean)
+                        )
+                        : undefined;
 
                     if (matchedRole) {
                         realRole = matchedRole.name;
@@ -489,8 +587,27 @@ export const UserManagementPage = () => {
                     return;
                 }
 
-                setImportUsers(formattedData);
-                setIsPreviewOpen(true);
+                // Fetch duplicates from system (username/email already in DB)
+                const { dupUsernames: freshDupUsernames, dupEmails: freshDupEmails } = await fetchDuplicates(formattedData);
+
+                // Validate ALL rows (format + in-file dup + system dup)
+                let hasAnyError = false;
+                for (let i = 0; i < formattedData.length; i++) {
+                    const errs = validateRow(formattedData[i], i, formattedData, freshDupUsernames, freshDupEmails);
+                    if (Object.keys(errs).length > 0) {
+                        hasAnyError = true;
+                        break;
+                    }
+                }
+
+                if (hasAnyError) {
+                    // Has errors of any kind → show dialog with ALL rows so user can review, fix or delete
+                    setImportUsers(formattedData);
+                    setIsPreviewOpen(true);
+                } else {
+                    // All rows are fully valid → import immediately
+                    await doImport(formattedData);
+                }
             } catch (error) {
                 enqueueSnackbar('Lỗi khi xử lý file', { variant: 'error' });
             } finally {
@@ -503,21 +620,23 @@ export const UserManagementPage = () => {
     const handleStartEditImport = (index: number, item: any) => {
         setEditingImportIndex(index);
         setEditImportForm({ ...item });
-        setEditImportErrors(validateRow(item));
+        setEditImportErrors(validateRow(item, index, importUsers, dupUsernames, dupEmails));
     };
 
     const handleEditImportChange = (field: string, value: any) => {
         const updated = { ...editImportForm, [field]: value };
         if (field === 'realRole') {
-            const matched = roles.find(r => r.name === value);
+            const matched = roles.find((r: any) => r.name === value);
             updated.roleId = matched?.id;
         }
         setEditImportForm(updated);
-        setEditImportErrors(validateRow(updated));
+        const tempList = [...importUsers];
+        tempList[editingImportIndex!] = updated;
+        setEditImportErrors(validateRow(updated, editingImportIndex!, tempList, dupUsernames, dupEmails));
     };
 
     const handleSaveEditImport = (index: number) => {
-        const errors = validateRow(editImportForm);
+        const errors = validateRow(editImportForm, index, importUsers);
         if (Object.keys(errors).length > 0) {
             setEditImportErrors(errors);
             enqueueSnackbar('Vui lòng sửa các thông tin chưa hợp lệ!', { variant: 'error' });
@@ -526,6 +645,7 @@ export const UserManagementPage = () => {
         setImportUsers(prev => {
             const updated = [...prev];
             updated[index] = editImportForm;
+            fetchDuplicates(updated);
             return updated;
         });
         setEditingImportIndex(null);
@@ -537,7 +657,9 @@ export const UserManagementPage = () => {
     };
 
     const handleDeleteImportRow = (index: number) => {
-        setImportUsers(prev => prev.filter((_, idx) => idx !== index));
+        const updated = importUsers.filter((_, idx) => idx !== index);
+        setImportUsers(updated);
+        fetchDuplicates(updated);
         if (editingImportIndex === index) {
             setEditingImportIndex(null);
         } else if (editingImportIndex !== null && editingImportIndex > index) {
@@ -559,8 +681,8 @@ export const UserManagementPage = () => {
         }
 
         let hasAnyError = false;
-        for (const item of importUsers) {
-            if (Object.keys(validateRow(item)).length > 0) {
+        for (let i = 0; i < importUsers.length; i++) {
+            if (Object.keys(validateRow(importUsers[i], i, importUsers, dupUsernames, dupEmails)).length > 0) {
                 hasAnyError = true;
                 break;
             }
@@ -570,34 +692,7 @@ export const UserManagementPage = () => {
             return;
         }
 
-        try {
-            setLoading(true);
-            const dataToImport = importUsers.map(u => ({
-                fullName: u.fullName,
-                username: u.username,
-                email: u.email,
-                password: u.password,
-                realRole: u.realRole,
-                roleId: u.roleId
-            }));
-            const response = await userService.import(dataToImport);
-            const successCount = response.success || 0;
-            const errorCount = response.err || 0;
-
-            if (errorCount > 0) {
-                enqueueSnackbar(`Nhập thành công ${successCount} dòng. Thất bại ${errorCount} dòng (Trùng lặp).`, { variant: 'warning' });
-            } else {
-                enqueueSnackbar(`Nhập thành công ${successCount} tài khoản!`, { variant: 'success' });
-            }
-            setIsPreviewOpen(false);
-            setImportUsers([]);
-            fetchData();
-        } catch (error) {
-            enqueueSnackbar('Lỗi khi lưu dữ liệu vào cơ sở dữ liệu', { variant: 'error' });
-        } finally {
-            setLoading(false);
-            if (fileInputRef.current) fileInputRef.current.value = '';
-        }
+        await doImport(importUsers);
     };
 
 
@@ -661,6 +756,14 @@ export const UserManagementPage = () => {
                 <Box className={classes.actions}>
                     {hasUserCreate && (
                         <>
+                            <Button
+                                className={classes.importBtn}
+                                startIcon={<DownloadIcon fontSize="small" />}
+                                disableRipple
+                                onClick={handleDownloadTemplate}
+                            >
+                                Tải mẫu template excel
+                            </Button>
                             <Button
                                 className={classes.importBtn}
                                 startIcon={<UploadIcon fontSize="small" />}
@@ -950,9 +1053,9 @@ export const UserManagementPage = () => {
             <Dialog
                 open={isPreviewOpen}
                 onClose={handleCancelImport}
-                maxWidth="md"
+                maxWidth="xl"
                 fullWidth
-                sx={{ '& .MuiDialog-paper': { borderRadius: '10px' } }}
+                sx={{ '& .MuiDialog-paper': { borderRadius: '10px', maxHeight: '90vh' } }}
             >
                 <DialogTitle sx={{ bgcolor: '#2f65f0', color: 'white', fontWeight: 700, py: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Typography sx={{ fontWeight: 700, fontSize: '1.1rem' }}>Xác nhận danh sách người dùng nhập từ file</Typography>
@@ -964,38 +1067,44 @@ export const UserManagementPage = () => {
                 <DialogContent sx={{ pt: '20px !important', pb: 2 }}>
                     <Box sx={{ mb: 2, p: 1.5, bgcolor: '#f8fafc', borderRadius: '4px', borderLeft: '4px solid #3b82f6' }}>
                         <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
-                            Vui lòng kiểm tra kỹ danh sách tài khoản trước khi nhập vào cơ sở dữ liệu.
-                            Click nút <strong>Sửa</strong> (hoặc nhấn biểu tượng cây bút) để cập nhật thông tin inline, click <strong>Xóa</strong> để loại bỏ dòng.
-                            Các trường lỗi sẽ được đánh dấu cảnh báo màu đỏ.
+                            Danh sách dưới đây gồm tất cả người dùng từ file. Các dòng <strong style={{ color: '#ef4444' }}>đỏ</strong> có lỗi cần xử lý trước khi nhập.
+                            Nhấn <strong>✏ Sửa</strong> để chỉnh sửa, <strong>🗑 Xóa</strong> để loại bỏ dòng.
+                            Sau khi tất cả dòng hợp lệ, nhấn <strong>Xác nhận nhập</strong>.
                         </Typography>
                     </Box>
-                    <TableContainer sx={{ maxHeight: 380, border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-                        <Table size="small" stickyHeader>
+                    <TableContainer sx={{ maxHeight: 420, border: '1px solid #e2e8f0', borderRadius: '8px', overflowX: 'auto' }}>
+                        <Table size="small" stickyHeader sx={{ tableLayout: 'fixed', minWidth: 900 }}>
                             <TableHead>
                                 <TableRow>
-                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }} width={60}>STT</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Họ và tên</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Tên đăng nhập *</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Email</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Vai trò *</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Mật khẩu</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }} align="center" width={110}>Thao tác</TableCell>
+                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9', width: 50 }}>STT</TableCell>
+                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9', width: 160 }}>Họ và tên</TableCell>
+                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9', width: 170 }}>Tên đăng nhập *</TableCell>
+                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9', width: 210 }}>Email</TableCell>
+                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9', width: 150 }}>Vai trò *</TableCell>
+                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9', width: 130 }}>Mật khẩu</TableCell>
+                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9', width: 100 }} align="center">Thao tác</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
                                 {importUsers.map((item, index) => {
-                                    const errors = validateRow(item);
+                                    const errors = validateRow(item, index, importUsers, dupUsernames, dupEmails);
                                     const hasError = Object.keys(errors).length > 0;
                                     const isEditing = editingImportIndex === index;
 
                                     return (
-                                        <TableRow key={index} sx={{ bgcolor: hasError ? '#fff5f5' : 'inherit', '&:hover': { bgcolor: hasError ? '#fee2e2' : '#f8fafc' } }}>
+                                        <TableRow
+                                            key={index}
+                                            sx={{
+                                                bgcolor: hasError ? '#fff5f5' : 'inherit',
+                                                '&:hover': { bgcolor: hasError ? '#fee2e2' : '#f8fafc' }
+                                            }}
+                                        >
                                             <TableCell>{index + 1}</TableCell>
-                                            <TableCell>
+                                            <TableCell sx={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>
                                                 {isEditing ? (
                                                     <TextField
                                                         size="small"
-                                                        value={editImportForm.fullName}
+                                                        value={editImportForm.fullName || ''}
                                                         onChange={(e) => handleEditImportChange('fullName', e.target.value)}
                                                         fullWidth
                                                         variant="outlined"
@@ -1005,11 +1114,11 @@ export const UserManagementPage = () => {
                                                     item.fullName || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>--</span>
                                                 )}
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell sx={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>
                                                 {isEditing ? (
                                                     <TextField
                                                         size="small"
-                                                        value={editImportForm.username}
+                                                        value={editImportForm.username || ''}
                                                         error={!!editImportErrors.username}
                                                         helperText={editImportErrors.username}
                                                         onChange={(e) => handleEditImportChange('username', e.target.value)}
@@ -1031,11 +1140,11 @@ export const UserManagementPage = () => {
                                                     </Box>
                                                 )}
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell sx={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>
                                                 {isEditing ? (
                                                     <TextField
                                                         size="small"
-                                                        value={editImportForm.email}
+                                                        value={editImportForm.email || ''}
                                                         error={!!editImportErrors.email}
                                                         helperText={editImportErrors.email}
                                                         onChange={(e) => handleEditImportChange('email', e.target.value)}
@@ -1054,7 +1163,7 @@ export const UserManagementPage = () => {
                                                     </Box>
                                                 )}
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell sx={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>
                                                 {isEditing ? (
                                                     <Select
                                                         size="small"
@@ -1065,10 +1174,21 @@ export const UserManagementPage = () => {
                                                         sx={{ borderRadius: '4px' }}
                                                         disabled={!canEditRole}
                                                     >
-                                                        <MenuItem value="Nhân viên">Nhân viên</MenuItem>
-                                                        <MenuItem value="Chuyên viên">Chuyên viên</MenuItem>
-                                                        <MenuItem value="Lãnh đạo">Lãnh đạo</MenuItem>
-                                                        <MenuItem value="Quản trị viên">Quản trị viên</MenuItem>
+                                                        {roles && roles
+                                                            .filter((r: any) =>
+                                                                r.role !== 'enterprise' &&
+                                                                r.type !== 'DN' &&
+                                                                r.id !== 5 &&
+                                                                r.name !== 'Doanh nghiệp' &&
+                                                                r.role !== 'superAdmin' &&
+                                                                r.id !== 4
+                                                            )
+                                                            .map((r: any) => (
+                                                                <MenuItem key={r.id} value={r.name}>
+                                                                    {r.name}
+                                                                </MenuItem>
+                                                            ))
+                                                        }
                                                     </Select>
                                                 ) : (
                                                     <Box>
@@ -1083,11 +1203,11 @@ export const UserManagementPage = () => {
                                                     </Box>
                                                 )}
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell sx={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>
                                                 {isEditing ? (
                                                     <TextField
                                                         size="small"
-                                                        value={editImportForm.password}
+                                                        value={editImportForm.password || ''}
                                                         error={!!editImportErrors.password}
                                                         helperText={editImportErrors.password}
                                                         onChange={(e) => handleEditImportChange('password', e.target.value)}
@@ -1110,20 +1230,12 @@ export const UserManagementPage = () => {
                                                 {isEditing ? (
                                                     <Box sx={{ display: 'flex', gap: 0.25, justifyContent: 'center' }}>
                                                         <Tooltip title="Lưu">
-                                                            <IconButton
-                                                                size="small"
-                                                                color="success"
-                                                                onClick={() => handleSaveEditImport(index)}
-                                                            >
+                                                            <IconButton size="small" color="success" onClick={() => handleSaveEditImport(index)}>
                                                                 <SaveIcon fontSize="small" />
                                                             </IconButton>
                                                         </Tooltip>
                                                         <Tooltip title="Hủy">
-                                                            <IconButton
-                                                                size="small"
-                                                                color="warning"
-                                                                onClick={handleCancelEditImport}
-                                                            >
+                                                            <IconButton size="small" color="warning" onClick={handleCancelEditImport}>
                                                                 <CloseIcon fontSize="small" />
                                                             </IconButton>
                                                         </Tooltip>
@@ -1131,20 +1243,12 @@ export const UserManagementPage = () => {
                                                 ) : (
                                                     <Box sx={{ display: 'flex', gap: 0.25, justifyContent: 'center' }}>
                                                         <Tooltip title="Sửa">
-                                                            <IconButton
-                                                                size="small"
-                                                                color="primary"
-                                                                onClick={() => handleStartEditImport(index, item)}
-                                                            >
+                                                            <IconButton size="small" color="primary" onClick={() => handleStartEditImport(index, item)}>
                                                                 <EditIcon fontSize="small" />
                                                             </IconButton>
                                                         </Tooltip>
                                                         <Tooltip title="Xóa">
-                                                            <IconButton
-                                                                size="small"
-                                                                color="error"
-                                                                onClick={() => handleDeleteImportRow(index)}
-                                                            >
+                                                            <IconButton size="small" color="error" onClick={() => handleDeleteImportRow(index)}>
                                                                 <DeleteIcon fontSize="small" />
                                                             </IconButton>
                                                         </Tooltip>
@@ -1185,269 +1289,7 @@ export const UserManagementPage = () => {
                         onClick={handleConfirmImport}
                         variant="contained"
                         disableElevation
-                        disabled={loading || importUsers.length === 0 || importUsers.some(item => Object.keys(validateRow(item)).length > 0)}
-                        startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <UploadIcon fontSize="small" />}
-                        sx={{ textTransform: 'none', bgcolor: '#2f65f0', fontWeight: 600, borderRadius: '4px' }}
-                    >
-                        Xác nhận nhập ({importUsers.length})
-                    </Button>
-                </DialogActions>
-            </Dialog>
-
-            {/* Import Excel Preview Dialog */}
-            <Dialog
-                open={isPreviewOpen}
-                onClose={handleCancelImport}
-                maxWidth="md"
-                fullWidth
-                sx={{ '& .MuiDialog-paper': { borderRadius: '10px' } }}
-            >
-                <DialogTitle sx={{ bgcolor: '#2f65f0', color: 'white', fontWeight: 700, py: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography sx={{ fontWeight: 700, fontSize: '1.1rem' }}>Xác nhận danh sách người dùng nhập từ file</Typography>
-                    <IconButton size="small" onClick={handleCancelImport} sx={{ color: 'white' }}>
-                        <CloseIcon fontSize="small" />
-                    </IconButton>
-                </DialogTitle>
-                <DialogContent sx={{ pt: '20px !important', pb: 2 }}>
-                    <Box sx={{ mb: 2, p: 1.5, bgcolor: '#f8fafc', borderRadius: '4px', borderLeft: '4px solid #3b82f6' }}>
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
-                            Vui lòng kiểm tra kỹ danh sách tài khoản trước khi nhập vào cơ sở dữ liệu.
-                            Click nút <strong>Sửa</strong> (hoặc nhấn biểu tượng cây bút) để cập nhật thông tin inline, click <strong>Xóa</strong> để loại bỏ dòng.
-                            Các trường lỗi sẽ được đánh dấu cảnh báo màu đỏ.
-                        </Typography>
-                    </Box>
-                    <TableContainer sx={{ maxHeight: 380, border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-                        <Table size="small" stickyHeader>
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }} width={60}>STT</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Họ và tên</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Tên đăng nhập *</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Email</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Vai trò *</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Mật khẩu</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }} align="center" width={110}>Thao tác</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {importUsers.map((item, index) => {
-                                    const errors = validateRow(item);
-                                    const hasError = Object.keys(errors).length > 0;
-                                    const isEditing = editingImportIndex === index;
-
-                                    return (
-                                        <TableRow key={index} sx={{ bgcolor: hasError ? '#fff5f5' : 'inherit', '&:hover': { bgcolor: hasError ? '#fee2e2' : '#f8fafc' } }}>
-                                            <TableCell>{index + 1}</TableCell>
-                                            <TableCell>
-                                                {isEditing ? (
-                                                    <TextField
-                                                        size="small"
-                                                        value={editImportForm.fullName}
-                                                        onChange={(e) => handleEditImportChange('fullName', e.target.value)}
-                                                        fullWidth
-                                                        variant="outlined"
-                                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '4px' } }}
-                                                    />
-                                                ) : (
-                                                    item.fullName || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>--</span>
-                                                )}
-                                            </TableCell>
-                                            <TableCell>
-                                                {isEditing ? (
-                                                    <TextField
-                                                        size="small"
-                                                        value={editImportForm.username}
-                                                        error={!!editImportErrors.username}
-                                                        helperText={editImportErrors.username}
-                                                        onChange={(e) => handleEditImportChange('username', e.target.value)}
-                                                        fullWidth
-                                                        required
-                                                        variant="outlined"
-                                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '4px' } }}
-                                                    />
-                                                ) : (
-                                                    <Box>
-                                                        <Typography variant="body2" sx={{ fontWeight: 500, color: !item.username ? '#ef4444' : 'inherit' }}>
-                                                            {item.username || 'Trống'}
-                                                        </Typography>
-                                                        {errors.username && (
-                                                            <Typography variant="caption" color="error" sx={{ display: 'block', fontSize: '0.75rem' }}>
-                                                                {errors.username}
-                                                            </Typography>
-                                                        )}
-                                                    </Box>
-                                                )}
-                                            </TableCell>
-                                            <TableCell>
-                                                {isEditing ? (
-                                                    <TextField
-                                                        size="small"
-                                                        value={editImportForm.email}
-                                                        error={!!editImportErrors.email}
-                                                        helperText={editImportErrors.email}
-                                                        onChange={(e) => handleEditImportChange('email', e.target.value)}
-                                                        fullWidth
-                                                        variant="outlined"
-                                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '4px' } }}
-                                                    />
-                                                ) : (
-                                                    <Box>
-                                                        <Typography variant="body2">{item.email || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>--</span>}</Typography>
-                                                        {errors.email && (
-                                                            <Typography variant="caption" color="error" sx={{ display: 'block', fontSize: '0.75rem' }}>
-                                                                {errors.email}
-                                                            </Typography>
-                                                        )}
-                                                    </Box>
-                                                )}
-                                            </TableCell>
-                                            <TableCell>
-                                                {isEditing ? (
-                                                    <Select
-                                                        size="small"
-                                                        fullWidth
-                                                        value={editImportForm.realRole || ''}
-                                                        onChange={(e) => handleEditImportChange('realRole', e.target.value)}
-                                                        variant="outlined"
-                                                        sx={{ borderRadius: '4px' }}
-                                                        disabled={!canEditRole}
-                                                    >
-                                                        {roles.map((r) => (
-                                                            <MenuItem key={r.id} value={r.name}>{r.name}</MenuItem>
-                                                        ))}
-                                                    </Select>
-                                                ) : (
-                                                    <Box>
-                                                        <Typography variant="body2" sx={{ fontWeight: 500, color: !item.realRole ? '#ef4444' : 'inherit' }}>
-                                                            {item.realRole || 'Trống'}
-                                                        </Typography>
-                                                        {errors.realRole && (
-                                                            <Typography variant="caption" color="error" sx={{ display: 'block', fontSize: '0.75rem' }}>
-                                                                {errors.realRole}
-                                                            </Typography>
-                                                        )}
-                                                    </Box>
-                                                )}
-                                            </TableCell>
-                                            <TableCell>
-                                                {isEditing ? (
-                                                    <TextField
-                                                        size="small"
-                                                        value={editImportForm.password}
-                                                        error={!!editImportErrors.password}
-                                                        helperText={editImportErrors.password}
-                                                        onChange={(e) => handleEditImportChange('password', e.target.value)}
-                                                        fullWidth
-                                                        variant="outlined"
-                                                        type={showImportPassword ? 'text' : 'password'}
-                                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '4px' } }}
-                                                        slotProps={{
-                                                            input: {
-                                                                endAdornment: (
-                                                                    <InputAdornment position="end">
-                                                                        <IconButton
-                                                                            size="small"
-                                                                            onClick={() => setShowImportPassword(!showImportPassword)}
-                                                                            edge="end"
-                                                                        >
-                                                                            {showImportPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
-                                                                        </IconButton>
-                                                                    </InputAdornment>
-                                                                )
-                                                            }
-                                                        }}
-                                                    />
-                                                ) : (
-                                                    <Box>
-                                                        <Typography variant="body2">{item.password || '12345678'}</Typography>
-                                                        {errors.password && (
-                                                            <Typography variant="caption" color="error" sx={{ display: 'block', fontSize: '0.75rem' }}>
-                                                                {errors.password}
-                                                            </Typography>
-                                                        )}
-                                                    </Box>
-                                                )}
-                                            </TableCell>
-                                            <TableCell align="center">
-                                                {isEditing ? (
-                                                    <Box sx={{ display: 'flex', gap: 0.25, justifyContent: 'center' }}>
-                                                        <Tooltip title="Lưu">
-                                                            <IconButton
-                                                                size="small"
-                                                                color="success"
-                                                                onClick={() => handleSaveEditImport(index)}
-                                                            >
-                                                                <SaveIcon fontSize="small" />
-                                                            </IconButton>
-                                                        </Tooltip>
-                                                        <Tooltip title="Hủy">
-                                                            <IconButton
-                                                                size="small"
-                                                                color="warning"
-                                                                onClick={handleCancelEditImport}
-                                                            >
-                                                                <CloseIcon fontSize="small" />
-                                                            </IconButton>
-                                                        </Tooltip>
-                                                    </Box>
-                                                ) : (
-                                                    <Box sx={{ display: 'flex', gap: 0.25, justifyContent: 'center' }}>
-                                                        <Tooltip title="Sửa">
-                                                            <IconButton
-                                                                size="small"
-                                                                color="primary"
-                                                                onClick={() => handleStartEditImport(index, item)}
-                                                            >
-                                                                <EditIcon fontSize="small" />
-                                                            </IconButton>
-                                                        </Tooltip>
-                                                        <Tooltip title="Xóa">
-                                                            <IconButton
-                                                                size="small"
-                                                                color="error"
-                                                                onClick={() => handleDeleteImportRow(index)}
-                                                            >
-                                                                <DeleteIcon fontSize="small" />
-                                                            </IconButton>
-                                                        </Tooltip>
-                                                    </Box>
-                                                )}
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                })}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
-                </DialogContent>
-                <DialogActions sx={{ px: 3, pb: 2.5, pt: 1.5, borderTop: '1px solid #e2e8f0' }}>
-                    <Button
-                        onClick={handleCancelImport}
-                        sx={{
-                            textTransform: 'none',
-                            color: '#666',
-                            fontSize: '0.85rem',
-                            borderRadius: '6px',
-                            padding: '4px 16px',
-                            minWidth: 'auto',
-                            backgroundColor: 'transparent',
-                            boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
-                            transition: 'all 0.2s ease-in-out',
-                            '&:hover': {
-                                backgroundColor: '#f5f5f7',
-                                color: '#333',
-                                boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)'
-                            }
-                        }}
-                        disabled={loading}
-                    >
-                        Hủy bỏ
-                    </Button>
-                    <Button
-                        onClick={handleConfirmImport}
-                        variant="contained"
-                        disableElevation
-                        disabled={loading || importUsers.length === 0 || importUsers.some(item => Object.keys(validateRow(item)).length > 0)}
+                        disabled={loading || importUsers.length === 0 || importUsers.some((item, i) => Object.keys(validateRow(item, i, importUsers)).length > 0)}
                         startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <UploadIcon fontSize="small" />}
                         sx={{ textTransform: 'none', bgcolor: '#2f65f0', fontWeight: 600, borderRadius: '4px' }}
                     >

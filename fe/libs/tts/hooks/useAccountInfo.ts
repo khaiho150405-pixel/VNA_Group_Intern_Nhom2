@@ -34,7 +34,7 @@ export const useAccountInfo = () => {
   }, [user]);
 
   // Can user change role? Admin always yes; normal user yes if allowedRoles is non-empty
-  const isRoleEditable = isAdmin || userAllowedRoles.length > 0;
+  const isRoleEditable = true;
 
   // Refs to prevent infinite loops
   const hasFetchedRolesRef = useRef(false);
@@ -73,7 +73,42 @@ export const useAccountInfo = () => {
         }
         hasFetchedRolesRef.current = true;
         dispatch({ type: 'onChange', name: 'roles', value: roleList });
-      } catch (error) { console.error(error); }
+      } catch (error) { 
+        console.error("Lỗi khi tải vai trò, tạo danh sách vai trò từ allowedRoles:", error);
+        
+        const fallbackRoles = [
+          { id: 1, role: 'employee', name: 'Nhân viên' },
+          { id: 2, role: 'expert', name: 'Chuyên viên' },
+          { id: 3, role: 'leader', name: 'Lãnh đạo' },
+          { id: 4, role: 'superAdmin', name: 'Quản trị viên' },
+          { id: 5, role: 'enterprise', name: 'Quản trị DN' }
+        ];
+        
+        const constructedRoles: any[] = [];
+        
+        if (user?.role) {
+          const rawRole = user.role as any;
+          constructedRoles.push({
+            id: Number(rawRole.id || (user as any).roleId),
+            role: rawRole.role || '',
+            name: rawRole.name || ''
+          });
+        }
+        
+        userAllowedRoles.forEach((val: string) => {
+          const matched = fallbackRoles.find((r: any) =>
+            String(val).toLowerCase().trim() === String(r.role).toLowerCase().trim() ||
+            String(val).trim() === String(r.id).trim() ||
+            String(val).toLowerCase().trim() === String(r.name).toLowerCase().trim()
+          );
+          if (matched && !constructedRoles.some(r => r.id === matched.id)) {
+            constructedRoles.push(matched);
+          }
+        });
+        
+        hasFetchedRolesRef.current = true;
+        dispatch({ type: 'onChange', name: 'roles', value: constructedRoles });
+      }
     };
 
     const fetchProvinces = async () => {
@@ -102,7 +137,18 @@ export const useAccountInfo = () => {
           const userData = latestUserRes.data || latestUserRes;
           const token = getCookie('accessToken') || '';
           if (userData) {
-            login(userData, token, false);
+            const rawUser = user as any;
+            const rawUserData = userData as any;
+            const mergedUser = {
+              ...rawUser,
+              ...rawUserData,
+              role: {
+                ...(rawUser?.role && typeof rawUser.role === 'object' ? rawUser.role : {}),
+                ...(rawUserData?.role && typeof rawUserData.role === 'object' ? rawUserData.role : {}),
+                permissions: rawUser?.role?.permissions || []
+              }
+            };
+            login(mergedUser as any, token, false);
           }
         } catch (error) {
           console.error("Failed to refresh user data", error);
@@ -246,21 +292,34 @@ export const useAccountInfo = () => {
       const selectedDistrict = state.districts.find(d => String(d.code) === String(state.district));
       const districtVal = selectedDistrict ? selectedDistrict.name : state.district;
 
-      const selectedRoleObj = state.roles?.find((r: any) => String(r.role) === String(state.role));
+      let selectedRoleObj = state.roles?.find((r: any) => String(r.role) === String(state.role));
+      if (!selectedRoleObj && state.role) {
+        const fallbackRoles = [
+          { id: 1, role: 'employee', name: 'Nhân viên' },
+          { id: 2, role: 'expert', name: 'Chuyên viên' },
+          { id: 3, role: 'leader', name: 'Lãnh đạo' },
+          { id: 4, role: 'superAdmin', name: 'Quản trị viên' },
+          { id: 5, role: 'enterprise', name: 'Quản trị DN' }
+        ];
+        selectedRoleObj = fallbackRoles.find((r: any) => String(r.role) === String(state.role));
+      }
       const roleNameToSave = selectedRoleObj ? selectedRoleObj.name : '';
 
       const payload: Record<string, any> = {
         fullName: state.displayName,
         dateOfBirth: state.birthday ? new Date(state.birthday) : null,
         gender: state.gender === 'Nam' ? 1 : (state.gender === 'Nữ' ? 0 : null),
-        realRole: roleNameToSave,
-        roleId: selectedRoleObj ? Number(selectedRoleObj.id) : null,
         province: state.city ? { key: String(state.city), value: provinceVal } : null,
         district: state.district ? { key: String(state.district), value: districtVal } : null,
         address: state.address,
         workUnit: state.title,
         status: state.active
       };
+
+      if (selectedRoleObj) {
+        payload.roleId = Number(selectedRoleObj.id);
+        payload.realRole = roleNameToSave;
+      }
 
       // If email changed, include it in payload
       if (state.email && state.email !== user?.email) {
@@ -289,8 +348,14 @@ export const useAccountInfo = () => {
             fullName: state.displayName,
             email: state.email || user.email,
             gender: state.gender === 'Nam' ? 1 : (state.gender === 'Nữ' ? 0 : null),
-            realRole: roleNameToSave,
-            roleId: selectedRoleObj ? Number(selectedRoleObj.id) : (user as any).roleId,
+             realRole: isRoleEditable ? roleNameToSave : (user as any).realRole,
+            roleId: isRoleEditable && selectedRoleObj ? Number(selectedRoleObj.id) : (user as any).roleId,
+            role: isRoleEditable && selectedRoleObj ? {
+              ...(user?.role && typeof user.role === 'object' ? user.role : {}),
+              id: Number(selectedRoleObj.id),
+              role: selectedRoleObj.role,
+              name: selectedRoleObj.name
+            } : user.role,
             province: state.city ? { key: String(state.city), value: provinceVal } : null,
             district: state.district ? { key: String(state.district), value: districtVal } : null,
             address: state.address,
@@ -329,21 +394,26 @@ export const useAccountInfo = () => {
   };
 
   // Filtered roles list for the role picker:
-  // - Admin sees all roles
-  // - User with allowedRoles sees only their allowed roles
-  // - Otherwise no roles shown (role picker hidden)
+  // - Admin sees all roles (fetched or static fallbacks)
+  // - Non-admin user sees only their current role and allowedRoles
   const editableRoles = useMemo(() => {
-    if (isAdmin) return state.roles;
-    if (userAllowedRoles.length > 0) {
-      return state.roles.filter((r: any) =>
-        userAllowedRoles.includes(String(r.role)) ||
-        userAllowedRoles.includes(String(r.id)) ||
-        userAllowedRoles.includes(String(r.name)) ||
-        String(r.role) === String(state.role) ||
-        String(r.id) === String(state.role)
-      );
-    }
-    return [];
+    const rolesList = (state.roles && state.roles.length > 0) ? state.roles : [
+      { id: 1, role: 'employee', name: 'Nhân viên' },
+      { id: 2, role: 'expert', name: 'Chuyên viên' },
+      { id: 3, role: 'leader', name: 'Lãnh đạo' },
+      { id: 4, role: 'superAdmin', name: 'Quản trị viên' },
+      { id: 5, role: 'enterprise', name: 'Quản trị DN' }
+    ];
+
+    if (isAdmin) return rolesList;
+
+    return rolesList.filter((r: any) =>
+      userAllowedRoles.includes(String(r.role)) ||
+      userAllowedRoles.includes(String(r.id)) ||
+      userAllowedRoles.includes(String(r.name)) ||
+      String(r.role) === String(state.role) ||
+      String(r.id) === String(state.role)
+    );
   }, [isAdmin, userAllowedRoles, state.roles, state.role]);
 
   return {

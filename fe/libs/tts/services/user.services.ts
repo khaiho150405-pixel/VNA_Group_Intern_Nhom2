@@ -14,6 +14,16 @@ export const userService = {
         });
         return response.data || response;
     },
+    getImportTemplate: async () => {
+        const response = await axiosClient.get('/users/template', {
+            responseType: 'blob'
+        });
+        return response.data || response;
+    },
+    checkDuplicates: async (usernames: string[], emails: string[]) => {
+        const response = await axiosClient.post('/users/check-duplicates', { usernames, emails });
+        return response.data || response;
+    },
     getById: async (id: string) => {
         const response = await axiosClient.get(`/users/${id}`, {
             params: {

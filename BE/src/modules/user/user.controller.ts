@@ -8,6 +8,7 @@ import {
   Put,
   Query,
   Req,
+  Res,
   UseGuards,
   UseInterceptors,
   Logger,
@@ -30,6 +31,20 @@ import { UserService } from "./user.service";
 export class UserController extends BaseController<User, UserService> {
   constructor(private readonly userService: UserService) {
     super(userService);
+  }
+
+  @Get("template")
+  @ApiOperation({ summary: "Get user import template" })
+  async getTemplate(@Req() req: any, @Res() res: any) {
+    return await this.userService.getImportTemplate(res);
+  }
+
+  @Post("check-duplicates")
+  @ApiOperation({ summary: "Check duplicate usernames and emails" })
+  async checkDuplicates(
+    @Body() body: { usernames: string[]; emails: string[] }
+  ): Promise<{ duplicateUsernames: string[]; duplicateEmails: string[] }> {
+    return await this.userService.checkDuplicates(body.usernames, body.emails);
   }
 
   @Post()
