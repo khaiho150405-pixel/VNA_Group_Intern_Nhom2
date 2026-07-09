@@ -19,11 +19,13 @@ import {
     Visibility,
     VisibilityOff,
     VisibilityOutlined as ViewIcon,
+    ChevronLeft as ChevronLeftIcon,
+    ChevronRight as ChevronRightIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useSnackbar } from 'notistack';
 
-import { MainLayout } from '@core/layouts/MainLayout';
+
 import { BulkSelectionBar } from '@core/components/BulkSelectionBar';
 import { ConfirmDialog } from '@core/components/ConfirmDialog';
 import { useAuth } from '@core/contexts/AuthProvider';
@@ -35,6 +37,61 @@ import { useUserListStyles } from '../logic/user/style';
 import * as XLSX from 'xlsx';
 import { InputAdornment } from '@mui/material';
 import { validate, VALIDATION_MESSAGES } from '@core/utils/validation';
+
+interface CustomPaginationProps {
+  page: number;
+  count: number;
+  onChange: (newPage: number) => void;
+  isZeroBased?: boolean;
+}
+
+const CustomPagination = ({ page, count, onChange, isZeroBased = false }: CustomPaginationProps) => {
+  const currentPage = isZeroBased ? page + 1 : page;
+  const [val, setVal] = React.useState(String(currentPage));
+
+  React.useEffect(() => {
+    setVal(String(currentPage));
+  }, [currentPage]);
+
+  const handlePageSubmit = () => {
+    const p = parseInt(val, 10);
+    if (!isNaN(p) && p >= 1 && p <= count) {
+      onChange(isZeroBased ? p - 1 : p);
+    } else {
+      setVal(String(currentPage));
+    }
+  };
+
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+      <IconButton
+        size="small"
+        onClick={() => onChange(isZeroBased ? page - 1 : page - 1)}
+        disabled={currentPage <= 1}
+        sx={{ color: '#94a3b8', '&.Mui-disabled': { color: '#cbd5e1' }, p: '2px' }}
+      >
+        <ChevronLeftIcon sx={{ fontSize: '1.1rem' }} />
+      </IconButton>
+      <Box sx={{ width: '24px', height: '24px', backgroundColor: '#f1f3f5', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+        <input
+          value={val}
+          onChange={(e) => setVal(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') handlePageSubmit(); }}
+          onBlur={handlePageSubmit}
+          style={{ width: '100%', height: '100%', border: 'none', outline: 'none', background: 'transparent', textAlign: 'center', fontSize: '0.75rem', fontWeight: 600, color: '#1e293b', padding: 0 }}
+        />
+      </Box>
+      <IconButton
+        size="small"
+        onClick={() => onChange(isZeroBased ? page + 1 : page + 1)}
+        disabled={currentPage >= count}
+        sx={{ color: '#94a3b8', '&.Mui-disabled': { color: '#cbd5e1' }, p: '2px' }}
+      >
+        <ChevronRightIcon sx={{ fontSize: '1.1rem' }} />
+      </IconButton>
+    </Box>
+  );
+};
 
 export const UserManagementPage = () => {
     const classes = useUserListStyles();
@@ -112,22 +169,88 @@ export const UserManagementPage = () => {
         return 0;
     };
 
+    const userPermissions = useMemo(() => {
+        if (!user) return [];
+        if (user.username === 'testuser') {
+            return ['ADMIN_C_USER_VIEW', 'ADMIN_C_USER_CREATE', 'ADMIN_C_USER_UPDATE', 'ADMIN_C_USER_DELETE'];
+        }
+        return (user.role as any)?.permissions || [];
+    }, [user]);
+
+    const hasUserView = useMemo(() => {
+        if (!user) return false;
+        if (user.username === 'testuser') return true;
+        if (roles.length > 0) {
+            return userPermissions.includes('ADMIN_C_USER_VIEW');
+        }
+        return getPermissionLevel() >= 0;
+    }, [user, roles, userPermissions]);
+
+    const hasUserCreate = useMemo(() => {
+        if (!user) return false;
+        if (user.username === 'testuser') return true;
+        if (roles.length > 0) {
+            return userPermissions.includes('ADMIN_C_USER_CREATE');
+        }
+        return getPermissionLevel() >= 1;
+    }, [user, roles, userPermissions]);
+
+    const hasUserUpdate = useMemo(() => {
+        if (!user) return false;
+        if (user.username === 'testuser') return true;
+        if (roles.length > 0) {
+            return userPermissions.includes('ADMIN_C_USER_UPDATE');
+        }
+        return getPermissionLevel() >= 1;
+    }, [user, roles, userPermissions]);
+
     // isReadOnly: true nếu chỉ có quyền xem (level 0)
     const isReadOnly = useMemo(() => {
+        if (!user) return true;
+        if (user.username === 'testuser') return false;
+        if (roles.length > 0) {
+            return !userPermissions.includes('ADMIN_C_USER_CREATE') && !userPermissions.includes('ADMIN_C_USER_UPDATE');
+        }
         return getPermissionLevel() === 0;
-    }, [user]);
+    }, [user, roles, userPermissions]);
 
     // canDeleteOrChangeStatus: true nếu có quyền đầy đủ (level 2)
     const canDeleteOrChangeStatus = useMemo(() => {
+        if (!user) return false;
+        if (user.username === 'testuser') return true;
+        if (roles.length > 0) {
+            return userPermissions.includes('ADMIN_C_USER_DELETE');
+        }
         return getPermissionLevel() === 2;
-    }, [user]);
+    }, [user, roles, userPermissions]);
+
+    const hasUserDelete = useMemo(() => {
+        if (!user) return false;
+        if (user.username === 'testuser') return true;
+        if (roles.length > 0) {
+            return userPermissions.includes('ADMIN_C_USER_DELETE');
+        }
+        return getPermissionLevel() >= 2;
+    }, [user, roles, userPermissions]);
+
+    const canEditRole = useMemo(() => {
+        if (!user) return false;
+        if (user.username === 'testuser') return true;
+        if (roles.length > 0) {
+            return userPermissions.includes('ADMIN_C_USER_UPDATE');
+        }
+        const currentUserRoleId = user.roleId || (user.role as any)?.id;
+        const userRoleObj = roles.find((r: any) => Number(r.id) === Number(currentUserRoleId));
+        return !!userRoleObj?.permissions?.some((p: any) => p.code === 'ADMIN_C_USER_UPDATE');
+    }, [user, roles, userPermissions]);
 
     const fetchData = async () => {
         setLoading(true);
         try {
+            const hasRoleView = user?.username === 'testuser' || userPermissions.includes('ADMIN_C_ROLE_VIEW');
             const [userRes, roleRes] = await Promise.all([
                 userService.getUsers(filters),
-                roleService.getAll()
+                hasRoleView ? roleService.getAll() : Promise.resolve([])
             ]);
             setData(userRes.items || []);
             setTotal(userRes.count || 0);
@@ -142,7 +265,9 @@ export const UserManagementPage = () => {
                 r.role !== 'enterprise' &&
                 r.type !== 'DN' &&
                 r.id !== 5 &&
-                r.name !== 'Doanh nghiệp'
+                r.name !== 'Doanh nghiệp' &&
+                r.role !== 'superAdmin' &&
+                r.id !== 4
             );
             setRoles(roleList);
         } catch (error) {
@@ -161,14 +286,20 @@ export const UserManagementPage = () => {
         setFilters((prev) => ({
             ...prev,
             [field]: value,
-            page: field === "page" || field === "limit" ? prev.page : 1,
+            page: field === "page" ? value : 1,
         }));
         if (field !== "page" && field !== "limit") setSelectedIds([]);
     };
 
-    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.checked) setSelectedIds(data.map((d) => d.id));
-        else setSelectedIds([]);
+    const handleSelectAll = () => {
+        const selectableUsers = data.filter((item: any) => item.username !== "testuser" && item.id !== user?.id);
+        const allSelectableChecked = selectableUsers.length > 0 && selectableUsers.every((item: any) => selectedIds.includes(item.id));
+
+        if (allSelectableChecked || selectedIds.length > 0) {
+            setSelectedIds([]);
+        } else {
+            setSelectedIds(selectableUsers.map((item: any) => item.id));
+        }
     };
 
     const handleSelectOne = (id: string) => {
@@ -180,12 +311,19 @@ export const UserManagementPage = () => {
     const handleStatusChange = async (id: string, currentStatus: any) => {
         try {
             // Guard: Chỉ Admin/Lãnh đạo được đổi trạng thái
-            if (getPermissionLevel() < 2) {
-                enqueueSnackbar("Chỉ Admin hoặc Lãnh đạo mới được phép thay đổi trạng thái", { variant: "error" });
+            if (!canDeleteOrChangeStatus) {
+                enqueueSnackbar("Bạn không có quyền thay đổi trạng thái hoạt động của người dùng.", { variant: "error" });
                 return;
             }
             const isCurrentlyActive = currentStatus === true;
             const nextStatus = !isCurrentlyActive;
+
+            // Guard: testuser không được tắt trạng thái
+            const targetUser = data.find((u) => u.id === id);
+            if (targetUser?.username?.trim().toLowerCase() === 'testuser' && isCurrentlyActive) {
+                enqueueSnackbar("Tài khoản admin testuser là tài khoản mặc định, không thể bị tắt trạng thái hoạt động.", { variant: "error" });
+                return;
+            }
 
             // Optimistic update
             setData((prev) =>
@@ -205,7 +343,7 @@ export const UserManagementPage = () => {
 
             enqueueSnackbar("Cập nhật trạng thái thành công", { variant: "success" });
         } catch (error) {
-            enqueueSnackbar("Chuyên viên không được phép thay đổi trạng thái người dùng", { variant: "error" });
+            enqueueSnackbar("Bạn không được phép thay đổi trạng thái người dùng", { variant: "error" });
             fetchData();
         }
     };
@@ -217,8 +355,8 @@ export const UserManagementPage = () => {
     const performBulkDelete = async () => {
         try {
             // Guard: Chỉ Admin/Lãnh đạo được xóa
-            if (getPermissionLevel() < 2) {
-                enqueueSnackbar("Chỉ Admin hoặc Lãnh đạo mới được phép xóa người dùng", { variant: "error" });
+            if (!canDeleteOrChangeStatus) {
+                enqueueSnackbar("Bạn không có quyền xóa người dùng.", { variant: "error" });
                 setConfirmDeleteOpen(false);
                 return;
             }
@@ -472,8 +610,12 @@ export const UserManagementPage = () => {
         [filters, total],
     );
 
-    const isAllSelected = data.length > 0 && selectedIds.length === data.length;
-    const isIndeterminate = selectedIds.length > 0 && selectedIds.length < data.length;
+    const selectableUsers = useMemo(() => {
+        return data.filter((item: any) => item.username !== "testuser" && item.id !== user?.id);
+    }, [data, user?.id]);
+
+    const isAllSelected = selectableUsers.length > 0 && selectableUsers.every((item: any) => selectedIds.includes(item.id));
+    const isIndeterminate = !isAllSelected && selectableUsers.some((item: any) => selectedIds.includes(item.id));
 
     // Cấu hình các cột của bảng để dễ dàng chỉnh sửa độ rộng và thuộc tính
     const columns = [
@@ -485,787 +627,834 @@ export const UserManagementPage = () => {
         { id: 'status', label: 'Trạng thái', width: '10%', minWidth: 100, align: 'center' as const },
     ];
 
-    return (
-        <MainLayout>
-            <Box className={classes.root}>
-                <input
-                    type="file"
-                    hidden
-                    ref={fileInputRef}
-                    accept=".xlsx, .xls"
-                    onChange={handleFileUpload}
-                />
-                <Box className={classes.pageHeader}>
-                    <Typography className={classes.headerTitle}>
-                        Danh sách người dùng
+    if (roles.length > 0 && !hasUserView) {
+        return (
+            <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+                <Box sx={{ bgcolor: '#fee2e2', p: 3, borderRadius: '50%', mb: 3 }}>
+                    <Typography color="error" variant="h3" component="div" sx={{ display: 'flex' }}>
+                        🔒
                     </Typography>
-                    <Box className={classes.actions}>
-                        {!isReadOnly && (
-                            <>
-                                <Button
-                                    className={classes.importBtn}
-                                    startIcon={<UploadIcon fontSize="small" />}
-                                    disableRipple
-                                    onClick={() => fileInputRef.current?.click()}
-                                >
-                                    Thêm từ file
-                                </Button>
-                                <Button
-                                    variant="contained"
-                                    className={classes.addBtn}
-                                    startIcon={<AddIcon fontSize="small" />}
-                                    onClick={() => router.push("/users/create")}
-                                >
-                                    Thêm mới
-                                </Button>
-                            </>
-                        )}
-                    </Box>
                 </Box>
+                <Typography variant="h5" sx={{ fontWeight: 700, mb: 1, color: '#1e293b' }}>
+                    Quyền truy cập bị từ chối
+                </Typography>
+                <Typography variant="body1" sx={{ color: '#64748b', mb: 3, textAlign: 'center', maxWidth: 450 }}>
+                    Tài khoản của bạn không được cấp quyền xem danh sách người dùng. Vui lòng liên hệ quản trị viên.
+                </Typography>
+            </Box>
+        );
+    }
 
-                <Box className={classes.mainContent}>
-                    <Box className={classes.card}>
-                        <Box className={classes.tableScroll}>
-                            <TableContainer>
-                                <Table size="small" stickyHeader>
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell padding="checkbox" className={classes.headerCell} width={50}>
-                                                {!isReadOnly && (
-                                                    <Checkbox
-                                                        size="small"
-                                                        indeterminate={isIndeterminate}
-                                                        checked={isAllSelected}
-                                                        onChange={handleSelectAll}
+    return (
+        <Box className={classes.root}>
+            <input
+                type="file"
+                hidden
+                ref={fileInputRef}
+                accept=".xlsx, .xls"
+                onChange={handleFileUpload}
+            />
+            <Box className={classes.pageHeader}>
+                <Typography className={classes.headerTitle}>
+                    Danh sách người dùng
+                </Typography>
+                <Box className={classes.actions}>
+                    {hasUserCreate && (
+                        <>
+                            <Button
+                                className={classes.importBtn}
+                                startIcon={<UploadIcon fontSize="small" />}
+                                disableRipple
+                                onClick={() => fileInputRef.current?.click()}
+                            >
+                                Thêm từ file
+                            </Button>
+                            <Button
+                                variant="contained"
+                                className={classes.addBtn}
+                                startIcon={<AddIcon fontSize="small" />}
+                                onClick={() => router.push("/users/create")}
+                            >
+                                Thêm mới
+                            </Button>
+                        </>
+                    )}
+                </Box>
+            </Box>
+
+            <Box className={classes.mainContent} sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                <Box className={classes.card} sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                    <Box className={classes.tableScroll} sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                        <TableContainer sx={{ flex: 1, overflowY: 'auto' }}>
+                            <Table size="small" stickyHeader>
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell padding="checkbox" className={classes.headerCell} width={50}>
+                                            {hasUserDelete && (
+                                                <Checkbox
+                                                    size="small"
+                                                    indeterminate={isIndeterminate}
+                                                    checked={isAllSelected}
+                                                    onChange={handleSelectAll}
+                                                />
+                                            )}
+                                        </TableCell>
+                                        <TableCell className={classes.headerCell} width={100}>Thao tác</TableCell>
+                                        {columns.map((col) => (
+                                            <TableCell
+                                                key={col.id}
+                                                className={classes.headerCell}
+                                                align={col.align}
+                                                sx={{ width: col.width, minWidth: col.minWidth }}
+                                            >
+                                                {col.label}
+                                            </TableCell>
+                                        ))}
+                                    </TableRow>
+                                    <TableRow>
+                                        <TableCell className={classes.filterCell} />
+                                        <TableCell className={classes.filterCell} />
+                                        <TableCell className={classes.filterCell}>
+                                            <TextField
+                                                fullWidth
+                                                size="small"
+                                                placeholder="Tìm kiếm..."
+                                                className={classes.filterField}
+                                                value={filters.fullName}
+                                                onChange={(e) => handleFilterChange("fullName", e.target.value)}
+                                            />
+                                        </TableCell>
+                                        <TableCell className={classes.filterCell}>
+                                            <TextField
+                                                fullWidth
+                                                size="small"
+                                                placeholder="Tìm kiếm..."
+                                                className={classes.filterField}
+                                                value={filters.username}
+                                                onChange={(e) => handleFilterChange("username", e.target.value)}
+                                            />
+                                        </TableCell>
+                                        <TableCell className={classes.filterCell}>
+                                            <TextField
+                                                fullWidth
+                                                size="small"
+                                                placeholder="Tìm kiếm..."
+                                                className={classes.filterField}
+                                                value={filters.email}
+                                                onChange={(e) => handleFilterChange("email", e.target.value)}
+                                            />
+                                        </TableCell>
+                                        <TableCell className={classes.filterCell}>
+                                            <Autocomplete
+                                                size="small"
+                                                options={roles}
+                                                getOptionLabel={(option) => option.name || ""}
+                                                value={roles.find((r) => r.name === filters.role) || null}
+                                                onChange={(_, newValue) => handleFilterChange("role", newValue?.name || "")}
+                                                renderInput={(params) => (
+                                                    <TextField
+                                                        {...params}
+                                                        placeholder="Tất cả"
+                                                        className={classes.filterField}
                                                     />
                                                 )}
-                                            </TableCell>
-                                            <TableCell className={classes.headerCell} width={100}>Thao tác</TableCell>
-                                            {columns.map((col) => (
-                                                <TableCell
-                                                    key={col.id}
-                                                    className={classes.headerCell}
-                                                    align={col.align}
-                                                    sx={{ width: col.width, minWidth: col.minWidth }}
-                                                >
-                                                    {col.label}
-                                                </TableCell>
-                                            ))}
-                                        </TableRow>
+                                            />
+                                        </TableCell>
+                                        <TableCell className={classes.filterCell}>
+                                            <TextField
+                                                fullWidth
+                                                size="small"
+                                                className={classes.filterField}
+                                                placeholder="Tìm kiếm..."
+                                                value={filters.jobTitle}
+                                                onChange={(e) => handleFilterChange("jobTitle", e.target.value)}
+                                            />
+                                        </TableCell>
+                                        <TableCell className={classes.filterCell}>
+                                            <Autocomplete
+                                                size="small"
+                                                options={[
+                                                    { label: 'Hoạt động', value: 'true' },
+                                                    { label: 'Đã khóa', value: 'false' }
+                                                ]}
+                                                getOptionLabel={(option) => option.label || ""}
+                                                value={[
+                                                    { label: 'Hoạt động', value: 'true' },
+                                                    { label: 'Đã khóa', value: 'false' }
+                                                ].find((o) => o.value === filters.status) || null}
+                                                onChange={(_, newValue) => handleFilterChange("status", newValue?.value || "")}
+                                                renderInput={(params) => (
+                                                    <TextField
+                                                        {...params}
+                                                        placeholder="Tất cả"
+                                                        className={classes.filterField}
+                                                    />
+                                                )}
+                                            />
+                                        </TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {loading ? (
                                         <TableRow>
-                                            <TableCell className={classes.filterCell} />
-                                            <TableCell className={classes.filterCell} />
-                                            <TableCell className={classes.filterCell}>
-                                                <TextField
-                                                    fullWidth
-                                                    size="small"
-                                                    className={classes.filterField}
-                                                    value={filters.fullName}
-                                                    onChange={(e) => handleFilterChange("fullName", e.target.value)}
-                                                />
-                                            </TableCell>
-                                            <TableCell className={classes.filterCell}>
-                                                <TextField
-                                                    fullWidth
-                                                    size="small"
-                                                    className={classes.filterField}
-                                                    value={filters.username}
-                                                    onChange={(e) => handleFilterChange("username", e.target.value)}
-                                                />
-                                            </TableCell>
-                                            <TableCell className={classes.filterCell}>
-                                                <TextField
-                                                    fullWidth
-                                                    size="small"
-                                                    className={classes.filterField}
-                                                    value={filters.email}
-                                                    onChange={(e) => handleFilterChange("email", e.target.value)}
-                                                />
-                                            </TableCell>
-                                            <TableCell className={classes.filterCell}>
-                                                <Autocomplete
-                                                    size="small"
-                                                    options={roles}
-                                                    getOptionLabel={(option) => option.name || ""}
-                                                    value={roles.find((r) => r.name === filters.role) || null}
-                                                    onChange={(_, newValue) => handleFilterChange("role", newValue?.name || "")}
-                                                    renderInput={(params) => (
-                                                        <TextField
-                                                            {...params}
-                                                            placeholder="Tất cả"
-                                                            className={classes.filterField}
-                                                        />
-                                                    )}
-                                                />
-                                            </TableCell>
-                                            <TableCell className={classes.filterCell}>
-                                                <TextField
-                                                    fullWidth
-                                                    size="small"
-                                                    className={classes.filterField}
-                                                    placeholder="Tìm kiếm..."
-                                                    value={filters.jobTitle}
-                                                    onChange={(e) => handleFilterChange("jobTitle", e.target.value)}
-                                                />
-                                            </TableCell>
-                                            <TableCell className={classes.filterCell}>
-                                                <Autocomplete
-                                                    size="small"
-                                                    options={[
-                                                        { label: 'Hoạt động', value: 'true' },
-                                                        { label: 'Đã khóa', value: 'false' }
-                                                    ]}
-                                                    getOptionLabel={(option) => option.label || ""}
-                                                    value={[
-                                                        { label: 'Hoạt động', value: 'true' },
-                                                        { label: 'Đã khóa', value: 'false' }
-                                                    ].find((o) => o.value === filters.status) || null}
-                                                    onChange={(_, newValue) => handleFilterChange("status", newValue?.value || "")}
-                                                    renderInput={(params) => (
-                                                        <TextField
-                                                            {...params}
-                                                            placeholder="Tất cả"
-                                                            className={classes.filterField}
-                                                        />
-                                                    )}
-                                                />
+                                            <TableCell colSpan={columns.length + 2} align="center" sx={{ py: 4 }}>
+                                                <CircularProgress size={22} />
                                             </TableCell>
                                         </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {loading ? (
-                                            <TableRow>
-                                                <TableCell colSpan={columns.length + 2} align="center" sx={{ py: 4 }}>
-                                                    <CircularProgress size={22} />
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : data.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={columns.length + 2} align="center" sx={{ py: 4, color: "#94a3b8" }}>
-                                                    Không có dữ liệu
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            data.map((item) => {
-                                                const checked = selectedIds.includes(item.id);
-                                                return (
-                                                    <TableRow
-                                                        key={item.id}
-                                                        hover
-                                                        className={checked ? classes.rowSelected : ""}
-                                                    >
-                                                        <TableCell padding="checkbox" className={classes.bodyCell}>
-                                                            {!isReadOnly && (
-                                                                <Checkbox
-                                                                    size="small"
-                                                                    checked={checked}
-                                                                    onChange={() => handleSelectOne(item.id)}
-                                                                />
-                                                            )}
-                                                        </TableCell>
-                                                        <TableCell className={classes.bodyCell}>
-                                                            <Box sx={{ display: "flex", gap: 0.25 }}>
-                                                                {isReadOnly ? (
-                                                                    <Tooltip title="Xem chi tiết">
+                                    ) : data.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={columns.length + 2} align="center" sx={{ py: 4, color: "#94a3b8" }}>
+                                                Không có dữ liệu
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        data.map((item) => {
+                                            const checked = selectedIds.includes(item.id);
+                                            return (
+                                                <TableRow
+                                                    key={item.id}
+                                                    hover
+                                                    className={checked ? classes.rowSelected : ""}
+                                                >
+                                                    <TableCell padding="checkbox" className={classes.bodyCell}>
+                                                        {hasUserDelete && (
+                                                            <Checkbox
+                                                                size="small"
+                                                                checked={checked}
+                                                                onChange={() => handleSelectOne(item.id)}
+                                                            />
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className={classes.bodyCell}>
+                                                        <Box sx={{ display: "flex", gap: 0.25 }}>
+                                                            {!hasUserUpdate ? (
+                                                                <Tooltip title="Xem chi tiết">
+                                                                    <IconButton
+                                                                        size="small"
+                                                                        className={classes.actionIcon}
+                                                                        onClick={() => router.push(`/users/${item.id}`)}
+                                                                    >
+                                                                        <ViewIcon fontSize="small" />
+                                                                    </IconButton>
+                                                                </Tooltip>
+                                                            ) : (
+                                                                <>
+                                                                    <Tooltip title="Chỉnh sửa">
                                                                         <IconButton
                                                                             size="small"
                                                                             className={classes.actionIcon}
                                                                             onClick={() => router.push(`/users/${item.id}`)}
                                                                         >
-                                                                            <ViewIcon fontSize="small" />
+                                                                            <EditIcon fontSize="small" />
                                                                         </IconButton>
                                                                     </Tooltip>
-                                                                ) : (
-                                                                    <>
-                                                                        <Tooltip title="Chỉnh sửa">
-                                                                            <IconButton
-                                                                                size="small"
-                                                                                className={classes.actionIcon}
-                                                                                onClick={() => router.push(`/users/${item.id}`)}
-                                                                            >
-                                                                                <EditIcon fontSize="small" />
-                                                                            </IconButton>
-                                                                        </Tooltip>
-                                                                        <Tooltip title="Cấp lại mật khẩu">
-                                                                            <IconButton
-                                                                                size="small"
-                                                                                className={classes.actionIcon}
-                                                                                onClick={() =>
-                                                                                    setPasswordModal({
-                                                                                        open: true,
-                                                                                        userId: item.id,
-                                                                                        userName: item.fullName || item.username
-                                                                                    })
-                                                                                }
-                                                                            >
-                                                                                <KeyIcon fontSize="small" />
-                                                                            </IconButton>
-                                                                        </Tooltip>
-                                                                    </>
-                                                                )}
-                                                            </Box>
-                                                        </TableCell>
-                                                        <TableCell className={classes.bodyCell}>{item.fullName || item.name || '--'}</TableCell>
-                                                        <TableCell className={classes.bodyCell}>{item.username || '--'}</TableCell>
-                                                        <TableCell className={classes.bodyCell}>{item.email || '--'}</TableCell>
-                                                        <TableCell className={classes.bodyCell}>{item.realRole || 'Chưa phân quyền'}</TableCell>
-                                                        <TableCell className={classes.bodyCell}>{item.workUnit || '-'}</TableCell>
-                                                        <TableCell className={classes.bodyCell} align="center">
-                                                            <Switch
-                                                                size="small"
-                                                                disabled={isReadOnly}
-                                                                checked={item.status === true}
-                                                                onChange={() => handleStatusChange(item.id, item.status)}
-                                                            />
-                                                        </TableCell>
-                                                    </TableRow>
-                                                );
-                                            })
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                        </Box>
+                                                                    <Tooltip title="Cập lại mật khẩu">
+                                                                        <IconButton
+                                                                            size="small"
+                                                                            className={classes.actionIcon}
+                                                                            onClick={() =>
+                                                                                setPasswordModal({
+                                                                                    open: true,
+                                                                                    userId: item.id,
+                                                                                    userName: item.fullName || item.username
+                                                                                })
+                                                                            }
+                                                                        >
+                                                                            <KeyIcon fontSize="small" />
+                                                                        </IconButton>
+                                                                    </Tooltip>
+                                                                </>
+                                                            )}
+                                                        </Box>
+                                                    </TableCell>
+                                                    <TableCell className={classes.bodyCell}>{item.fullName || item.name || '--'}</TableCell>
+                                                    <TableCell className={classes.bodyCell}>{item.username || '--'}</TableCell>
+                                                    <TableCell className={classes.bodyCell}>{item.email || '--'}</TableCell>
+                                                    <TableCell className={classes.bodyCell}>{item.realRole || 'Chưa phân quyền'}</TableCell>
+                                                    <TableCell className={classes.bodyCell}>{item.workUnit || '-'}</TableCell>
+                                                    <TableCell className={classes.bodyCell} align="center">
+                                                        <Switch
+                                                            size="small"
+                                                            disabled={!canDeleteOrChangeStatus}
+                                                            checked={item.status === true}
+                                                            onChange={() => handleStatusChange(item.id, item.status)}
+                                                        />
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    </Box>
 
-                        <Box className={classes.footer}>
-                            <Button
-                                size="small"
-                                startIcon={<DownloadIcon fontSize="small" />}
-                                className={classes.actionIcon}
-                                sx={{ mr: 'auto', textTransform: 'none', fontWeight: 500 }}
-                                disableRipple
-                                onClick={handleExportExcel}
-                            >
-                                Export Data
-                            </Button>
-                            <Select
-                                size="small"
-                                value={filters.limit}
-                                onChange={(e) => handleFilterChange("limit", Number(e.target.value))}
-                                className={classes.pageSizeSelect}
-                            >
-                                <MenuItem value={10}>10</MenuItem>
-                                <MenuItem value={20}>20</MenuItem>
-                                <MenuItem value={50}>50</MenuItem>
-                            </Select>
-                            <Typography className={classes.pageInfo}>
-                                {startIndex} - {endIndex} of {total}
-                            </Typography>
-                            <Pagination
-                                count={Math.max(1, Math.ceil(total / filters.limit))}
-                                page={filters.page}
-                                onChange={(_, page) => handleFilterChange("page", page)}
-                                shape="rounded"
-                                size="small"
-                                siblingCount={0}
-                                boundaryCount={1}
-                            />
-                        </Box>
+                    <Box className={classes.footer}>
+                        <Button
+                            size="small"
+                            startIcon={<DownloadIcon fontSize="small" />}
+                            className={classes.actionIcon}
+                            sx={{ mr: 'auto', textTransform: 'none', fontWeight: 500 }}
+                            disableRipple
+                            onClick={handleExportExcel}
+                        >
+                            Xuất dữ liệu
+                        </Button>
+                        <Select
+                            size="small"
+                            value={filters.limit}
+                            onChange={(e) => handleFilterChange("limit", Number(e.target.value))}
+                            className={classes.pageSizeSelect}
+                        >
+                            <MenuItem value={10}>10</MenuItem>
+                            <MenuItem value={20}>20</MenuItem>
+                            <MenuItem value={50}>50</MenuItem>
+                        </Select>
+                        <Typography className={classes.pageInfo}>
+                            {startIndex} - {endIndex} of {total}
+                        </Typography>
+                        <CustomPagination
+                            count={Math.max(1, Math.ceil(total / filters.limit))}
+                            page={filters.page}
+                            onChange={(page) => handleFilterChange("page", page)}
+                        />
                     </Box>
                 </Box>
-
-                {!isReadOnly && (
-                    <BulkSelectionBar
-                        count={selectedIds.length}
-                        onDelete={handleBulkDelete}
-                        onClose={() => setSelectedIds([])}
-                    />
-                )}
-
-                <ConfirmDialog
-                    open={confirmDeleteOpen}
-                    title="Xác nhận xóa"
-                    message={`Bạn có chắc chắn muốn xóa vĩnh viễn ${selectedIds.length} người dùng đã chọn? Thao tác này không thể hoàn tác.`}
-                    onCancel={() => setConfirmDeleteOpen(false)}
-                    onConfirm={performBulkDelete}
-                    confirmText="Xóa"
-                />
-
-                <UserPasswordDialog
-                    open={passwordModal.open}
-                    onClose={() => setPasswordModal({ ...passwordModal, open: false })}
-                    userId={passwordModal.userId}
-                    userName={passwordModal.userName}
-                />
-
-                {/* Import Excel Preview Dialog */}
-                <Dialog
-                    open={isPreviewOpen}
-                    onClose={handleCancelImport}
-                    maxWidth="md"
-                    fullWidth
-                    sx={{ '& .MuiDialog-paper': { borderRadius: '10px' } }}
-                >
-                    <DialogTitle sx={{ bgcolor: '#2f65f0', color: 'white', fontWeight: 700, py: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography sx={{ fontWeight: 700, fontSize: '1.1rem' }}>Xác nhận danh sách người dùng nhập từ file</Typography>
-                        <IconButton size="small" onClick={handleCancelImport} sx={{ color: 'white' }}>
-                            <CloseIcon fontSize="small" />
-                        </IconButton>
-                    </DialogTitle>
-
-                    <DialogContent sx={{ pt: '20px !important', pb: 2 }}>
-                        <Box sx={{ mb: 2, p: 1.5, bgcolor: '#f8fafc', borderRadius: '6px', borderLeft: '4px solid #3b82f6' }}>
-                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
-                                Vui lòng kiểm tra kỹ danh sách tài khoản trước khi nhập vào cơ sở dữ liệu.
-                                Click nút <strong>Sửa</strong> (hoặc nhấn biểu tượng cây bút) để cập nhật thông tin inline, click <strong>Xóa</strong> để loại bỏ dòng.
-                                Các trường lỗi sẽ được đánh dấu cảnh báo màu đỏ.
-                            </Typography>
-                        </Box>
-                        <TableContainer sx={{ maxHeight: 380, border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-                            <Table size="small" stickyHeader>
-                                <TableHead>
-                                    <TableRow>
-                                        <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }} width={60}>STT</TableCell>
-                                        <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Họ và tên</TableCell>
-                                        <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Tên đăng nhập *</TableCell>
-                                        <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Email</TableCell>
-                                        <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Vai trò *</TableCell>
-                                        <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Mật khẩu</TableCell>
-                                        <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }} align="center" width={110}>Thao tác</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {importUsers.map((item, index) => {
-                                        const errors = validateRow(item);
-                                        const hasError = Object.keys(errors).length > 0;
-                                        const isEditing = editingImportIndex === index;
-
-                                        return (
-                                            <TableRow key={index} sx={{ bgcolor: hasError ? '#fff5f5' : 'inherit', '&:hover': { bgcolor: hasError ? '#fee2e2' : '#f8fafc' } }}>
-                                                <TableCell>{index + 1}</TableCell>
-                                                <TableCell>
-                                                    {isEditing ? (
-                                                        <TextField
-                                                            size="small"
-                                                            value={editImportForm.fullName}
-                                                            onChange={(e) => handleEditImportChange('fullName', e.target.value)}
-                                                            fullWidth
-                                                            variant="outlined"
-                                                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '4px' } }}
-                                                        />
-                                                    ) : (
-                                                        item.fullName || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>--</span>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {isEditing ? (
-                                                        <TextField
-                                                            size="small"
-                                                            value={editImportForm.username}
-                                                            error={!!editImportErrors.username}
-                                                            helperText={editImportErrors.username}
-                                                            onChange={(e) => handleEditImportChange('username', e.target.value)}
-                                                            fullWidth
-                                                            required
-                                                            variant="outlined"
-                                                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '4px' } }}
-                                                        />
-                                                    ) : (
-                                                        <Box>
-                                                            <Typography variant="body2" sx={{ fontWeight: 500, color: !item.username ? '#ef4444' : 'inherit' }}>
-                                                                {item.username || 'Trống'}
-                                                            </Typography>
-                                                            {errors.username && (
-                                                                <Typography variant="caption" color="error" sx={{ display: 'block', fontSize: '0.75rem' }}>
-                                                                    {errors.username}
-                                                                </Typography>
-                                                            )}
-                                                        </Box>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {isEditing ? (
-                                                        <TextField
-                                                            size="small"
-                                                            value={editImportForm.email}
-                                                            error={!!editImportErrors.email}
-                                                            helperText={editImportErrors.email}
-                                                            onChange={(e) => handleEditImportChange('email', e.target.value)}
-                                                            fullWidth
-                                                            variant="outlined"
-                                                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '4px' } }}
-                                                        />
-                                                    ) : (
-                                                        <Box>
-                                                            <Typography variant="body2">{item.email || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>--</span>}</Typography>
-                                                            {errors.email && (
-                                                                <Typography variant="caption" color="error" sx={{ display: 'block', fontSize: '0.75rem' }}>
-                                                                    {errors.email}
-                                                                </Typography>
-                                                            )}
-                                                        </Box>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {isEditing ? (
-                                                        <Select
-                                                            size="small"
-                                                            fullWidth
-                                                            value={editImportForm.realRole || ''}
-                                                            onChange={(e) => handleEditImportChange('realRole', e.target.value)}
-                                                            variant="outlined"
-                                                            sx={{ borderRadius: '4px' }}
-                                                        >
-                                                            <MenuItem value="Nhân viên">Nhân viên</MenuItem>
-                                                            <MenuItem value="Chuyên viên">Chuyên viên</MenuItem>
-                                                            <MenuItem value="Lãnh đạo">Lãnh đạo</MenuItem>
-                                                            <MenuItem value="Quản trị viên">Quản trị viên</MenuItem>
-                                                        </Select>
-                                                    ) : (
-                                                        <Box>
-                                                            <Typography variant="body2" sx={{ fontWeight: 500, color: !item.realRole ? '#ef4444' : 'inherit' }}>
-                                                                {item.realRole || 'Trống'}
-                                                            </Typography>
-                                                            {errors.realRole && (
-                                                                <Typography variant="caption" color="error" sx={{ display: 'block', fontSize: '0.75rem' }}>
-                                                                    {errors.realRole}
-                                                                </Typography>
-                                                            )}
-                                                        </Box>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {isEditing ? (
-                                                        <TextField
-                                                            size="small"
-                                                            value={editImportForm.password}
-                                                            error={!!editImportErrors.password}
-                                                            helperText={editImportErrors.password}
-                                                            onChange={(e) => handleEditImportChange('password', e.target.value)}
-                                                            fullWidth
-                                                            variant="outlined"
-                                                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '4px' } }}
-                                                        />
-                                                    ) : (
-                                                        <Box>
-                                                            <Typography variant="body2">{item.password || '12345678'}</Typography>
-                                                            {errors.password && (
-                                                                <Typography variant="caption" color="error" sx={{ display: 'block', fontSize: '0.75rem' }}>
-                                                                    {errors.password}
-                                                                </Typography>
-                                                            )}
-                                                        </Box>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell align="center">
-                                                    {isEditing ? (
-                                                        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-                                                            <Tooltip title="Lưu">
-                                                                <IconButton
-                                                                    size="small"
-                                                                    color="success"
-                                                                    onClick={() => handleSaveEditImport(index)}
-                                                                >
-                                                                    <SaveIcon fontSize="small" />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                            <Tooltip title="Hủy">
-                                                                <IconButton
-                                                                    size="small"
-                                                                    color="warning"
-                                                                    onClick={handleCancelEditImport}
-                                                                >
-                                                                    <CloseIcon fontSize="small" />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                        </Box>
-                                                    ) : (
-                                                        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-                                                            <Tooltip title="Sửa">
-                                                                <IconButton
-                                                                    size="small"
-                                                                    color="primary"
-                                                                    onClick={() => handleStartEditImport(index, item)}
-                                                                >
-                                                                    <EditIcon fontSize="small" />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                            <Tooltip title="Xóa">
-                                                                <IconButton
-                                                                    size="small"
-                                                                    color="error"
-                                                                    onClick={() => handleDeleteImportRow(index)}
-                                                                >
-                                                                    <DeleteIcon fontSize="small" />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                        </Box>
-                                                    )}
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-                    </DialogContent>
-                    <DialogActions sx={{ px: 3, pb: 2.5, pt: 1.5, borderTop: '1px solid #e2e8f0' }}>
-                        <Button
-                            onClick={handleCancelImport}
-                            sx={{ color: '#64748b', textTransform: 'none', fontWeight: 600 }}
-                            disabled={loading}
-                        >
-                            Hủy bỏ
-                        </Button>
-                        <Button
-                            onClick={handleConfirmImport}
-                            variant="contained"
-                            disableElevation
-                            disabled={loading || importUsers.length === 0 || importUsers.some(item => Object.keys(validateRow(item)).length > 0)}
-                            startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <UploadIcon fontSize="small" />}
-                            sx={{ textTransform: 'none', bgcolor: '#2f65f0', fontWeight: 600, borderRadius: '6px' }}
-                        >
-                            Xác nhận nhập ({importUsers.length})
-                        </Button>
-                    </DialogActions>
-                </Dialog>
-
-                {/* Import Excel Preview Dialog */}
-                <Dialog
-                    open={isPreviewOpen}
-                    onClose={handleCancelImport}
-                    maxWidth="md"
-                    fullWidth
-                    sx={{ '& .MuiDialog-paper': { borderRadius: '10px' } }}
-                >
-                    <DialogTitle sx={{ bgcolor: '#2f65f0', color: 'white', fontWeight: 700, py: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography sx={{ fontWeight: 700, fontSize: '1.1rem' }}>Xác nhận danh sách người dùng nhập từ file</Typography>
-                        <IconButton size="small" onClick={handleCancelImport} sx={{ color: 'white' }}>
-                            <CloseIcon fontSize="small" />
-                        </IconButton>
-                    </DialogTitle>
-                    <DialogContent sx={{ pt: '20px !important', pb: 2 }}>
-                        <Box sx={{ mb: 2, p: 1.5, bgcolor: '#f8fafc', borderRadius: '6px', borderLeft: '4px solid #3b82f6' }}>
-                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
-                                Vui lòng kiểm tra kỹ danh sách tài khoản trước khi nhập vào cơ sở dữ liệu.
-                                Click nút <strong>Sửa</strong> (hoặc nhấn biểu tượng cây bút) để cập nhật thông tin inline, click <strong>Xóa</strong> để loại bỏ dòng.
-                                Các trường lỗi sẽ được đánh dấu cảnh báo màu đỏ.
-                            </Typography>
-                        </Box>
-                        <TableContainer sx={{ maxHeight: 380, border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-                            <Table size="small" stickyHeader>
-                                <TableHead>
-                                    <TableRow>
-                                        <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }} width={60}>STT</TableCell>
-                                        <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Họ và tên</TableCell>
-                                        <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Tên đăng nhập *</TableCell>
-                                        <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Email</TableCell>
-                                        <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Vai trò *</TableCell>
-                                        <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Mật khẩu</TableCell>
-                                        <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }} align="center" width={110}>Thao tác</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {importUsers.map((item, index) => {
-                                        const errors = validateRow(item);
-                                        const hasError = Object.keys(errors).length > 0;
-                                        const isEditing = editingImportIndex === index;
-
-                                        return (
-                                            <TableRow key={index} sx={{ bgcolor: hasError ? '#fff5f5' : 'inherit', '&:hover': { bgcolor: hasError ? '#fee2e2' : '#f8fafc' } }}>
-                                                <TableCell>{index + 1}</TableCell>
-                                                <TableCell>
-                                                    {isEditing ? (
-                                                        <TextField
-                                                            size="small"
-                                                            value={editImportForm.fullName}
-                                                            onChange={(e) => handleEditImportChange('fullName', e.target.value)}
-                                                            fullWidth
-                                                            variant="outlined"
-                                                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '4px' } }}
-                                                        />
-                                                    ) : (
-                                                        item.fullName || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>--</span>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {isEditing ? (
-                                                        <TextField
-                                                            size="small"
-                                                            value={editImportForm.username}
-                                                            error={!!editImportErrors.username}
-                                                            helperText={editImportErrors.username}
-                                                            onChange={(e) => handleEditImportChange('username', e.target.value)}
-                                                            fullWidth
-                                                            required
-                                                            variant="outlined"
-                                                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '4px' } }}
-                                                        />
-                                                    ) : (
-                                                        <Box>
-                                                            <Typography variant="body2" sx={{ fontWeight: 500, color: !item.username ? '#ef4444' : 'inherit' }}>
-                                                                {item.username || 'Trống'}
-                                                            </Typography>
-                                                            {errors.username && (
-                                                                <Typography variant="caption" color="error" sx={{ display: 'block', fontSize: '0.75rem' }}>
-                                                                    {errors.username}
-                                                                </Typography>
-                                                            )}
-                                                        </Box>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {isEditing ? (
-                                                        <TextField
-                                                            size="small"
-                                                            value={editImportForm.email}
-                                                            error={!!editImportErrors.email}
-                                                            helperText={editImportErrors.email}
-                                                            onChange={(e) => handleEditImportChange('email', e.target.value)}
-                                                            fullWidth
-                                                            variant="outlined"
-                                                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '4px' } }}
-                                                        />
-                                                    ) : (
-                                                        <Box>
-                                                            <Typography variant="body2">{item.email || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>--</span>}</Typography>
-                                                            {errors.email && (
-                                                                <Typography variant="caption" color="error" sx={{ display: 'block', fontSize: '0.75rem' }}>
-                                                                    {errors.email}
-                                                                </Typography>
-                                                            )}
-                                                        </Box>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {isEditing ? (
-                                                        <Select
-                                                            size="small"
-                                                            fullWidth
-                                                            value={editImportForm.realRole || ''}
-                                                            onChange={(e) => handleEditImportChange('realRole', e.target.value)}
-                                                            variant="outlined"
-                                                            sx={{ borderRadius: '4px' }}
-                                                        >
-                                                            {roles.map((r) => (
-                                                                <MenuItem key={r.id} value={r.name}>{r.name}</MenuItem>
-                                                            ))}
-                                                        </Select>
-                                                    ) : (
-                                                        <Box>
-                                                            <Typography variant="body2" sx={{ fontWeight: 500, color: !item.realRole ? '#ef4444' : 'inherit' }}>
-                                                                {item.realRole || 'Trống'}
-                                                            </Typography>
-                                                            {errors.realRole && (
-                                                                <Typography variant="caption" color="error" sx={{ display: 'block', fontSize: '0.75rem' }}>
-                                                                    {errors.realRole}
-                                                                </Typography>
-                                                            )}
-                                                        </Box>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {isEditing ? (
-                                                        <TextField
-                                                            size="small"
-                                                            value={editImportForm.password}
-                                                            error={!!editImportErrors.password}
-                                                            helperText={editImportErrors.password}
-                                                            onChange={(e) => handleEditImportChange('password', e.target.value)}
-                                                            fullWidth
-                                                            variant="outlined"
-                                                            type={showImportPassword ? 'text' : 'password'}
-                                                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '4px' } }}
-                                                            slotProps={{
-                                                                input: {
-                                                                    endAdornment: (
-                                                                        <InputAdornment position="end">
-                                                                            <IconButton
-                                                                                size="small"
-                                                                                onClick={() => setShowImportPassword(!showImportPassword)}
-                                                                                edge="end"
-                                                                            >
-                                                                                {showImportPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
-                                                                            </IconButton>
-                                                                        </InputAdornment>
-                                                                    )
-                                                                }
-                                                            }}
-                                                        />
-                                                    ) : (
-                                                        <Box>
-                                                            <Typography variant="body2">{item.password || '12345678'}</Typography>
-                                                            {errors.password && (
-                                                                <Typography variant="caption" color="error" sx={{ display: 'block', fontSize: '0.75rem' }}>
-                                                                    {errors.password}
-                                                                </Typography>
-                                                            )}
-                                                        </Box>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell align="center">
-                                                    {isEditing ? (
-                                                        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-                                                            <Tooltip title="Lưu">
-                                                                <IconButton
-                                                                    size="small"
-                                                                    color="success"
-                                                                    onClick={() => handleSaveEditImport(index)}
-                                                                >
-                                                                    <SaveIcon fontSize="small" />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                            <Tooltip title="Hủy">
-                                                                <IconButton
-                                                                    size="small"
-                                                                    color="warning"
-                                                                    onClick={handleCancelEditImport}
-                                                                >
-                                                                    <CloseIcon fontSize="small" />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                        </Box>
-                                                    ) : (
-                                                        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-                                                            <Tooltip title="Sửa">
-                                                                <IconButton
-                                                                    size="small"
-                                                                    color="primary"
-                                                                    onClick={() => handleStartEditImport(index, item)}
-                                                                >
-                                                                    <EditIcon fontSize="small" />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                            <Tooltip title="Xóa">
-                                                                <IconButton
-                                                                    size="small"
-                                                                    color="error"
-                                                                    onClick={() => handleDeleteImportRow(index)}
-                                                                >
-                                                                    <DeleteIcon fontSize="small" />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                        </Box>
-                                                    )}
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-                    </DialogContent>
-                    <DialogActions sx={{ px: 3, pb: 2.5, pt: 1.5, borderTop: '1px solid #e2e8f0' }}>
-                        <Button
-                            onClick={handleCancelImport}
-                            sx={{ color: '#64748b', textTransform: 'none', fontWeight: 600 }}
-                            disabled={loading}
-                        >
-                            Hủy bỏ
-                        </Button>
-                        <Button
-                            onClick={handleConfirmImport}
-                            variant="contained"
-                            disableElevation
-                            disabled={loading || importUsers.length === 0 || importUsers.some(item => Object.keys(validateRow(item)).length > 0)}
-                            startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <UploadIcon fontSize="small" />}
-                            sx={{ textTransform: 'none', bgcolor: '#2f65f0', fontWeight: 600, borderRadius: '6px' }}
-                        >
-                            Xác nhận nhập ({importUsers.length})
-                        </Button>
-                    </DialogActions>
-                </Dialog>
             </Box>
-        </MainLayout>
+
+            {hasUserDelete && (
+                <BulkSelectionBar
+                    count={selectedIds.length}
+                    onDelete={handleBulkDelete}
+                    onClose={() => setSelectedIds([])}
+                />
+            )}
+
+            <ConfirmDialog
+                open={confirmDeleteOpen}
+                title="Xác nhận xóa"
+                message={`Bạn có chắc chắn muốn xóa vĩnh viễn ${selectedIds.length} người dùng đã chọn? Thao tác này không thể hoàn tác.`}
+                onCancel={() => setConfirmDeleteOpen(false)}
+                onConfirm={performBulkDelete}
+                confirmText="Xóa"
+            />
+
+            <UserPasswordDialog
+                open={passwordModal.open}
+                onClose={() => setPasswordModal({ ...passwordModal, open: false })}
+                userId={passwordModal.userId}
+                userName={passwordModal.userName}
+            />
+
+            {/* Import Excel Preview Dialog */}
+            <Dialog
+                open={isPreviewOpen}
+                onClose={handleCancelImport}
+                maxWidth="md"
+                fullWidth
+                sx={{ '& .MuiDialog-paper': { borderRadius: '10px' } }}
+            >
+                <DialogTitle sx={{ bgcolor: '#2f65f0', color: 'white', fontWeight: 700, py: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography sx={{ fontWeight: 700, fontSize: '1.1rem' }}>Xác nhận danh sách người dùng nhập từ file</Typography>
+                    <IconButton size="small" onClick={handleCancelImport} sx={{ color: 'white' }}>
+                        <CloseIcon fontSize="small" />
+                    </IconButton>
+                </DialogTitle>
+
+                <DialogContent sx={{ pt: '20px !important', pb: 2 }}>
+                    <Box sx={{ mb: 2, p: 1.5, bgcolor: '#f8fafc', borderRadius: '4px', borderLeft: '4px solid #3b82f6' }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
+                            Vui lòng kiểm tra kỹ danh sách tài khoản trước khi nhập vào cơ sở dữ liệu.
+                            Click nút <strong>Sửa</strong> (hoặc nhấn biểu tượng cây bút) để cập nhật thông tin inline, click <strong>Xóa</strong> để loại bỏ dòng.
+                            Các trường lỗi sẽ được đánh dấu cảnh báo màu đỏ.
+                        </Typography>
+                    </Box>
+                    <TableContainer sx={{ maxHeight: 380, border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+                        <Table size="small" stickyHeader>
+                            <TableHead>
+                                <TableRow>
+                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }} width={60}>STT</TableCell>
+                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Họ và tên</TableCell>
+                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Tên đăng nhập *</TableCell>
+                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Email</TableCell>
+                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Vai trò *</TableCell>
+                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Mật khẩu</TableCell>
+                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }} align="center" width={110}>Thao tác</TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {importUsers.map((item, index) => {
+                                    const errors = validateRow(item);
+                                    const hasError = Object.keys(errors).length > 0;
+                                    const isEditing = editingImportIndex === index;
+
+                                    return (
+                                        <TableRow key={index} sx={{ bgcolor: hasError ? '#fff5f5' : 'inherit', '&:hover': { bgcolor: hasError ? '#fee2e2' : '#f8fafc' } }}>
+                                            <TableCell>{index + 1}</TableCell>
+                                            <TableCell>
+                                                {isEditing ? (
+                                                    <TextField
+                                                        size="small"
+                                                        value={editImportForm.fullName}
+                                                        onChange={(e) => handleEditImportChange('fullName', e.target.value)}
+                                                        fullWidth
+                                                        variant="outlined"
+                                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '4px' } }}
+                                                    />
+                                                ) : (
+                                                    item.fullName || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>--</span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                {isEditing ? (
+                                                    <TextField
+                                                        size="small"
+                                                        value={editImportForm.username}
+                                                        error={!!editImportErrors.username}
+                                                        helperText={editImportErrors.username}
+                                                        onChange={(e) => handleEditImportChange('username', e.target.value)}
+                                                        fullWidth
+                                                        required
+                                                        variant="outlined"
+                                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '4px' } }}
+                                                    />
+                                                ) : (
+                                                    <Box>
+                                                        <Typography variant="body2" sx={{ fontWeight: 500, color: !item.username ? '#ef4444' : 'inherit' }}>
+                                                            {item.username || 'Trống'}
+                                                        </Typography>
+                                                        {errors.username && (
+                                                            <Typography variant="caption" color="error" sx={{ display: 'block', fontSize: '0.75rem' }}>
+                                                                {errors.username}
+                                                            </Typography>
+                                                        )}
+                                                    </Box>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                {isEditing ? (
+                                                    <TextField
+                                                        size="small"
+                                                        value={editImportForm.email}
+                                                        error={!!editImportErrors.email}
+                                                        helperText={editImportErrors.email}
+                                                        onChange={(e) => handleEditImportChange('email', e.target.value)}
+                                                        fullWidth
+                                                        variant="outlined"
+                                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '4px' } }}
+                                                    />
+                                                ) : (
+                                                    <Box>
+                                                        <Typography variant="body2">{item.email || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>--</span>}</Typography>
+                                                        {errors.email && (
+                                                            <Typography variant="caption" color="error" sx={{ display: 'block', fontSize: '0.75rem' }}>
+                                                                {errors.email}
+                                                            </Typography>
+                                                        )}
+                                                    </Box>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                {isEditing ? (
+                                                    <Select
+                                                        size="small"
+                                                        fullWidth
+                                                        value={editImportForm.realRole || ''}
+                                                        onChange={(e) => handleEditImportChange('realRole', e.target.value)}
+                                                        variant="outlined"
+                                                        sx={{ borderRadius: '4px' }}
+                                                        disabled={!canEditRole}
+                                                    >
+                                                        <MenuItem value="Nhân viên">Nhân viên</MenuItem>
+                                                        <MenuItem value="Chuyên viên">Chuyên viên</MenuItem>
+                                                        <MenuItem value="Lãnh đạo">Lãnh đạo</MenuItem>
+                                                        <MenuItem value="Quản trị viên">Quản trị viên</MenuItem>
+                                                    </Select>
+                                                ) : (
+                                                    <Box>
+                                                        <Typography variant="body2" sx={{ fontWeight: 500, color: !item.realRole ? '#ef4444' : 'inherit' }}>
+                                                            {item.realRole || 'Trống'}
+                                                        </Typography>
+                                                        {errors.realRole && (
+                                                            <Typography variant="caption" color="error" sx={{ display: 'block', fontSize: '0.75rem' }}>
+                                                                {errors.realRole}
+                                                            </Typography>
+                                                        )}
+                                                    </Box>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                {isEditing ? (
+                                                    <TextField
+                                                        size="small"
+                                                        value={editImportForm.password}
+                                                        error={!!editImportErrors.password}
+                                                        helperText={editImportErrors.password}
+                                                        onChange={(e) => handleEditImportChange('password', e.target.value)}
+                                                        fullWidth
+                                                        variant="outlined"
+                                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '4px' } }}
+                                                    />
+                                                ) : (
+                                                    <Box>
+                                                        <Typography variant="body2">{item.password || '12345678'}</Typography>
+                                                        {errors.password && (
+                                                            <Typography variant="caption" color="error" sx={{ display: 'block', fontSize: '0.75rem' }}>
+                                                                {errors.password}
+                                                            </Typography>
+                                                        )}
+                                                    </Box>
+                                                )}
+                                            </TableCell>
+                                            <TableCell align="center">
+                                                {isEditing ? (
+                                                    <Box sx={{ display: 'flex', gap: 0.25, justifyContent: 'center' }}>
+                                                        <Tooltip title="Lưu">
+                                                            <IconButton
+                                                                size="small"
+                                                                color="success"
+                                                                onClick={() => handleSaveEditImport(index)}
+                                                            >
+                                                                <SaveIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                        <Tooltip title="Hủy">
+                                                            <IconButton
+                                                                size="small"
+                                                                color="warning"
+                                                                onClick={handleCancelEditImport}
+                                                            >
+                                                                <CloseIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    </Box>
+                                                ) : (
+                                                    <Box sx={{ display: 'flex', gap: 0.25, justifyContent: 'center' }}>
+                                                        <Tooltip title="Sửa">
+                                                            <IconButton
+                                                                size="small"
+                                                                color="primary"
+                                                                onClick={() => handleStartEditImport(index, item)}
+                                                            >
+                                                                <EditIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                        <Tooltip title="Xóa">
+                                                            <IconButton
+                                                                size="small"
+                                                                color="error"
+                                                                onClick={() => handleDeleteImportRow(index)}
+                                                            >
+                                                                <DeleteIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    </Box>
+                                                )}
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2.5, pt: 1.5, borderTop: '1px solid #e2e8f0' }}>
+                    <Button
+                        onClick={handleCancelImport}
+                        sx={{
+                            textTransform: 'none',
+                            color: '#666',
+                            fontSize: '0.85rem',
+                            borderRadius: '6px',
+                            padding: '4px 16px',
+                            minWidth: 'auto',
+                            backgroundColor: 'transparent',
+                            boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
+                            transition: 'all 0.2s ease-in-out',
+                            '&:hover': {
+                                backgroundColor: '#f5f5f7',
+                                color: '#333',
+                                boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)'
+                            }
+                        }}
+                        disabled={loading}
+                    >
+                        Hủy bỏ
+                    </Button>
+                    <Button
+                        onClick={handleConfirmImport}
+                        variant="contained"
+                        disableElevation
+                        disabled={loading || importUsers.length === 0 || importUsers.some(item => Object.keys(validateRow(item)).length > 0)}
+                        startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <UploadIcon fontSize="small" />}
+                        sx={{ textTransform: 'none', bgcolor: '#2f65f0', fontWeight: 600, borderRadius: '4px' }}
+                    >
+                        Xác nhận nhập ({importUsers.length})
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Import Excel Preview Dialog */}
+            <Dialog
+                open={isPreviewOpen}
+                onClose={handleCancelImport}
+                maxWidth="md"
+                fullWidth
+                sx={{ '& .MuiDialog-paper': { borderRadius: '10px' } }}
+            >
+                <DialogTitle sx={{ bgcolor: '#2f65f0', color: 'white', fontWeight: 700, py: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography sx={{ fontWeight: 700, fontSize: '1.1rem' }}>Xác nhận danh sách người dùng nhập từ file</Typography>
+                    <IconButton size="small" onClick={handleCancelImport} sx={{ color: 'white' }}>
+                        <CloseIcon fontSize="small" />
+                    </IconButton>
+                </DialogTitle>
+                <DialogContent sx={{ pt: '20px !important', pb: 2 }}>
+                    <Box sx={{ mb: 2, p: 1.5, bgcolor: '#f8fafc', borderRadius: '4px', borderLeft: '4px solid #3b82f6' }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
+                            Vui lòng kiểm tra kỹ danh sách tài khoản trước khi nhập vào cơ sở dữ liệu.
+                            Click nút <strong>Sửa</strong> (hoặc nhấn biểu tượng cây bút) để cập nhật thông tin inline, click <strong>Xóa</strong> để loại bỏ dòng.
+                            Các trường lỗi sẽ được đánh dấu cảnh báo màu đỏ.
+                        </Typography>
+                    </Box>
+                    <TableContainer sx={{ maxHeight: 380, border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+                        <Table size="small" stickyHeader>
+                            <TableHead>
+                                <TableRow>
+                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }} width={60}>STT</TableCell>
+                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Họ và tên</TableCell>
+                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Tên đăng nhập *</TableCell>
+                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Email</TableCell>
+                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Vai trò *</TableCell>
+                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }}>Mật khẩu</TableCell>
+                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f1f5f9' }} align="center" width={110}>Thao tác</TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {importUsers.map((item, index) => {
+                                    const errors = validateRow(item);
+                                    const hasError = Object.keys(errors).length > 0;
+                                    const isEditing = editingImportIndex === index;
+
+                                    return (
+                                        <TableRow key={index} sx={{ bgcolor: hasError ? '#fff5f5' : 'inherit', '&:hover': { bgcolor: hasError ? '#fee2e2' : '#f8fafc' } }}>
+                                            <TableCell>{index + 1}</TableCell>
+                                            <TableCell>
+                                                {isEditing ? (
+                                                    <TextField
+                                                        size="small"
+                                                        value={editImportForm.fullName}
+                                                        onChange={(e) => handleEditImportChange('fullName', e.target.value)}
+                                                        fullWidth
+                                                        variant="outlined"
+                                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '4px' } }}
+                                                    />
+                                                ) : (
+                                                    item.fullName || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>--</span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                {isEditing ? (
+                                                    <TextField
+                                                        size="small"
+                                                        value={editImportForm.username}
+                                                        error={!!editImportErrors.username}
+                                                        helperText={editImportErrors.username}
+                                                        onChange={(e) => handleEditImportChange('username', e.target.value)}
+                                                        fullWidth
+                                                        required
+                                                        variant="outlined"
+                                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '4px' } }}
+                                                    />
+                                                ) : (
+                                                    <Box>
+                                                        <Typography variant="body2" sx={{ fontWeight: 500, color: !item.username ? '#ef4444' : 'inherit' }}>
+                                                            {item.username || 'Trống'}
+                                                        </Typography>
+                                                        {errors.username && (
+                                                            <Typography variant="caption" color="error" sx={{ display: 'block', fontSize: '0.75rem' }}>
+                                                                {errors.username}
+                                                            </Typography>
+                                                        )}
+                                                    </Box>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                {isEditing ? (
+                                                    <TextField
+                                                        size="small"
+                                                        value={editImportForm.email}
+                                                        error={!!editImportErrors.email}
+                                                        helperText={editImportErrors.email}
+                                                        onChange={(e) => handleEditImportChange('email', e.target.value)}
+                                                        fullWidth
+                                                        variant="outlined"
+                                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '4px' } }}
+                                                    />
+                                                ) : (
+                                                    <Box>
+                                                        <Typography variant="body2">{item.email || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>--</span>}</Typography>
+                                                        {errors.email && (
+                                                            <Typography variant="caption" color="error" sx={{ display: 'block', fontSize: '0.75rem' }}>
+                                                                {errors.email}
+                                                            </Typography>
+                                                        )}
+                                                    </Box>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                {isEditing ? (
+                                                    <Select
+                                                        size="small"
+                                                        fullWidth
+                                                        value={editImportForm.realRole || ''}
+                                                        onChange={(e) => handleEditImportChange('realRole', e.target.value)}
+                                                        variant="outlined"
+                                                        sx={{ borderRadius: '4px' }}
+                                                        disabled={!canEditRole}
+                                                    >
+                                                        {roles.map((r) => (
+                                                            <MenuItem key={r.id} value={r.name}>{r.name}</MenuItem>
+                                                        ))}
+                                                    </Select>
+                                                ) : (
+                                                    <Box>
+                                                        <Typography variant="body2" sx={{ fontWeight: 500, color: !item.realRole ? '#ef4444' : 'inherit' }}>
+                                                            {item.realRole || 'Trống'}
+                                                        </Typography>
+                                                        {errors.realRole && (
+                                                            <Typography variant="caption" color="error" sx={{ display: 'block', fontSize: '0.75rem' }}>
+                                                                {errors.realRole}
+                                                            </Typography>
+                                                        )}
+                                                    </Box>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                {isEditing ? (
+                                                    <TextField
+                                                        size="small"
+                                                        value={editImportForm.password}
+                                                        error={!!editImportErrors.password}
+                                                        helperText={editImportErrors.password}
+                                                        onChange={(e) => handleEditImportChange('password', e.target.value)}
+                                                        fullWidth
+                                                        variant="outlined"
+                                                        type={showImportPassword ? 'text' : 'password'}
+                                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '4px' } }}
+                                                        slotProps={{
+                                                            input: {
+                                                                endAdornment: (
+                                                                    <InputAdornment position="end">
+                                                                        <IconButton
+                                                                            size="small"
+                                                                            onClick={() => setShowImportPassword(!showImportPassword)}
+                                                                            edge="end"
+                                                                        >
+                                                                            {showImportPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                                                                        </IconButton>
+                                                                    </InputAdornment>
+                                                                )
+                                                            }
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <Box>
+                                                        <Typography variant="body2">{item.password || '12345678'}</Typography>
+                                                        {errors.password && (
+                                                            <Typography variant="caption" color="error" sx={{ display: 'block', fontSize: '0.75rem' }}>
+                                                                {errors.password}
+                                                            </Typography>
+                                                        )}
+                                                    </Box>
+                                                )}
+                                            </TableCell>
+                                            <TableCell align="center">
+                                                {isEditing ? (
+                                                    <Box sx={{ display: 'flex', gap: 0.25, justifyContent: 'center' }}>
+                                                        <Tooltip title="Lưu">
+                                                            <IconButton
+                                                                size="small"
+                                                                color="success"
+                                                                onClick={() => handleSaveEditImport(index)}
+                                                            >
+                                                                <SaveIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                        <Tooltip title="Hủy">
+                                                            <IconButton
+                                                                size="small"
+                                                                color="warning"
+                                                                onClick={handleCancelEditImport}
+                                                            >
+                                                                <CloseIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    </Box>
+                                                ) : (
+                                                    <Box sx={{ display: 'flex', gap: 0.25, justifyContent: 'center' }}>
+                                                        <Tooltip title="Sửa">
+                                                            <IconButton
+                                                                size="small"
+                                                                color="primary"
+                                                                onClick={() => handleStartEditImport(index, item)}
+                                                            >
+                                                                <EditIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                        <Tooltip title="Xóa">
+                                                            <IconButton
+                                                                size="small"
+                                                                color="error"
+                                                                onClick={() => handleDeleteImportRow(index)}
+                                                            >
+                                                                <DeleteIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    </Box>
+                                                )}
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2.5, pt: 1.5, borderTop: '1px solid #e2e8f0' }}>
+                    <Button
+                        onClick={handleCancelImport}
+                        sx={{
+                            textTransform: 'none',
+                            color: '#666',
+                            fontSize: '0.85rem',
+                            borderRadius: '6px',
+                            padding: '4px 16px',
+                            minWidth: 'auto',
+                            backgroundColor: 'transparent',
+                            boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
+                            transition: 'all 0.2s ease-in-out',
+                            '&:hover': {
+                                backgroundColor: '#f5f5f7',
+                                color: '#333',
+                                boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)'
+                            }
+                        }}
+                        disabled={loading}
+                    >
+                        Hủy bỏ
+                    </Button>
+                    <Button
+                        onClick={handleConfirmImport}
+                        variant="contained"
+                        disableElevation
+                        disabled={loading || importUsers.length === 0 || importUsers.some(item => Object.keys(validateRow(item)).length > 0)}
+                        startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <UploadIcon fontSize="small" />}
+                        sx={{ textTransform: 'none', bgcolor: '#2f65f0', fontWeight: 600, borderRadius: '4px' }}
+                    >
+                        Xác nhận nhập ({importUsers.length})
+                    </Button>
+                </DialogActions>
+            </Dialog>
+        </Box>
     );
 };

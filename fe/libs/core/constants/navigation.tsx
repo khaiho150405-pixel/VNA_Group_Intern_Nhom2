@@ -27,7 +27,11 @@ export const NAVIGATION_ITEMS: NavItem[] = [
     icon: <SettingsIcon fontSize="small" />,
     roles: ['ROLE_SO', 'ROLE_DN'],
     children: [
+      { id: 'permissions', label: 'Quản lý quyền hạn', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO'], path: '/permissions' },
+      { id: 'roles', label: 'Quản lý vai trò', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO'], path: '/roles' },
       { id: 'account', label: 'Quản lý người dùng', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO'], path: '/users' },
+      { id: 'loai-hinh-kinh-doanh', label: 'Loại hình kinh doanh', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO'], path: '/loai-hinh-kinh-doanh' },
+      { id: 'nganh-nghe-kinh-doanh', label: 'Ngành nghề kinh doanh', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO'], path: '/nganh-nghe-kinh-doanh' },
       { id: 'company-mgmt', label: 'Quản lý doanh nghiệp', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO'], path: '/doets' },
       { id: 'my-company', label: 'Thông tin doanh nghiệp', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_DN'], path: '/enterprise-profile' },
       { id: 'report-period', label: 'Kỳ báo cáo', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO'], path: '/report-periods' },
@@ -39,7 +43,7 @@ export const NAVIGATION_ITEMS: NavItem[] = [
     icon: <SettingsIcon fontSize="small" />,
     roles: ['ROLE_SO', 'ROLE_DN'],
     children: [
-      { id: 'common-list', label: 'Danh mục chung', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO'] },
+      { id: 'common-list', label: 'Danh mục chung', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO'], path: '/common-categories' },
       { id: 'tnld-hdlh', label: 'TNLĐ theo HĐLĐ', icon: <FiberManualRecordIcon style={{ fontSize: 6 }} />, roles: ['ROLE_SO', 'ROLE_DN'], path: '/accident-reports' },
     ]
 

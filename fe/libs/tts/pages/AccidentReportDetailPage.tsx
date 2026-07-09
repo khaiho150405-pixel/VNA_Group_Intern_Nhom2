@@ -20,7 +20,7 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
 import { saveAs } from 'file-saver';
-import { MainLayout } from '@core/layouts/MainLayout';
+
 
 export interface ReportData {
   tongSoVu: number;
@@ -48,7 +48,7 @@ export interface ReportRow {
 import { useParams } from 'next/navigation';
 import { DoetService, periodicReportService } from '@tts/services';
 
-const CAUSES = [
+const fallbackCauses = [
   { id: 1, name: "Không có thiết bị an toàn hoặc thiết bị không đảm bảo an toàn" },
   { id: 2, name: "Không có phương tiện bảo vệ cá nhân hoặc phương tiện bảo vệ cá nhân không tốt" },
   { id: 3, name: "Tổ chức lao động không hợp lý" },
@@ -60,9 +60,11 @@ const CAUSES = [
   { id: 9, name: "Khách quan khó tránh/ Nguyên nhân chưa kể đến" }
 ];
 
-const OCCUPATIONS = [
-  { id: 102, name: "Nhà lãnh đạo cơ quan Đảng Cộng sản Việt nam cấp Trung ương" },
-  { id: 103, name: "Công nhân" }
+const fallbackOccupations = [
+  { id: 1, name: "1 - Nhà lãnh đạo trong các ngành, các cấp và các đơn vị" },
+  { id: 2, name: "11 - Nhà lãnh đạo cơ quan Đảng Cộng sản Việt Nam cấp Trung ương và địa phương..." },
+  { id: 3, name: "111 - Nhà lãnh đạo cơ quan Đảng Cộng sản Việt Nam cấp Trung ương" },
+  { id: 4, name: "1111 - Trưởng ban, Phó Trưởng ban và tương đương trở lên thuộc cấp Trung ương" }
 ];
 
 const getAbsoluteFileUrl = (url?: string) => {
@@ -84,6 +86,11 @@ const formatNumberWithDots = (val: string | number) => {
 export function AccidentReportDetailPage() {
   const [data, setData] = useState<ReportRow[]>([]);
   const [injuryFactors, setInjuryFactors] = useState<any[]>([]);
+  const [accidentCauses, setAccidentCauses] = useState<any[]>([]);
+  const [occupations, setOccupations] = useState<any[]>([]);
+
+  const causesList = accidentCauses.length > 0 ? accidentCauses : fallbackCauses;
+  const occupationsList = occupations.length > 0 ? occupations : fallbackOccupations;
   const [costs, setCosts] = useState<any>(null);
   const [reportInfo, setReportInfo] = useState<{ year?: number, period?: string, fileUrl?: string, fileName?: string } | null>(null);
   const [rawReport, setRawReport] = useState<any>(null);
@@ -170,25 +177,29 @@ export function AccidentReportDetailPage() {
         return { name, code: String(id), ...getStatCols(getDetailStats(matches), '') };
       });
 
+      const wardCodeStr = String(rawReport.company?.ward?.ma_phuong || rawReport.company?.ward?.code || rawReport.company?.ward?.key || rawReport.doet?.ward?.code || rawReport.doet?.ward?.key || "").padEnd(5, ' ');
+      const typeCodeStr = String(rawReport.company?.loaiHinhKinhDoanh?.maloaihinh || rawReport.company?.loaiHinhKinhDoanh?.id || rawReport.doet?.loaiHinhKinhDoanh?.id || "").padEnd(4, ' ');
+      const fieldCodeStr = String(rawReport.company?.businessLine?.manganh || rawReport.company?.businessLine?.code || rawReport.doet?.businessLine?.manganh || rawReport.doet?.businessLine?.code || "").padEnd(4, ' ');
+
       // Prepare data
       const data = {
         ...causesData,
         factors,
         occupations,
-        companyName: rawReport.doet?.name || "",
+        companyName: rawReport.doet?.name || rawReport.company?.name || "",
         periodName: rawReport.period === 'CA_NAM' ? 'cả năm' : '6 tháng',
         reportYear: rawReport.year || "",
         reportDate: new Date().toLocaleDateString('vi-VN'),
         totalEmployees: rawReport.totalEmployees || "0",
         femaleEmployees: rawReport.femaleEmployees || "0",
         totalSalary: rawReport.totalSalaryFund || "0",
-        companyAddress: rawReport.company?.address || "",
-        addressCode: rawReport.company?.ward?.key || rawReport.company?.province?.key || "",
-        companyType: rawReport.company?.loaiHinhKinhDoanh?.name || rawReport.doet?.loaiHinhKinhDoanh?.name || "",
-        typeCode: rawReport.company?.loaiHinhKinhDoanh?.id || rawReport.doet?.loaiHinhKinhDoanh?.id || "",
-        companyField: rawReport.company?.businessLine?.name || rawReport.company?.businessLine?.tennganh || rawReport.doet?.businessLine?.name || rawReport.doet?.businessLine?.tennganh || "",
-        fieldCode: rawReport.company?.businessLine?.code || rawReport.company?.businessLine?.manganh || rawReport.doet?.businessLine?.code || rawReport.doet?.businessLine?.manganh || "",
+        companyAddress: rawReport.company?.address || rawReport.doet?.address || "",
+        wC1: wardCodeStr[0], wC2: wardCodeStr[1], wC3: wardCodeStr[2], wC4: wardCodeStr[3], wC5: wardCodeStr[4],
+        companyType: rawReport.company?.loaiHinhKinhDoanh?.tenloaihinh || rawReport.company?.loaiHinhKinhDoanh?.name || rawReport.doet?.loaiHinhKinhDoanh?.name || "",
+        companyField: rawReport.company?.businessLine?.tennganh || rawReport.company?.businessLine?.name || rawReport.doet?.businessLine?.tennganh || rawReport.doet?.businessLine?.name || "",
         headOfEnterprise: rawReport.company?.headOfEnterprise || rawReport.doet?.headOfEnterprise || "",
+        tC1: typeCodeStr[0], tC2: typeCodeStr[1], tC3: typeCodeStr[2], tC4: typeCodeStr[3],
+        fC1: fieldCodeStr[0], fC2: fieldCodeStr[1], fC3: fieldCodeStr[2], fC4: fieldCodeStr[3],
 
         t1_c3: formatNumberWithDots(tnldSummary.tongSoVu || "0"),
         t1_c4: formatNumberWithDots(tnldSummary.tongSoVuNguoiChet || "0"),
@@ -250,14 +261,28 @@ export function AccidentReportDetailPage() {
 
     const fetchData = async () => {
       try {
-        const [response, factorsRes]: any = await Promise.all([
+        const [response, factorsRes, causesRes, occRes]: any = await Promise.all([
           periodicReportService.getById(id),
-          DoetService.getInjuryFactors()
+          DoetService.getInjuryFactors(),
+          DoetService.getAccidentCauses(),
+          DoetService.getOccupations()
         ]);
         const report = response.data || response;
         setRawReport(report);
         const factors = factorsRes.data || factorsRes || [];
         setInjuryFactors(factors);
+
+        const causes = causesRes?.data || causesRes || [];
+        setAccidentCauses(causes);
+
+        const occs = occRes?.data?.items || occRes?.data || occRes || [];
+        if (Array.isArray(occs) && occs.length > 0) {
+          const occsMapped = occs.map((o: any) => ({
+            id: o.id,
+            name: `${o.manghe} - ${o.tennghe}`
+          }));
+          setOccupations(occsMapped);
+        }
 
         const mapData = (summary: any): ReportData => ({
           tongSoVu: summary?.tongSoVu || 0,
@@ -306,7 +331,7 @@ export function AccidentReportDetailPage() {
           { id: "1.1-a", code: "", name: "a. Do người sử dụng lao động", isHeader: true, level: 0 },
         ];
 
-        CAUSES.slice(0, 6).forEach((c, i) => {
+        causesList.slice(0, 6).forEach((c, i) => {
           const stats = getSummedStatsForCause(c.id);
           if (stats) {
             rows.push({ id: `1.1-a-${c.id}`, code: String(i + 1), name: c.name, isHeader: false, level: 0, data: stats });
@@ -314,7 +339,7 @@ export function AccidentReportDetailPage() {
         });
 
         rows.push({ id: "1.1-b", code: "", name: "b. Do người lao động", isHeader: true, level: 0 });
-        CAUSES.slice(6, 8).forEach((c, i) => {
+        causesList.slice(6, 8).forEach((c, i) => {
           const stats = getSummedStatsForCause(c.id);
           if (stats) {
             rows.push({ id: `1.1-b-${c.id}`, code: String(i + 7), name: c.name, isHeader: false, level: 0, data: stats });
@@ -323,7 +348,7 @@ export function AccidentReportDetailPage() {
 
         const otherStats = getSummedStatsForCause(9);
         if (otherStats) {
-          rows.push({ id: "1.1-9", code: "9", name: CAUSES[8].name, isHeader: false, level: 0, data: otherStats });
+          rows.push({ id: "1.1-9", code: "9", name: causesList[8].name, isHeader: false, level: 0, data: otherStats });
         }
 
         rows.push({ id: "1.2", code: "", name: "1.2. Phân theo yếu tố gây chấn thương", isHeader: true, level: 0 });
@@ -379,7 +404,7 @@ export function AccidentReportDetailPage() {
             sum.tongSoThuongNang = (sum.tongSoThuongNang || 0) + Number(stats.tongSoThuongNang || stats.tongSoNguoiThuongNang || 0);
             sum.khongQlThuongNang = (sum.khongQlThuongNang || 0) + Number(stats.khongQlThuongNang || 0);
           });
-          const occInfo = OCCUPATIONS.find(o => o.id === occId);
+          const occInfo = occupationsList.find(o => o.id === occId);
           const name = occInfo?.name || `Nghề nghiệp ${occId}`;
           rows.push({ id: `1.3-${occId}`, code: String(occId), name, isHeader: false, level: 0, data: mapData(sum) });
         });
@@ -426,8 +451,7 @@ export function AccidentReportDetailPage() {
   const headStyle = { ...cellStyle, fontWeight: 'bold', backgroundColor: '#f8fafc', color: '#475569' };
 
   return (
-    <MainLayout>
-      <Box sx={{ backgroundColor: '#f4f6f8', minHeight: '100vh' }}>
+    <Box sx={{ backgroundColor: '#f4f6f8', minHeight: '100vh' }}>
 
         <Box sx={{
           display: 'flex',
@@ -443,19 +467,33 @@ export function AccidentReportDetailPage() {
           </Typography>
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button
-              variant="outlined"
-              sx={{ color: '#64748b', borderColor: '#cbd5e1', '&:hover': { borderColor: '#94a3b8', backgroundColor: '#f8fafc' } }}
               onClick={() => router.push('/accident-reports')}
+              sx={{
+                textTransform: 'none',
+                color: '#666',
+                fontSize: '0.85rem',
+                borderRadius: '6px',
+                padding: '4px 16px',
+                minWidth: 'auto',
+                backgroundColor: 'transparent',
+                boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
+                transition: 'all 0.2s ease-in-out',
+                '&:hover': {
+                  backgroundColor: '#f5f5f7',
+                  color: '#333',
+                  boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)'
+                }
+              }}
             >
               Huỷ bỏ
             </Button>
             <Button
               variant="outlined"
               startIcon={<FileDownloadIcon />}
-              sx={{ color: '#059669', borderColor: '#a7f3d0' }}
+              sx={{ color: '#2f65f0', borderColor: '#2f65f0' }}
               onClick={() => handleExportWord()}
             >
-              Xuất báo cáo
+              In báo cáo
             </Button>
           </Box>
         </Box>
@@ -624,6 +662,5 @@ export function AccidentReportDetailPage() {
           </Box>
         </Box>
       </Box>
-    </MainLayout>
   );
 }

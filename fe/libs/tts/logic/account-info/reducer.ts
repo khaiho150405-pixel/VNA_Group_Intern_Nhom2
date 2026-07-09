@@ -15,6 +15,7 @@ export const initialAccountInfoState = {
   avatarUrl: '',
   avatarFile: null as File | null,
   roles: [] as any[],
+  allowedRoles: [] as string[],
   provinces: [] as any[],
   districts: [] as any[],
   loading: false,
@@ -64,7 +65,7 @@ export const accountInfoReducer = (state: AccountInfoState, action: AccountInfoA
       };
     case 'setInitialData': {
       const snapshot: Record<string, any> = {};
-      const editableKeys = ['displayName', 'birthday', 'gender', 'title', 'role', 'city', 'district', 'address', 'avatarUrl', 'active'];
+      const editableKeys = ['displayName', 'birthday', 'gender', 'title', 'role', 'city', 'district', 'address', 'avatarUrl', 'active', 'allowedRoles'];
       editableKeys.forEach((key) => {
         snapshot[key] = (action.data as any)[key] !== undefined ? (action.data as any)[key] : (state as any)[key];
       });

@@ -63,20 +63,31 @@ export const useEditUser = () => {
                     roleService.getAll(),
                     userService.getById(userId)
                 ]);
+                const userData = userRes.data || userRes;
                 let roleList = [];
                 if (Array.isArray(rolesRes)) {
                     roleList = rolesRes;
                 } else {
                     roleList = rolesRes?.data?.items || rolesRes?.items || [];
                 }
-                roleList = roleList.filter((r: any) => 
-                    r.role !== 'enterprise' && 
-                    r.type !== 'DN' && 
-                    r.id !== 5 && 
-                    r.name !== 'Doanh nghiệp'
-                );
+                if (userData.username !== 'testuser') {
+                    roleList = roleList.filter((r: any) => 
+                        r.role !== 'enterprise' && 
+                        r.type !== 'DN' && 
+                        r.id !== 5 && 
+                        r.name !== 'Doanh nghiệp' &&
+                        r.role !== 'superAdmin' &&
+                        r.id !== 4
+                    );
+                } else {
+                    roleList = roleList.filter((r: any) => 
+                        r.role !== 'enterprise' && 
+                        r.type !== 'DN' && 
+                        r.id !== 5 && 
+                        r.name !== 'Doanh nghiệp'
+                    );
+                }
 
-                const userData = userRes.data || userRes;
                 const matchedRole = roleList.find((r: any) => r.name === userData.realRole);
                 const currentRoleId = matchedRole ? matchedRole.id : '';
 
@@ -99,7 +110,10 @@ export const useEditUser = () => {
                         address: userData.address || '',
                         active: userData.status === true,
                         avatarUrl: userData.avatar || '',
-                        title: userData.workUnit || ''
+                        title: userData.workUnit || '',
+                        allowedRoles: Array.isArray(userData.allowedRoles)
+                            ? userData.allowedRoles.map(String)
+                            : (userData.allowedRoles ? String(userData.allowedRoles).split(',').filter(Boolean) : [])
                     }
                 });
 
@@ -129,6 +143,12 @@ export const useEditUser = () => {
 
         if (state.email && !validate.email(state.email)) {
             notifyError('Email không hợp lệ');
+            return;
+        }
+
+        // Guard: testuser không được tắt trạng thái hoạt động
+        if (state.username?.trim().toLowerCase() === 'testuser' && state.active === false) {
+            notifyError('Tài khoản admin testuser là tài khoản mặc định, không thể bị tắt trạng thái hoạt động.');
             return;
         }
 
@@ -165,7 +185,8 @@ export const useEditUser = () => {
                 address: state.address || null,
                 avatar: state.avatarUrl || null,
                 workUnit: state.title,
-                status: state.active
+                status: state.active,
+                allowedRoles: state.allowedRoles || []
             };
 
 

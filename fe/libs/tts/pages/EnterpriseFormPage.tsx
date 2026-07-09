@@ -29,7 +29,7 @@ import {
 import { useRouter, useParams } from 'next/navigation';
 import { useSnackbar } from 'notistack';
 
-import { MainLayout } from '@core/layouts/MainLayout';
+
 import { CustomCalendar } from '@core/components/CustomCalendar';
 import { ChangeEmailModal } from '@core/components/ChangeEmailModal';
 import { DoetService } from '@tts/services';
@@ -825,6 +825,14 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
             onChange={(_, v) => setField('loaiHinhId', v?.id || undefined)}
             getOptionLabel={(opt) => opt?.tenloaihinh || ''}
             isOptionEqualToValue={(o, v) => o.id === v.id}
+            renderOption={(props, option) => {
+              const { key, ...optionProps } = props;
+              return (
+                <li key={option.id} {...optionProps}>
+                  {option.tenloaihinh}
+                </li>
+              );
+            }}
             disabled={isView}
             size="small"
             fullWidth
@@ -843,6 +851,14 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
             onChange={(_, v) => setField('businessLineId', v?.id || undefined)}
             getOptionLabel={(opt) => opt ? `${opt.manganh} - ${opt.tennganh}` : ''}
             isOptionEqualToValue={(o, v) => o.id === v.id}
+            renderOption={(props, option) => {
+              const { key, ...optionProps } = props;
+              return (
+                <li key={option.id} {...optionProps}>
+                  {option.manganh} - {option.tennganh}
+                </li>
+              );
+            }}
             disabled={isView}
             size="small"
             fullWidth
@@ -907,6 +923,14 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
             onChange={(_, v) => handleProvinceChange(v)}
             getOptionLabel={(opt) => opt?.full_name || opt?.name || ''}
             isOptionEqualToValue={(o, v) => o.id === v.id}
+            renderOption={(props, option) => {
+              const { key, ...optionProps } = props;
+              return (
+                <li key={option.id} {...optionProps}>
+                  {option.full_name || option.name}
+                </li>
+              );
+            }}
             disabled={isView}
             size="small"
             fullWidth
@@ -925,6 +949,14 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
             onChange={(_, v) => handleWardChange('reg', v)}
             getOptionLabel={(opt) => opt?.full_name || opt?.name || ''}
             isOptionEqualToValue={(o, v) => o.id === v.id}
+            renderOption={(props, option) => {
+              const { key, ...optionProps } = props;
+              return (
+                <li key={option.id} {...optionProps}>
+                  {option.full_name || option.name}
+                </li>
+              );
+            }}
             disabled={wardDisabled}
             size="small"
             fullWidth
@@ -972,6 +1004,7 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
                 variant="text"
                 onClick={() => setShowEmailModal(true)}
                 sx={{ textTransform: 'none', whiteSpace: 'nowrap', minWidth: 'auto' }}
+                style= {{ fontWeight: 600 }}
               >
                 Thay đổi
               </Button>
@@ -1005,6 +1038,14 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
             onChange={(_, v) => handleOpProvinceChange(v)}
             getOptionLabel={(opt) => opt?.full_name || opt?.name || ''}
             isOptionEqualToValue={(o, v) => o.id === v.id}
+            renderOption={(props, option) => {
+              const { key, ...optionProps } = props;
+              return (
+                <li key={option.id} {...optionProps}>
+                  {option.full_name || option.name}
+                </li>
+              );
+            }}
             disabled={isView}
             size="small"
             fullWidth
@@ -1016,6 +1057,14 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
             onChange={(_, v) => handleWardChange('op', v)}
             getOptionLabel={(opt) => opt?.full_name || opt?.name || ''}
             isOptionEqualToValue={(o, v) => o.id === v.id}
+            renderOption={(props, option) => {
+              const { key, ...optionProps } = props;
+              return (
+                <li key={option.id} {...optionProps}>
+                  {option.full_name || option.name}
+                </li>
+              );
+            }}
             disabled={opWardDisabled}
             size="small"
             fullWidth
@@ -1128,20 +1177,22 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
   };
 
   return (
-    <MainLayout>
-      <Box className={classes.root}>
+    <Box sx={{ backgroundColor: '#ffffff', minHeight: '100vh', display: 'flex', flexDirection: 'column', overflow: 'visible' }}>
         {isProfile && (<>
         {/* Page Header */}
         <Box sx={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center',
-          mb: 3,
-          px: 2,
-          py: 1.5,
+          mb: 0,
+          padding: '16px 24px',
           backgroundColor: '#fff',
-          borderRadius: 1,
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          borderBottom: '1px solid #eef0f4',
+          boxShadow: '0px 2px 12px rgba(0, 0, 0, 0.04)',
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
+          minHeight: '64px',
         }}>
           <Typography sx={{ 
             fontSize: '1.25rem', 
@@ -1160,14 +1211,16 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
                 textTransform: 'none',
                 color: '#666',
                 fontSize: '0.85rem',
-                borderRadius: 6,
+                borderRadius: '6px',
                 padding: '4px 16px',
                 minWidth: 'auto',
                 backgroundColor: 'transparent',
-                boxShadow: 'none',
+                boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
+                transition: 'all 0.2s ease-in-out',
                 '&:hover': {
                   backgroundColor: '#f5f5f7',
-                  color: '#333'
+                  color: '#333',
+                  boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)'
                 }
               }}
             >
@@ -1178,7 +1231,6 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
                 variant="contained"
                 onClick={handleNext}
                 disabled={submitting || (isEdit || isProfile ? !hasChanges() : false)}
-                disableElevation
                 sx={{
                   textTransform: 'none',
                   backgroundColor: '#2f65f0',
@@ -1186,13 +1238,17 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
                   py: 0.5,
                   fontSize: '0.85rem',
                   fontWeight: 600,
-                  borderRadius: 6,
+                  borderRadius: '6px',
+                  boxShadow: '0px 4px 12px rgba(47, 101, 240, 0.2)',
+                  transition: 'all 0.2s ease-in-out',
                   '&:hover': {
-                    backgroundColor: '#1e4fd1'
+                    backgroundColor: '#1e4fd1',
+                    boxShadow: '0px 8px 20px rgba(47, 101, 240, 0.35)'
                   },
                   ...(submitting || ((isEdit || isProfile) && !hasChanges()) ? {
                     backgroundColor: '#b0b0b0 !important',
-                    cursor: 'not-allowed'
+                    cursor: 'not-allowed',
+                    boxShadow: 'none !important'
                   } : {})
                 }}
               >
@@ -1204,7 +1260,6 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
                   variant="contained"
                   onClick={handleSubmit}
                   disabled={submitting || ((isEdit || isProfile) && !hasChanges())}
-                  disableElevation
                   sx={{
                     textTransform: 'none',
                     backgroundColor: '#2f65f0',
@@ -1212,13 +1267,17 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
                     py: 0.5,
                     fontSize: '0.85rem',
                     fontWeight: 600,
-                    borderRadius: 6,
+                    borderRadius: '6px',
+                    boxShadow: '0px 4px 12px rgba(47, 101, 240, 0.2)',
+                    transition: 'all 0.2s ease-in-out',
                     '&:hover': {
-                      backgroundColor: '#1e4fd1'
+                      backgroundColor: '#1e4fd1',
+                      boxShadow: '0px 8px 20px rgba(47, 101, 240, 0.35)'
                     },
                     ...(submitting || ((isEdit || isProfile) && !hasChanges()) ? {
                       backgroundColor: '#b0b0b0 !important',
-                      cursor: 'not-allowed'
+                      cursor: 'not-allowed',
+                      boxShadow: 'none !important'
                     } : {})
                   }}
                 >
@@ -1229,7 +1288,15 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
           </Box>
         </Box>
       </>)}
-        <Box className={classes.stepperWrapper}>
+        <Box 
+          className={classes.stepperWrapper}
+          sx={{
+            position: isProfile ? 'sticky' : 'static',
+            top: isProfile ? '64px' : 'auto',
+            zIndex: isProfile ? 9 : 'auto',
+            boxShadow: isProfile ? '0px 2px 12px rgba(0, 0, 0, 0.04)' : 'none',
+          }}
+        >
           <Stepper
             activeStep={activeStep}
             className={classes.stepper}
@@ -1246,13 +1313,13 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
         </Box>
 
         {loading ? (
-          <Box className={classes.content}>
+          <Box sx={{ padding: '24px 24px 32px 24px', flex: 1, backgroundColor: '#ffffff' }}>
             <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}>
               <CircularProgress />
             </Box>
           </Box>
         ) : (
-          <Box className={classes.content}>
+          <Box sx={{ padding: '24px 24px 32px 24px', flex: 1, backgroundColor: '#ffffff' }}>
             {activeStep === 0 ? renderStep1() : renderStep2()}
           </Box>
         )}
@@ -1314,6 +1381,5 @@ export const EnterpriseFormPage = ({ mode }: EnterpriseFormPageProps) => {
           onEmailChanged={(newEmail) => setField('email', newEmail)}
         />
       </Box>
-    </MainLayout>
   );
 };

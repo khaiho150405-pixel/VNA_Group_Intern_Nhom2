@@ -7,7 +7,7 @@ import {
   Select, MenuItem, CircularProgress, Grid, Paper, Tabs, Tab,
   Dialog, DialogTitle, DialogContent, DialogActions,
   Link as MuiLink, Accordion, AccordionSummary, AccordionDetails,
-  FormControl, InputLabel, Autocomplete
+  FormControl, InputLabel, Autocomplete, Tooltip, Alert
 } from '@mui/material';
 
 const RequiredLabel = ({ text, required = true }: { text: string; required?: boolean }) => (
@@ -21,7 +21,9 @@ import {
   ChevronRight as ChevronRightIcon,
   ChevronLeft as ChevronLeftIcon,
   Save as SaveIcon,
-  FileDownload as FileDownloadIcon
+  FileDownload as FileDownloadIcon,
+  InfoOutlined as InfoOutlinedIcon,
+  AccessTime as AccessTimeIcon
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
 import { useReactToPrint } from 'react-to-print';
@@ -30,8 +32,9 @@ import Docxtemplater from 'docxtemplater';
 import { saveAs } from 'file-saver';
 import { useAccidentReportStyles } from '../logic/accident-report/style';
 import { DoetService, periodicReportService, reportPeriodService } from '@tts/services';
+import { usePermission } from '@core/hooks/usePermission';
 
-const CAUSES = [
+const fallbackCauses = [
   { id: 1, name: "Không có thiết bị an toàn hoặc thiết bị không đảm bảo an toàn" },
   { id: 2, name: "Không có phương tiện bảo vệ cá nhân hoặc phương tiện bảo vệ cá nhân không tốt" },
   { id: 3, name: "Tổ chức lao động không hợp lý" },
@@ -43,9 +46,11 @@ const CAUSES = [
   { id: 9, name: "Khách quan khó tránh/ Nguyên nhân chưa kể đến" }
 ];
 
-const OCCUPATIONS = [
-  { id: 102, name: "Nhà lãnh đạo cơ quan Đảng Cộng sản Việt nam cấp Trung ương" },
-  { id: 103, name: "Công nhân" }
+const fallbackOccupations = [
+  { id: 1, name: "1 - Nhà lãnh đạo trong các ngành, các cấp và các đơn vị" },
+  { id: 2, name: "11 - Nhà lãnh đạo cơ quan Đảng Cộng sản Việt Nam cấp Trung ương và địa phương..." },
+  { id: 3, name: "111 - Nhà lãnh đạo cơ quan Đảng Cộng sản Việt Nam cấp Trung ương" },
+  { id: 4, name: "1111 - Trưởng ban, Phó Trưởng ban và tương đương trở lên thuộc cấp Trung ương" }
 ];
 
 // Helper formatting functions
@@ -158,11 +163,18 @@ const aggregateStats = (list: any[]) => {
 export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
   const classes = useAccidentReportStyles();
   const { enqueueSnackbar } = useSnackbar();
+  const { hasPermission } = usePermission();
 
   // State definitions
   const [mode, setMode] = useState<'list' | 'edit' | 'view'>('list');
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [loading, setLoading] = useState<boolean>(false);
+
+  // History states
+  const [historyDialogOpen, setHistoryDialogOpen] = useState<boolean>(false);
+  const [activeHistoryTab, setActiveHistoryTab] = useState<number>(0);
+  const [historyLoading, setHistoryLoading] = useState<boolean>(false);
+  const [historyItems, setHistoryItems] = useState<any[]>([]);
 
   // List data states
   const [existingReports, setExistingReports] = useState<any[]>([]);
@@ -188,9 +200,16 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
   const [accidentDetails, setAccidentDetails] = useState<any[]>([]);
   const [reportFileUrl, setReportFileUrl] = useState<string>('');
   const [reportFileName, setReportFileName] = useState<string>('');
+  const [currentRejectReason, setCurrentRejectReason] = useState<string>('');
+  const [rejectReasonDialogOpen, setRejectReasonDialogOpen] = useState<boolean>(false);
 
   // Dropdown options loaded from DB
   const [injuryFactors, setInjuryFactors] = useState<any[]>([]);
+  const [accidentCauses, setAccidentCauses] = useState<any[]>([]);
+  const [occupations, setOccupations] = useState<any[]>([]);
+
+  const causesList = accidentCauses.length > 0 ? accidentCauses : fallbackCauses;
+  const occupationsList = occupations.length > 0 ? occupations : fallbackOccupations;
 
   const validateFieldDirect = (fieldKey: string, value: any, currentErrors: Record<string, string>): boolean => {
     let errMsg = '';
@@ -260,7 +279,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
         } else if (field === 'tongSoVu2Nguoi' && tongSoVu2Nguoi > tongSoVu) {
           errMsg = "Số vụ có 2 người bị nạn trở lên không được lớn hơn Tổng số vụ";
         }
-        
+
         // 3. Ràng buộc cấp độ "Người bị nạn" (Victims)
         else if (field === 'tongLaoDongNuBiNan' && tongLaoDongNuBiNan > tongSoNguoiBiNan) {
           errMsg = "Lao động nữ bị nạn không được lớn hơn Tổng số người bị nạn";
@@ -271,7 +290,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
         } else if (['tongSoNguoiChet', 'tongSoThuongNang', 'tongSoNguoiBiNan'].includes(field) && tongSoNguoiChet + tongSoThuongNang > tongSoNguoiBiNan) {
           errMsg = "Tổng số người chết và thương nặng không được vượt quá Tổng số người bị nạn";
         }
-        
+
         // Ràng buộc không quản lý (khongQl...)
         else if (field === 'khongQlNuBiNan' && khongQlNuBiNan > khongQlNguoiBiNan) {
           errMsg = "Lao động nữ bị nạn không QL không được lớn hơn Số người bị nạn không QL";
@@ -282,7 +301,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
         } else if (['khongQlNguoiChet', 'khongQlThuongNang', 'khongQlNguoiBiNan'].includes(field) && khongQlNguoiChet + khongQlThuongNang > khongQlNguoiBiNan) {
           errMsg = "Tổng số người chết và thương nặng không QL không được vượt quá Số người bị nạn không QL";
         }
-        
+
         // Chi phí
         else if (['chiPhiYTe', 'chiPhiTraLuong', 'chiPhiBoiThuong', 'tongChiPhi'].includes(field)) {
           const sum = chiPhiYTe + chiPhiTraLuong + chiPhiBoiThuong;
@@ -316,7 +335,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
             } else if (tongSoVu2Nguoi === 0 && tongSoVu > 0 && tongSoNguoiBiNan !== tongSoVu) {
               victimErr = `Khi không có vụ nào có từ 2 người bị nạn trở lên, tổng số người bị nạn phải bằng tổng số vụ (${tongSoVu})`;
             }
-            
+
             currentErrors[`${isTroCap ? 'tnldTroCapSummary_' : 'tnldSummary_'}tongSoVu`] = victimErr;
             currentErrors[`${isTroCap ? 'tnldTroCapSummary_' : 'tnldSummary_'}tongSoVu2Nguoi`] = victimErr;
             currentErrors[`${isTroCap ? 'tnldTroCapSummary_' : 'tnldSummary_'}tongSoNguoiBiNan`] = victimErr;
@@ -373,7 +392,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
           } else if (field === 'tongSoVu2Nguoi' && tongSoVu2Nguoi > tongSoVu) {
             errMsg = "Số vụ có 2 người bị nạn trở lên không được lớn hơn Số vụ";
           }
-          
+
           // 3. Ràng buộc cấp độ "Người bị nạn" (Victims)
           else if (field === 'tongLaoDongNuBiNan' && tongLaoDongNuBiNan > tongSoNguoiBiNan) {
             errMsg = "Lao động nữ bị nạn không được lớn hơn Số người bị nạn";
@@ -384,7 +403,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
           } else if (['tongSoNguoiChet', 'tongSoThuongNang', 'tongSoNguoiBiNan'].includes(field) && tongSoNguoiChet + tongSoThuongNang > tongSoNguoiBiNan) {
             errMsg = "Tổng số người chết và thương nặng không được vượt quá Số người bị nạn";
           }
-          
+
           // Ràng buộc không quản lý (khongQl...)
           else if (field === 'khongQlNuBiNan' && khongQlNuBiNan > khongQlNguoiBiNan) {
             errMsg = "Lao động nữ bị nạn không QL không được lớn hơn Số người bị nạn không QL";
@@ -395,7 +414,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
           } else if (['khongQlNguoiChet', 'khongQlThuongNang', 'khongQlNguoiBiNan'].includes(field) && khongQlNguoiChet + khongQlThuongNang > khongQlNguoiBiNan) {
             errMsg = "Tổng số người chết và thương nặng không QL không được vượt quá Số người bị nạn không QL";
           }
-          
+
           // Chi phí
           else if (['chiPhiYTe', 'chiPhiTraLuong', 'chiPhiBoiThuong', 'tongChiPhi'].includes(field)) {
             const sum = chiPhiYTe + chiPhiTraLuong + chiPhiBoiThuong;
@@ -571,25 +590,39 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
         return { name, code: String(id), ...getStatCols(getDetailStats(matches), '') };
       });
 
-      const OCC_MAP: any = { 102: "Nhà lãnh đạo cơ quan Đảng Cộng sản Việt nam cấp Trung ương", 103: "Công nhân" };
+      const OCC_MAP: Record<number, string> = {};
+      const currentOccupations = occupations.length > 0 ? occupations : fallbackOccupations;
+      currentOccupations.forEach((o: any) => {
+        OCC_MAP[o.id] = o.name;
+      });
       const uniqueOccs = Array.from(new Set(sourceDetails.filter((d: any) => d.ngheNghiepId && (!d.reportType || d.reportType === 'TAI_NAN_LAO_DONG')).map((d: any) => Number(d.ngheNghiepId))));
-      const occupations = uniqueOccs.map((id: any) => {
+      const occupationsExport = uniqueOccs.map((id: any) => {
         const name = OCC_MAP[id] || `Nghề nghiệp ${id}`;
         const matches = sourceDetails.filter((d: any) => Number(d.ngheNghiepId) === id && (!d.reportType || d.reportType === 'TAI_NAN_LAO_DONG'));
         return { name, code: String(id), ...getStatCols(getDetailStats(matches), '') };
       });
 
-      // Prepare data
+      const wardCodeStr = String(myCompany?.ward?.ma_phuong || myCompany?.ward?.code || myCompany?.ward?.key || "").padEnd(5, ' ');
+      const typeCode = String(myCompany?.loaiHinhKinhDoanh?.maloaihinh || "").padEnd(4, ' ');
+      const fieldCode = String(myCompany?.businessLine?.manganh || "").padEnd(4, ' ');
+
       const data = {
         ...causesData,
         factors,
-        occupations,
+        occupations: occupationsExport,
         companyName: myCompany?.name || "",
-        period: period === 'CA_NAM' ? 'cả năm' : '6 tháng',
+        companyAddress: myCompany?.address || "",
+        wC1: wardCodeStr[0], wC2: wardCodeStr[1], wC3: wardCodeStr[2], wC4: wardCodeStr[3], wC5: wardCodeStr[4],
+        periodName: period === 'CA_NAM' ? 'cả năm' : '6 tháng',
+        reportYear: String(selectedYear),
+        reportDate: new Date().toLocaleDateString('vi-VN'),
         totalEmployees: totalEmployees || "0",
         femaleEmployees: femaleEmployees || "0",
         totalSalary: totalSalaryFund || "0",
+        companyType: myCompany?.loaiHinhKinhDoanh?.tenloaihinh || "",
         companyField: myCompany?.businessLine?.tennganh || "",
+        tC1: typeCode[0], tC2: typeCode[1], tC3: typeCode[2], tC4: typeCode[3],
+        fC1: fieldCode[0], fC2: fieldCode[1], fC3: fieldCode[2], fC4: fieldCode[3],
 
         t1_c3: formatNumberWithDots(tnldSummary.tongSoVu || "0"),
         t1_c4: formatNumberWithDots(tnldSummary.tongSoVuNguoiChet || "0"),
@@ -650,11 +683,15 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
   const years = useMemo(() => {
     const arr = [];
     const current = new Date().getFullYear();
-    for (let y = current; y >= 1980; y--) {
+    const startYear = myCompany?.createdAt ? new Date(myCompany.createdAt).getFullYear() : 2022;
+    for (let y = current; y >= startYear; y--) {
       arr.push(y);
     }
+    if (arr.length === 0) {
+      arr.push(current);
+    }
     return arr;
-  }, []);
+  }, [myCompany]);
 
   // On mount: fetch company details and dropdown values
   useEffect(() => {
@@ -694,6 +731,36 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
       } catch (err) {
         console.error("Error fetching injury factors dropdown", err);
       }
+
+      try {
+        const causesRes: any = await DoetService.getAccidentCauses();
+        const items = causesRes?.data || causesRes || [];
+        if (Array.isArray(items) && items.length > 0) {
+          setAccidentCauses(items);
+        } else {
+          setAccidentCauses(fallbackCauses);
+        }
+      } catch (err) {
+        console.error("Error fetching accident causes dropdown", err);
+        setAccidentCauses(fallbackCauses);
+      }
+
+      try {
+        const occRes: any = await DoetService.getOccupations();
+        const items = occRes?.data?.items || occRes?.data || occRes || [];
+        if (Array.isArray(items) && items.length > 0) {
+          const mapped = items.map((o: any) => ({
+            id: o.id,
+            name: `${o.manghe} - ${o.tennghe}`
+          }));
+          setOccupations(mapped);
+        } else {
+          setOccupations(fallbackOccupations);
+        }
+      } catch (err) {
+        console.error("Error fetching occupations dropdown", err);
+        setOccupations(fallbackOccupations);
+      }
     };
     initData();
   }, []);
@@ -701,7 +768,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
   // Fetch active report periods configured by DOET for the selected year
   const fetchActivePeriods = async () => {
     try {
-      const res: any = await reportPeriodService.getAll({ year: selectedYear, status: 'ACTIVE' });
+      const res: any = await reportPeriodService.getForEnterprise({ year: selectedYear, status: 'ACTIVE' });
       const items = res?.data?.items || res?.items || [];
       setActivePeriods(items);
     } catch (err) {
@@ -729,22 +796,39 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
     fetchActivePeriods();
   }, [selectedYear, mode]);
 
+  const handleOpenHistory = () => {
+    setHistoryDialogOpen(true);
+    setHistoryItems([]);
+  };
+
+
+
   // Construct table rows dynamically
   const tableRows = useMemo(() => {
     return activePeriods.map((row) => {
       const report = existingReports.find(r => r.period === row.period);
       let status = 'CHO_BAO_CAO';
       let statusLabel = 'Chờ báo cáo';
-      let statusColor = '#e2e8f0';
+      let statusColor = '#94a3b8'; // Grey
 
-      if (report) {
+      if (row.displayStatus === 'HET_HAN' && !report) {
+        status = 'HET_HAN';
+        statusLabel = 'Đã hết hạn';
+        statusColor = '#cbd5e1'; // Faded grey
+      } else if (report) {
         status = report.status;
         if (status === 'DANG_BAO_CAO') {
           statusLabel = 'Đang báo cáo';
-          statusColor = '#94a3b8';
+          statusColor = '#1b3b87'; // Dark blue
+        } else if (status === 'CHO_XET_DUYET') {
+          statusLabel = 'Chờ tiếp nhận';
+          statusColor = '#f59e0b'; // Yellow
         } else if (status === 'DA_TIEP_NHAN') {
           statusLabel = 'Đã tiếp nhận';
-          statusColor = '#3b82f6';
+          statusColor = '#2f65f0'; // Blue
+        } else if (status === 'HUY_TIEP_NHAN') {
+          statusLabel = 'Bị từ chối';
+          statusColor = '#ef4444'; // Red
         }
       }
 
@@ -762,8 +846,31 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
     });
   }, [existingReports, activePeriods]);
 
+  const handleOpenHistoryForRow = async (reportId: number) => {
+    setHistoryDialogOpen(true);
+    setHistoryLoading(true);
+    setHistoryItems([]);
+    try {
+      const res = await periodicReportService.getHistory(reportId);
+      setHistoryItems(res?.data || res || []);
+    } catch (err) {
+      console.error("Error loading report history", err);
+      enqueueSnackbar("Lỗi khi tải lịch sử duyệt báo cáo", { variant: 'error' });
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
   // Enter edit mode
   const handleStartEdit = async (row: any) => {
+    if (row.status === 'HET_HAN') {
+      enqueueSnackbar("Kỳ báo cáo này đã hết hạn, không thể khai báo hoặc chỉnh sửa.", { variant: 'error' });
+      return;
+    }
+    if (row.status === 'DA_TIEP_NHAN' || row.status === 'CHO_XET_DUYET') {
+      enqueueSnackbar("Báo cáo đang chờ tiếp nhận hoặc đã được tiếp nhận, không thể chỉnh sửa.", { variant: 'error' });
+      return;
+    }
     setPeriod(row.period);
     setStep(0);
     setTabIndex(0);
@@ -782,6 +889,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
         setTotalSalaryFund(formatNumberWithDots(report.totalSalaryFund));
         setReportFileUrl(report.reportFileUrl || '');
         setReportFileName(report.reportFileName || '');
+        setCurrentRejectReason(report.rejectReason || '');
 
         setTnldSummary(convertStatsToStrings({
           ...(report.tnldSummary || {}),
@@ -819,6 +927,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
       setAccidentDetails([]);
       setReportFileUrl('');
       setReportFileName('');
+      setCurrentRejectReason('');
       setMode('edit');
     }
   };
@@ -1134,11 +1243,11 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
   };
 
   // Build the complete payload for saving
-  const buildPayload = (statusVal: 'DANG_BAO_CAO' | 'DA_TIEP_NHAN') => {
+  const buildPayload = (statusVal: 'DANG_BAO_CAO' | 'CHO_XET_DUYET') => {
     // Strip formatting dots before mapping stats values
     const cleanStats = (s: any, isDetail = false) => {
       const femaleNum = Number(s.tongLaoDongNuBiNan ?? s.tongSoNuBiNan ?? 0);
-      
+
       let tongSoVu = Number(s.tongSoVu || 0);
       let tongSoVuNguoiChet = Number(s.tongSoVuNguoiChet || 0);
       let tongSoVu2Nguoi = Number(s.tongSoVu2Nguoi || 0);
@@ -1239,7 +1348,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
 
     setLoading(true);
     try {
-      const payload = buildPayload('DA_TIEP_NHAN');
+      const payload = buildPayload('CHO_XET_DUYET');
       if (activeReportId) {
         await periodicReportService.update(activeReportId, payload);
       } else {
@@ -1455,7 +1564,16 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
   const headStyle = { ...cellStyle, fontWeight: 'bold', backgroundColor: '#f8fafc', color: '#475569', padding: '10px 8px' };
 
   return (
-    <Box className={classes.root}>
+    <Box 
+      sx={{ 
+        backgroundColor: '#ffffff',
+        height: mode === 'list' ? '100%' : 'auto', 
+        minHeight: mode === 'list' ? 'auto' : '100vh',
+        overflow: mode === 'list' ? 'hidden' : 'visible',
+        display: 'flex',
+        flexDirection: 'column'
+      }}
+    >
       {/* -------------------- 1. LIST SCREEN (mode === 'list') -------------------- */}
       {mode === 'list' && (
         <>
@@ -1463,7 +1581,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
             <Typography className={classes.headerTitle}>
               Báo cáo định kỳ Tai nạn lao động
             </Typography>
-            <Box className={classes.actions}>
+            <Box className={classes.actions} sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
               <Select
                 size="small"
                 value={selectedYear}
@@ -1476,13 +1594,15 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                   <MenuItem key={y} value={y}>{y}</MenuItem>
                 ))}
               </Select>
+
             </Box>
           </Box>
 
-          <Box className={classes.mainContent}>
-            <Box className={classes.card}>
-              <TableContainer>
-                <Table size="medium">
+          <Box sx={{ padding: 3, display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+            <Box sx={{ backgroundColor: '#fff', borderRadius: 2, boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.04), 0px 2px 6px rgba(0, 0, 0, 0.02)', border: '1px solid #f0f0f0', display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+              <Box className={classes.tableScroll} sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                <TableContainer sx={{ flex: 1, overflowY: 'auto' }}>
+                  <Table size="medium">
                   <TableHead>
                     <TableRow>
                       <TableCell className={classes.headerCell} width={100} align="center">Thao tác</TableCell>
@@ -1510,7 +1630,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         <TableRow key={row.period} hover>
                           <TableCell className={classes.bodyCell} align="center">
                             <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                              {(row.status === 'DANG_BAO_CAO' || row.status === 'DA_TIEP_NHAN') && (
+                              {row.reportId && (
                                 <IconButton
                                   size="small"
                                   className={classes.actionIcon}
@@ -1519,14 +1639,28 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                                   <VisibilityIcon fontSize="small" />
                                 </IconButton>
                               )}
-                              {row.status !== 'DA_TIEP_NHAN' && (
-                                <IconButton
-                                  size="small"
-                                  className={classes.actionIcon}
-                                  onClick={() => handleStartEdit(row)}
-                                >
-                                  <EditIcon fontSize="small" />
-                                </IconButton>
+                              {row.status !== 'DA_TIEP_NHAN' && row.status !== 'CHO_XET_DUYET' && row.status !== 'HET_HAN' && (
+                                ((row.status === 'CHO_BAO_CAO' && hasPermission('ADMIN_C_ACCIDENT_REPORT_CREATE')) ||
+                                 (row.status !== 'CHO_BAO_CAO' && hasPermission('ADMIN_C_ACCIDENT_REPORT_UPDATE'))) && (
+                                  <IconButton
+                                    size="small"
+                                    className={classes.actionIcon}
+                                    onClick={() => handleStartEdit(row)}
+                                  >
+                                    <EditIcon fontSize="small" />
+                                  </IconButton>
+                                )
+                              )}
+                              {row.reportId && (
+                                <Tooltip title="Lịch sử duyệt/từ chối" arrow>
+                                  <IconButton
+                                    size="small"
+                                    className={classes.actionIcon}
+                                    onClick={() => handleOpenHistoryForRow(row.reportId)}
+                                  >
+                                    <AccessTimeIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
                               )}
                             </Box>
                           </TableCell>
@@ -1542,9 +1676,23 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                           <TableCell className={classes.bodyCell}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                               <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: row.statusColor }} />
-                              <Typography variant="body2" sx={{ fontWeight: row.status === 'DA_TIEP_NHAN' ? 600 : 500, color: row.status === 'DA_TIEP_NHAN' ? 'primary.main' : 'text.secondary' }}>
+                              <Typography variant="body2" sx={{ fontWeight: 600, color: row.statusColor }}>
                                 {row.statusLabel}
                               </Typography>
+                              {row.status === 'HUY_TIEP_NHAN' && row.reportData?.rejectReason && (
+                                <Tooltip title="Xem lý do hủy" arrow>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => {
+                                      setCurrentRejectReason(row.reportData.rejectReason);
+                                      setRejectReasonDialogOpen(true);
+                                    }}
+                                    sx={{ color: '#ef4444', p: 0.3 }}
+                                  >
+                                    <InfoOutlinedIcon sx={{ fontSize: 18 }} />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
                             </Box>
                           </TableCell>
                         </TableRow>
@@ -1555,6 +1703,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
               </TableContainer>
             </Box>
           </Box>
+        </Box>
         </>
       )}
 
@@ -1582,14 +1731,16 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                   textTransform: 'none',
                   color: '#666',
                   fontSize: '0.85rem',
-                  borderRadius: 1.5,
+                  borderRadius: '6px',
                   padding: '4px 16px',
                   minWidth: 'auto',
                   backgroundColor: 'transparent',
-                  boxShadow: 'none',
+                  boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
+                  transition: 'all 0.2s ease-in-out',
                   '&:hover': {
                     backgroundColor: '#f5f5f7',
-                    color: '#333'
+                    color: '#333',
+                    boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)'
                   }
                 }}
               >
@@ -1625,7 +1776,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                   onClick={handleExportWord}
                   disabled={loading}
                 >
-                  Xuất Word
+                  In báo cáo
                 </Button>
               )}
               <Button
@@ -1640,8 +1791,18 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
             </Box>
           </Box>
 
-          <Box className={classes.mainContent}>
-            <Box className={classes.card} sx={{ p: 3 }}>
+          <Box sx={{ padding: 3, display: 'flex', flexDirection: 'column', flex: 1, overflow: 'visible' }}>
+            <Box sx={{ backgroundColor: '#fff', borderRadius: 2, boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.04), 0px 2px 6px rgba(0, 0, 0, 0.02)', border: '1px solid #f0f0f0', p: 3, display: 'flex', flexDirection: 'column', flex: 1, overflow: 'visible' }}>
+              {currentRejectReason && (
+                <Alert severity="warning" sx={{ mb: 3, borderRadius: 1.5 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                    Báo cáo này đã bị từ chối với lý do:
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 0.5 }}>
+                    {currentRejectReason}
+                  </Typography>
+                </Alert>
+              )}
               {/* Dropdown synchronize step selection */}
               <Autocomplete
                 size="small"
@@ -2126,8 +2287,8 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                                 <Autocomplete
                                   size="small"
                                   fullWidth
-                                  options={CAUSES}
-                                  value={CAUSES.find(c => c.id === detail.nguyenNhanId) || null}
+                                  options={accidentCauses}
+                                  value={accidentCauses.find(c => c.id === detail.nguyenNhanId) || null}
                                   onChange={(_, v) => handleDetailFieldChange(index, 'nguyenNhanId', v?.id || '')}
                                   getOptionLabel={(opt) => opt.name}
                                   isOptionEqualToValue={(o, v) => o.id === v.id}
@@ -2166,8 +2327,8 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                                 <Autocomplete
                                   size="small"
                                   fullWidth
-                                  options={OCCUPATIONS}
-                                  value={OCCUPATIONS.find(o => o.id === detail.ngheNghiepId) || null}
+                                  options={occupations}
+                                  value={occupations.find(o => o.id === detail.ngheNghiepId) || null}
                                   onChange={(_, v) => handleDetailFieldChange(index, 'ngheNghiepId', v?.id || '')}
                                   getOptionLabel={(opt) => opt.name}
                                   isOptionEqualToValue={(o, v) => o.id === v.id}
@@ -2757,7 +2918,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             <TableCell colSpan={13} sx={{ fontStyle: 'italic', pl: 4, ...cellStyle }}>a. Do người sử dụng lao động</TableCell>
                           </TableRow>
                           {(() => {
-                            const matched = CAUSES.slice(0, 6).map((c, i) => {
+                            const matched = causesList.slice(0, 6).map((c, i) => {
                               const matches = accidentDetails.filter(d => Number(d.nguyenNhanId) === c.id);
                               if (matches.length === 0) return null;
                               return { c, code: i + 1, stats: aggregateStats(matches) };
@@ -2785,7 +2946,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             <TableCell colSpan={13} sx={{ fontStyle: 'italic', pl: 4, ...cellStyle }}>b. Do người lao động</TableCell>
                           </TableRow>
                           {(() => {
-                            const matched = CAUSES.slice(6, 8).map((c, i) => {
+                            const matched = causesList.slice(6, 8).map((c, i) => {
                               const matches = accidentDetails.filter(d => Number(d.nguyenNhanId) === c.id);
                               if (matches.length === 0) return null;
                               return { c, code: i + 7, stats: aggregateStats(matches) };
@@ -2813,7 +2974,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             const matches = accidentDetails.filter(d => Number(d.nguyenNhanId) === 9);
                             if (matches.length === 0) return null;
                             const stats = aggregateStats(matches);
-                            const c = CAUSES[8];
+                            const c = causesList[8];
                             return (
                               <TableRow key={c.id}>
                                 <TableCell sx={{ pl: 5, ...cellStyle }}>{c.name}</TableCell>
@@ -2873,7 +3034,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                             return uniqueNgheNghiepIds.map((occId) => {
                               const matches = accidentDetails.filter(d => Number(d.ngheNghiepId) === occId);
                               const stats = aggregateStats(matches);
-                              const occInfo = OCCUPATIONS.find(o => o.id === occId);
+                              const occInfo = occupationsList.find(o => o.id === occId);
                               const name = occInfo?.name || `Nghề nghiệp ${occId}`;
                               return (
                                 <TableRow key={occId}>
@@ -2966,10 +3127,45 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
               <Typography>Dữ liệu báo cáo đã nhập sẽ không được lưu lại</Typography>
             </DialogContent>
             <DialogActions sx={{ p: 2 }}>
-              <Button onClick={() => setCancelDialogOpen(false)} variant="text" sx={{ color: 'text.secondary', textTransform: 'none' }}>
+              <Button
+                onClick={() => setCancelDialogOpen(false)}
+                sx={{
+                  textTransform: 'none',
+                  color: '#666',
+                  fontSize: '0.85rem',
+                  borderRadius: '6px',
+                  padding: '4px 16px',
+                  minWidth: 'auto',
+                  backgroundColor: 'transparent',
+                  boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
+                  transition: 'all 0.2s ease-in-out',
+                  '&:hover': {
+                    backgroundColor: '#f5f5f7',
+                    color: '#333',
+                    boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)'
+                  }
+                }}
+              >
                 Hủy bỏ
               </Button>
-              <Button onClick={() => { setCancelDialogOpen(false); setMode('list'); }} variant="contained" color="primary" sx={{ textTransform: 'none' }}>
+              <Button
+                onClick={() => { setCancelDialogOpen(false); setMode('list'); }}
+                variant="contained"
+                sx={{
+                  textTransform: 'none',
+                  borderRadius: '6px',
+                  bgcolor: '#2f65f0',
+                  color: '#fff',
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  boxShadow: '0px 4px 12px rgba(47, 101, 240, 0.2)',
+                  transition: 'all 0.2s ease-in-out',
+                  '&:hover': {
+                    bgcolor: '#1e4fd1',
+                    boxShadow: '0px 8px 20px rgba(47, 101, 240, 0.35)',
+                  }
+                }}
+              >
                 Đồng ý
               </Button>
             </DialogActions>
@@ -2986,25 +3182,39 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
             </Typography>
             <Box className={classes.actions}>
               <Button
-                variant="outlined"
-                className={classes.importBtn}
                 onClick={() => setMode('list')}
+                sx={{
+                  textTransform: 'none',
+                  color: '#666',
+                  fontSize: '0.85rem',
+                  borderRadius: '6px',
+                  padding: '4px 16px',
+                  minWidth: 'auto',
+                  backgroundColor: 'transparent',
+                  boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
+                  transition: 'all 0.2s ease-in-out',
+                  '&:hover': {
+                    backgroundColor: '#f5f5f7',
+                    color: '#333',
+                    boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)'
+                  }
+                }}
               >
                 Hủy bỏ
               </Button>
               <Button
                 variant="outlined"
                 sx={{ color: '#2f65f0', borderColor: '#cfd9f3', borderRadius: 1.5, textTransform: 'none', fontWeight: 600 }}
-                startIcon={<PrintIcon />}
-                onClick={triggerPrint}
+                startIcon={<FileDownloadIcon />}
+                onClick={handleExportWord}
               >
                 In báo cáo
               </Button>
             </Box>
           </Box>
 
-          <Box className={classes.mainContent}>
-            <Box className={classes.card} sx={{ p: 3 }}>
+          <Box sx={{ padding: 3, display: 'flex', flexDirection: 'column', flex: 1, overflow: 'visible' }}>
+            <Box sx={{ backgroundColor: '#fff', borderRadius: 2, boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.04), 0px 2px 6px rgba(0, 0, 0, 0.02)', border: '1px solid #f0f0f0', p: 3, display: 'flex', flexDirection: 'column', flex: 1, overflow: 'visible' }}>
               <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
                 Báo cáo tổng hợp tình hình tai nạn lao động - Kỳ báo cáo: {period === 'CA_NAM' ? 'Cả năm' : '6 tháng'} năm {selectedYear}
               </Typography>
@@ -3097,7 +3307,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         <TableCell colSpan={13} sx={{ fontStyle: 'italic', pl: 4, ...cellStyle }}>a. Do người sử dụng lao động</TableCell>
                       </TableRow>
                       {(() => {
-                        const matched = CAUSES.slice(0, 6).map((c, i) => {
+                        const matched = causesList.slice(0, 6).map((c, i) => {
                           const matches = accidentDetails.filter(d => Number(d.nguyenNhanId) === c.id);
                           if (matches.length === 0) return null;
                           return { c, code: i + 1, stats: aggregateStats(matches) };
@@ -3125,7 +3335,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         <TableCell colSpan={13} sx={{ fontStyle: 'italic', pl: 4, ...cellStyle }}>b. Do người lao động</TableCell>
                       </TableRow>
                       {(() => {
-                        const matched = CAUSES.slice(6, 8).map((c, i) => {
+                        const matched = causesList.slice(6, 8).map((c, i) => {
                           const matches = accidentDetails.filter(d => Number(d.nguyenNhanId) === c.id);
                           if (matches.length === 0) return null;
                           return { c, code: i + 7, stats: aggregateStats(matches) };
@@ -3153,7 +3363,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         const matches = accidentDetails.filter(d => Number(d.nguyenNhanId) === 9);
                         if (matches.length === 0) return null;
                         const stats = aggregateStats(matches);
-                        const c = CAUSES[8];
+                        const c = causesList[8];
                         return (
                           <TableRow key={c.id}>
                             <TableCell sx={{ pl: 5, ...cellStyle }}>{c.name}</TableCell>
@@ -3213,7 +3423,7 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
                         return uniqueNgheNghiepIds.map((occId) => {
                           const matches = accidentDetails.filter(d => Number(d.ngheNghiepId) === occId);
                           const stats = aggregateStats(matches);
-                          const occInfo = OCCUPATIONS.find(o => o.id === occId);
+                          const occInfo = occupationsList.find(o => o.id === occId);
                           const name = occInfo?.name || `Nghề nghiệp ${occId}`;
                           return (
                             <TableRow key={occId}>
@@ -3296,6 +3506,162 @@ export const EnterpriseAccidentReportPage = ({ user }: { user: any }) => {
           </Box>
         </>
       )}
+
+      {/* Dialog showing rejection reason */}
+      <Dialog
+        open={rejectReasonDialogOpen}
+        onClose={() => setRejectReasonDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ bgcolor: '#ef4444', color: '#fff', fontWeight: 'bold', py: 1.5 }}>
+          Lý do bị từ chối
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          <Typography>{currentRejectReason || 'Không có lý do cụ thể.'}</Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button
+            onClick={() => setRejectReasonDialogOpen(false)}
+            variant="contained"
+            sx={{
+              backgroundColor: '#ef4444',
+              color: '#fff',
+              textTransform: 'none',
+              borderRadius: '6px',
+              fontWeight: 600,
+              fontSize: '0.85rem',
+              boxShadow: '0px 4px 12px rgba(239, 68, 68, 0.2)',
+              transition: 'all 0.2s ease-in-out',
+              '&:hover': {
+                backgroundColor: '#dc2626',
+                boxShadow: '0px 8px 20px rgba(239, 68, 68, 0.35)'
+              }
+            }}
+          >
+            Đóng
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog Lịch sử duyệt/từ chối */}
+      <Dialog
+        open={historyDialogOpen}
+        onClose={() => setHistoryDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle
+          sx={{
+            backgroundColor: '#2f65f0',
+            color: '#ffffff',
+            textAlign: 'center',
+            fontWeight: 700,
+            fontSize: '1.25rem',
+            py: 1.5
+          }}
+        >
+          Tiến độ xử lý
+        </DialogTitle>
+        <DialogContent sx={{ py: 2, px: 3 }}>
+
+          {historyLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress size={24} />
+            </Box>
+          ) : historyItems.length === 0 ? (
+            <Typography variant="body2" sx={{ color: '#64748b', textAlign: 'center', py: 4 }}>
+              Không có dữ liệu lịch sử duyệt cho kỳ này.
+            </Typography>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0, maxHeight: 350, overflowY: 'auto', pr: 1 }}>
+              {historyItems.map((item, index) => {
+                const formatDate = (dateString: string) => {
+                  if (!dateString) return '';
+                  const d = new Date(dateString);
+                  if (isNaN(d.getTime())) return dateString;
+                  const day = String(d.getDate()).padStart(2, '0');
+                  const month = String(d.getMonth() + 1).padStart(2, '0');
+                  const year = d.getFullYear();
+                  const hours = String(d.getHours()).padStart(2, '0');
+                  const minutes = String(d.getMinutes()).padStart(2, '0');
+                  return `${day}/${month}/${year} ${hours}:${minutes}`;
+                };
+
+                return (
+                  <Box key={item.id} sx={{ display: 'flex', gap: 2 }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <Box
+                        sx={{
+                          width: 12,
+                          height: 12,
+                          borderRadius: '50%',
+                          border: '2px solid #a4b2cd',
+                          backgroundColor: '#fff',
+                          zIndex: 1,
+                          mt: 0.5
+                        }}
+                      />
+                      {index < historyItems.length - 1 && (
+                        <Box
+                          sx={{
+                            width: '2px',
+                            backgroundColor: '#cbd5e1',
+                            flexGrow: 1,
+                            my: 0.5,
+                            minHeight: 40
+                          }}
+                        />
+                      )}
+                    </Box>
+
+                    <Box sx={{ pb: index < historyItems.length - 1 ? 3 : 1 }}>
+                      <Typography variant="caption" sx={{ color: '#778293', display: 'block', mb: 0.25, fontWeight: 500 }}>
+                        {formatDate(item.createdAt)}
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: '#111827', fontWeight: 500 }}>
+                        <strong>{item.userName}</strong>{' '}
+                        <span style={{ color: '#5b6982', fontWeight: 400 }}>
+                          {item.status === 'CHO_XET_DUYET' && (item.userRole === 'SO' ? 'đã hủy duyệt báo cáo' : 'đã gửi báo cáo')}
+                          {item.status === 'DA_TIEP_NHAN' && 'đã duyệt báo cáo'}
+                          {item.status === 'HUY_TIEP_NHAN' && 'từ chối báo cáo'}
+                          {item.status === 'DANG_BAO_CAO' && (item.userRole === 'SO' ? 'đã hủy duyệt báo cáo' : 'đang chỉnh sửa báo cáo')}
+                        </span>
+                      </Typography>
+                      {item.status === 'HUY_TIEP_NHAN' && item.rejectReason && (
+                        <Typography variant="body2" sx={{ color: '#ef4444', mt: 0.5, fontSize: '0.85rem' }}>
+                          <span style={{ fontWeight: 600 }}>Lý do:</span> {item.rejectReason}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+                );
+              })}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2, justifyContent: 'center' }}>
+          <Button
+            onClick={() => setHistoryDialogOpen(false)}
+            variant="contained"
+            sx={{
+              backgroundColor: '#2f65f0',
+              color: '#fff',
+              textTransform: 'none',
+              borderRadius: '6px',
+              fontWeight: 600,
+              fontSize: '0.85rem',
+              px: 3,
+              boxShadow: '0px 4px 12px rgba(47, 101, 240, 0.2)',
+              '&:hover': {
+                backgroundColor: '#1e4fd1'
+              }
+            }}
+          >
+            Đóng
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

@@ -651,6 +651,14 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
             onChange={(_, v) => setField('loaiHinhId', v?.id || undefined)}
             getOptionLabel={(opt) => opt?.tenloaihinh || ''}
             isOptionEqualToValue={(o, v) => o.id === v.id}
+            renderOption={(props, option) => {
+              const { key, ...optionProps } = props;
+              return (
+                <li key={option.id} {...optionProps}>
+                  {option.tenloaihinh}
+                </li>
+              );
+            }}
             size="small"
             fullWidth
             renderInput={(params) => (
@@ -663,6 +671,14 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
             onChange={(_, v) => setField('businessLineId', v?.id || undefined)}
             getOptionLabel={(opt) => opt ? `${opt.manganh} - ${opt.tennganh}` : ''}
             isOptionEqualToValue={(o, v) => o.id === v.id}
+            renderOption={(props, option) => {
+              const { key, ...optionProps } = props;
+              return (
+                <li key={option.id} {...optionProps}>
+                  {option.manganh} - {option.tennganh}
+                </li>
+              );
+            }}
             size="small"
             fullWidth
             renderInput={(params) => (
@@ -730,6 +746,14 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
             onChange={(_, v) => handleProvinceChange(v)}
             getOptionLabel={(opt) => opt?.full_name || opt?.name || ''}
             isOptionEqualToValue={(o, v) => o.id === v.id}
+            renderOption={(props, option) => {
+              const { key, ...optionProps } = props;
+              return (
+                <li key={option.id} {...optionProps}>
+                  {option.full_name || option.name}
+                </li>
+              );
+            }}
             size="small"
             fullWidth
             renderInput={(params) => (
@@ -742,6 +766,14 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
             onChange={(_, v) => handleWardChange('reg', v)}
             getOptionLabel={(opt) => opt?.full_name || opt?.name || ''}
             isOptionEqualToValue={(o, v) => o.id === v.id}
+            renderOption={(props, option) => {
+              const { key, ...optionProps } = props;
+              return (
+                <li key={option.id} {...optionProps}>
+                  {option.full_name || option.name}
+                </li>
+              );
+            }}
             disabled={wardDisabled}
             size="small"
             fullWidth
@@ -774,6 +806,14 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
             onChange={(_, v) => handleOpProvinceChange(v)}
             getOptionLabel={(opt) => opt?.full_name || opt?.name || ''}
             isOptionEqualToValue={(o, v) => o.id === v.id}
+            renderOption={(props, option) => {
+              const { key, ...optionProps } = props;
+              return (
+                <li key={option.id} {...optionProps}>
+                  {option.full_name || option.name}
+                </li>
+              );
+            }}
             size="small"
             fullWidth
             renderInput={(params) => <TextField {...params} label="Tỉnh/TP hoạt động KD" />}
@@ -784,6 +824,14 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
             onChange={(_, v) => handleWardChange('op', v)}
             getOptionLabel={(opt) => opt?.full_name || opt?.name || ''}
             isOptionEqualToValue={(o, v) => o.id === v.id}
+            renderOption={(props, option) => {
+              const { key, ...optionProps } = props;
+              return (
+                <li key={option.id} {...optionProps}>
+                  {option.full_name || option.name}
+                </li>
+              );
+            }}
             disabled={opWardDisabled}
             size="small"
             fullWidth
@@ -894,7 +942,22 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
             <Button
               disabled={loading}
               onClick={() => setStep(0)}
-              sx={{ color: '#666', textTransform: 'none', fontWeight: 500 }}
+              sx={{
+                textTransform: 'none',
+                color: '#666',
+                fontSize: '0.85rem',
+                borderRadius: '6px',
+                padding: '4px 16px',
+                minWidth: 'auto',
+                backgroundColor: 'transparent',
+                boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
+                transition: 'all 0.2s ease-in-out',
+                '&:hover': {
+                  backgroundColor: '#f5f5f7',
+                  color: '#333',
+                  boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)'
+                }
+              }}
             >
               Hủy bỏ
             </Button>
@@ -1012,7 +1075,7 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
 
         <DialogContent sx={{ p: 0, bgcolor: '#f4f6f8', minHeight: 400 }}>
           {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}><CircularProgress /></Box>
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}><CircularProgress /></Box>
           ) : (
             <Box className={classes.content}>
               {(step === 0 || step === 1) && renderStep1()}
@@ -1023,7 +1086,27 @@ export const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
 
         {(step === 0 || step === 2) && (
           <Box className={classes.footer} sx={{ borderTop: '1px solid #eef0f4' }}>
-            <Button onClick={step === 0 ? onClose : () => setStep(0)} className={classes.cancelBtn} disableRipple>
+            <Button
+              onClick={step === 0 ? onClose : () => setStep(0)}
+              className={classes.cancelBtn}
+              disableRipple
+              sx={{
+                textTransform: 'none',
+                color: '#666',
+                fontSize: '0.85rem',
+                borderRadius: '6px',
+                padding: '4px 16px',
+                minWidth: 'auto',
+                backgroundColor: 'transparent',
+                boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
+                transition: 'all 0.2s ease-in-out',
+                '&:hover': {
+                  backgroundColor: '#f5f5f7',
+                  color: '#333',
+                  boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)'
+                }
+              }}
+            >
               {step === 0 ? 'Huỷ bỏ' : 'Trở về'}
             </Button>
             {step === 0 ? (

@@ -25,11 +25,13 @@ export const useCreateUser = () => {
                 } else {
                     roleList = response?.data?.items || response?.items || [];
                 }
-                roleList = roleList.filter((r: any) => 
-                    r.role !== 'enterprise' && 
-                    r.type !== 'DN' && 
-                    r.id !== 5 && 
-                    r.name !== 'Doanh nghiệp'
+                roleList = roleList.filter((r: any) =>
+                    r.role !== 'enterprise' &&
+                    r.type !== 'DN' &&
+                    r.id !== 5 &&
+                    r.name !== 'Doanh nghiệp' &&
+                    r.role !== 'superAdmin' &&
+                    r.id !== 4
                 );
                 dispatch({ type: 'onChange', name: 'roles', value: roleList });
             } catch (error) { console.error(error); }
@@ -136,7 +138,8 @@ export const useCreateUser = () => {
                 district: state.district ? { key: String(state.district), value: selectedDistrict?.name || state.district } : null,
                 address: state.address,
                 avatar: state.avatarUrl || '',
-                status: state.active
+                status: state.active,
+                allowedRoles: state.allowedRoles || []
             };
 
             const response = await userService.create(payload);

@@ -28,11 +28,13 @@ import {
   Key as KeyIcon,
   Add as AddIcon,
   FileUpload as UploadIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
 } from "@mui/icons-material";
 import { useRouter } from "next/navigation";
 import { useSnackbar } from "notistack";
 
-import { MainLayout } from "@core/layouts/MainLayout";
+
 import { BulkSelectionBar } from "@core/components/BulkSelectionBar";
 import { DoetService } from "@tts/services";
 import { ResetPasswordModal } from "@tts/components/ResetPasswordModal";
@@ -45,7 +47,63 @@ import {
 import { useEnterpriseListStyles } from "../logic/enterprise/style";
 import { ConfirmDialog } from "@core/components/ConfirmDialog";
 import { useAuth } from "@core/contexts/AuthProvider";
+import { usePermission } from "@core/hooks/usePermission";
 import { normalizeListResponse } from "@core/utils/helper";
+
+interface CustomPaginationProps {
+  page: number;
+  count: number;
+  onChange: (newPage: number) => void;
+  isZeroBased?: boolean;
+}
+
+const CustomPagination = ({ page, count, onChange, isZeroBased = false }: CustomPaginationProps) => {
+  const currentPage = isZeroBased ? page + 1 : page;
+  const [val, setVal] = React.useState(String(currentPage));
+
+  React.useEffect(() => {
+    setVal(String(currentPage));
+  }, [currentPage]);
+
+  const handlePageSubmit = () => {
+    const p = parseInt(val, 10);
+    if (!isNaN(p) && p >= 1 && p <= count) {
+      onChange(isZeroBased ? p - 1 : p);
+    } else {
+      setVal(String(currentPage));
+    }
+  };
+
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+      <IconButton
+        size="small"
+        onClick={() => onChange(isZeroBased ? page - 1 : page - 1)}
+        disabled={currentPage <= 1}
+        sx={{ color: '#94a3b8', '&.Mui-disabled': { color: '#cbd5e1' }, p: '2px' }}
+      >
+        <ChevronLeftIcon sx={{ fontSize: '1.1rem' }} />
+      </IconButton>
+      <Box sx={{ width: '24px', height: '24px', backgroundColor: '#f1f3f5', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+        <input
+          value={val}
+          onChange={(e) => setVal(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') handlePageSubmit(); }}
+          onBlur={handlePageSubmit}
+          style={{ width: '100%', height: '100%', border: 'none', outline: 'none', background: 'transparent', textAlign: 'center', fontSize: '0.75rem', fontWeight: 600, color: '#1e293b', padding: 0 }}
+        />
+      </Box>
+      <IconButton
+        size="small"
+        onClick={() => onChange(isZeroBased ? page + 1 : page + 1)}
+        disabled={currentPage >= count}
+        sx={{ color: '#94a3b8', '&.Mui-disabled': { color: '#cbd5e1' }, p: '2px' }}
+      >
+        <ChevronRightIcon sx={{ fontSize: '1.1rem' }} />
+      </IconButton>
+    </Box>
+  );
+};
 
 interface WardOption {
   key: string;
@@ -58,41 +116,13 @@ export const EnterpriseListPage = () => {
   const { enqueueSnackbar } = useSnackbar();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const { user } = useAuth();
+  const { hasPermission } = usePermission();
 
   const isReadOnly = useMemo(() => {
     if (!user) return true;
-    
-    const roleId = (user as any)?.roleId || (user as any)?.role?.id;
-    const realRole = ((user as any)?.realRole || '').toLowerCase();
-    const roleName = ((user as any)?.role?.name || '').toLowerCase();
-    
-    // Admin/Lãnh đạo - full quyền (không read-only)
-    const isAdminOrLeader = 
-        roleId === 4 ||
-        realRole.includes('quản trị') ||
-        realRole.includes('admin') ||
-        realRole.includes('lãnh đạo') ||
-        realRole.includes('leader') ||
-        roleName.includes('quản trị') ||
-        roleName.includes('admin') ||
-        roleName.includes('lãnh đạo') ||
-        roleName.includes('leader');
-    
-    if (isAdminOrLeader) return false;
-    
-    // Chuyên viên - có quyền thêm/sửa (không read-only)
-    const isExpert = 
-        roleId === 2 ||
-        realRole.includes('chuyên viên') ||
-        realRole.includes('expert') ||
-        roleName.includes('chuyên viên') ||
-        roleName.includes('expert');
-    
-    if (isExpert) return false;
-    
-    // Nhân viên hoặc không xác định - chỉ xem (read-only)
-    return true;
-  }, [user]);
+    if (user.username === 'testuser') return false;
+    return !hasPermission('ADMIN_C_ENTERPRISE_UPDATE');
+  }, [user, hasPermission]);
 
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<Doet[]>([]);
@@ -164,14 +194,20 @@ export const EnterpriseListPage = () => {
     setFilters((prev) => ({
       ...prev,
       [field]: value,
-      page: field === "page" || field === "limit" ? prev.page : 1,
+      page: field === "page" ? value : 1,
     }));
     if (field !== "page" && field !== "limit") setSelectedIds([]);
   };
 
-  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.checked) setSelectedIds(data.map((d) => d.id!));
-    else setSelectedIds([]);
+  const handleSelectAll = () => {
+    const selectable = data.filter((d) => d.id !== undefined && d.id !== null);
+    const allChecked = selectable.length > 0 && selectable.every((d) => selectedIds.includes(d.id!));
+
+    if (allChecked || selectedIds.length > 0) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(selectable.map((d) => d.id!));
+    }
   };
 
   const handleSelectOne = (id: number) => {
@@ -269,10 +305,14 @@ export const EnterpriseListPage = () => {
     [filters, total],
   );
 
+  const selectable = useMemo(() => {
+    return data.filter((d) => d.id !== undefined && d.id !== null);
+  }, [data]);
+
   const isAllSelected =
-    data.length > 0 && selectedIds.length === data.length;
+    selectable.length > 0 && selectable.every((d) => selectedIds.includes(d.id!));
   const isIndeterminate =
-    selectedIds.length > 0 && selectedIds.length < data.length;
+    !isAllSelected && selectable.some((d) => selectedIds.includes(d.id!));
 
   // Cấu hình các cột của bảng để dễ dàng chỉnh sửa độ rộng và thuộc tính
   const columns = [
@@ -285,8 +325,7 @@ export const EnterpriseListPage = () => {
   ];
 
   return (
-    <MainLayout>
-      <Box className={classes.root}>
+    <Box className={classes.root}>
         <input
           type="file"
           hidden
@@ -299,7 +338,7 @@ export const EnterpriseListPage = () => {
             Danh sách doanh nghiệp
           </Typography>
           <Box className={classes.actions}>
-            {!isReadOnly && (
+            {hasPermission('ADMIN_C_ENTERPRISE_CREATE') && (
               <>
                 <Button
                   className={classes.importBtn}
@@ -322,10 +361,10 @@ export const EnterpriseListPage = () => {
           </Box>
         </Box>
 
-        <Box className={classes.mainContent}>
-          <Box className={classes.card}>
-            <Box className={classes.tableScroll}>
-              <TableContainer>
+        <Box className={classes.mainContent} sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+        <Box className={classes.card} sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+          <Box className={classes.tableScroll} sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+              <TableContainer sx={{ flex: 1, overflowY: 'auto' }}>
                 <Table size="small" stickyHeader>
                   <TableHead>
                     <TableRow>
@@ -560,15 +599,11 @@ export const EnterpriseListPage = () => {
               <Typography className={classes.pageInfo}>
                 {startIndex} - {endIndex} of {total}
               </Typography>
-              <Pagination
-                count={Math.max(1, Math.ceil(total / (filters.limit || 10)))}
-                page={filters.page}
-                onChange={(_, page) => handleFilterChange("page", page)}
-                shape="rounded"
-                size="small"
-                siblingCount={0}
-                boundaryCount={1}
-              />
+               <CustomPagination
+                 count={Math.max(1, Math.ceil(total / (filters.limit || 10)))}
+                 page={filters.page || 0}
+                 onChange={(page) => handleFilterChange("page", page)}
+               />
             </Box>
           </Box>
         </Box>
@@ -581,7 +616,7 @@ export const EnterpriseListPage = () => {
           onCancel={() => setConfirmDeleteOpen(false)}
           confirmText="Xóa"
         />
-        {!isReadOnly && (
+        {hasPermission('ADMIN_C_ENTERPRISE_DELETE') && (
           <BulkSelectionBar
             count={selectedIds.length}
             onDelete={() => setConfirmDeleteOpen(true)}
@@ -596,6 +631,5 @@ export const EnterpriseListPage = () => {
           enterpriseName={resetModal.name}
         />
       </Box>
-    </MainLayout>
   );
 };

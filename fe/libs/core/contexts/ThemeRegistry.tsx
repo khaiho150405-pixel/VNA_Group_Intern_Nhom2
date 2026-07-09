@@ -9,7 +9,30 @@ import CustomSnackbar from '@core/components/CustomSnackbar';
 import { useServerInsertedHTML } from 'next/navigation';
 import { ServerStyleSheets } from '@mui/styles';
 
-const theme = createTheme();
+// Tạo một theme mặc định với style OutlinedInput đồng bộ toàn hệ thống
+const theme = createTheme({
+  components: {
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          borderRadius: '8px',
+          '& fieldset': {
+            borderColor: '#dfe3eb',
+          },
+          '&:hover fieldset': {
+            borderColor: '#bcc4d3',
+          },
+          '&.Mui-focused fieldset': {
+            borderColor: '#2f65f0',
+          },
+          '&.Mui-disabled fieldset': {
+            borderColor: '#eef0f4',
+          },
+        },
+      },
+    },
+  },
+});
 
 export default function ThemeRegistry({ children }: { children: React.ReactNode }) {
   const [sheets] = React.useState(() => new ServerStyleSheets());

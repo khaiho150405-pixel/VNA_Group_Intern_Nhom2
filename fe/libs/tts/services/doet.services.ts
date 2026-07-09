@@ -93,6 +93,14 @@ const DoetService = {
     return axiosClient.get('/injury-factors/dropdown/active');
   },
 
+  getAccidentCauses: () => {
+    return axiosClient.get('/injury-types/dropdown/active');
+  },
+
+  getOccupations: () => {
+    return axiosClient.get('/occupation/dropdown/active');
+  },
+
   // Address API from esgoo delegated to locationService
   getProvinces: locationService.getProvinces,
 

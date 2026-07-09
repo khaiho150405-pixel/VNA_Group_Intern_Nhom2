@@ -13,7 +13,7 @@ export const useAccountInfo = () => {
   const { success, error: notifyError } = useNotification();
   const [state, dispatch] = useReducer(accountInfoReducer, initialAccountInfoState);
 
-  // Check if current user is admin (can change role)
+  // Check if current user is admin (can change role freely)
   const isAdmin = useMemo(() => {
     if (!user) return false;
     const roleName = (user.realRole || (user as any).role?.name || '').toUpperCase();
@@ -24,12 +24,25 @@ export const useAccountInfo = () => {
            roleType === 'SUPERADMIN';
   }, [user]);
 
+  // Parse allowedRoles from user object
+  const userAllowedRoles = useMemo<string[]>(() => {
+    const raw = (user as any)?.allowedRoles;
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw.map(String);
+    if (typeof raw === 'string') return raw.split(',').map(s => s.trim()).filter(Boolean);
+    return [];
+  }, [user]);
+
+  // Can user change role? Admin always yes; normal user yes if allowedRoles is non-empty
+  const isRoleEditable = isAdmin || userAllowedRoles.length > 0;
+
   // Refs to prevent infinite loops
   const hasFetchedRolesRef = useRef(false);
   const hasFetchedProvincesRef = useRef(false);
 
   useEffect(() => {
     const fetchRoles = async () => {
+      if (!isRoleEditable) return;
       // Skip if already fetched
       if (hasFetchedRolesRef.current) return;
       
@@ -41,12 +54,23 @@ export const useAccountInfo = () => {
         } else {
             roleList = response?.data?.items || response?.items || [];
         }
-        roleList = roleList.filter((r: any) => 
-            r.role !== 'enterprise' && 
-            r.type !== 'DN' && 
-            r.id !== 5 && 
-            r.name !== 'Doanh nghiệp'
-        );
+        if (user?.username !== 'testuser') {
+            roleList = roleList.filter((r: any) => 
+                r.role !== 'enterprise' && 
+                r.type !== 'DN' && 
+                r.id !== 5 && 
+                r.name !== 'Doanh nghiệp' &&
+                r.role !== 'superAdmin' &&
+                r.id !== 4
+            );
+        } else {
+            roleList = roleList.filter((r: any) => 
+                r.role !== 'enterprise' && 
+                r.type !== 'DN' && 
+                r.id !== 5 && 
+                r.name !== 'Doanh nghiệp'
+            );
+        }
         hasFetchedRolesRef.current = true;
         dispatch({ type: 'onChange', name: 'roles', value: roleList });
       } catch (error) { console.error(error); }
@@ -86,7 +110,7 @@ export const useAccountInfo = () => {
       }
     };
     refreshUser();
-  }, []); // Empty dependency array - only run once on mount
+  }, [isRoleEditable]); // Empty dependency array - only run once on mount
 
   useEffect(() => {
     if (state.city) {
@@ -108,7 +132,7 @@ export const useAccountInfo = () => {
   }, [state.city]);
 
   useEffect(() => {
-    if (user && (!isAdmin || state.roles.length > 0)) {
+    if (user && (!isRoleEditable || state.roles.length > 0)) {
       const roleObj = (user as any).role || {};
       const matchedRole = state.roles.find((r: any) => r.name === (user as any).realRole || r.id === (user as any).roleId || r.id === roleObj.id);
       const currentRoleId = matchedRole ? matchedRole.role : '';
@@ -126,6 +150,13 @@ export const useAccountInfo = () => {
       if ((user as any).gender === 1) genderStr = 'Nam';
       else if ((user as any).gender === 0) genderStr = 'Nữ';
 
+      // Parse allowedRoles from user object for snapshot
+      const allowedRolesVal: string[] = Array.isArray((user as any).allowedRoles)
+        ? (user as any).allowedRoles.map(String)
+        : (typeof (user as any).allowedRoles === 'string'
+          ? (user as any).allowedRoles.split(',').map((s: string) => s.trim()).filter(Boolean)
+          : []);
+
       dispatch({
         type: 'setInitialData',
         data: {
@@ -140,17 +171,18 @@ export const useAccountInfo = () => {
           district: (user as any).district?.key || '',
           role: currentRoleId,
           title: (user as any).workUnit || '',
-          active: (user as any).status === true
+          active: (user as any).status === true,
+          allowedRoles: allowedRolesVal
         }
       });
     }
-  }, [user, state.roles, isAdmin]);
+  }, [user, state.roles, isRoleEditable]);
 
   // Compute whether the form has unsaved changes
   const hasChanges = useMemo(() => {
     if (!state.initialSnapshot) return false;
-    // Exclude 'role' from editable keys for non-admin
-    const editableKeys = isAdmin 
+    // Include 'role' in editable keys only if role is editable
+    const editableKeys = isRoleEditable 
       ? ['displayName', 'birthday', 'gender', 'title', 'role', 'city', 'district', 'address', 'avatarUrl', 'active']
       : ['displayName', 'birthday', 'gender', 'title', 'city', 'district', 'address', 'avatarUrl', 'active'];
     return editableKeys.some((key) => {
@@ -158,14 +190,15 @@ export const useAccountInfo = () => {
       const initial = state.initialSnapshot![key];
       return String(current ?? '') !== String(initial ?? '');
     });
-  }, [state, isAdmin]);
+  }, [state, isRoleEditable]);
+
   const handleInputChange = (name: keyof AccountInfoState, value: any) => {
     // If city changes to a different value, reset district
     if (name === 'city' && String(value) !== String(state.city)) {
       dispatch({ type: 'onChange', name: 'district', value: '' });
     }
-    // Prevent non-admin from changing role
-    if (name === 'role' && !isAdmin) {
+    // Prevent non-editable users from changing role
+    if (name === 'role' && !isRoleEditable) {
       return;
     }
     dispatch({ type: 'onChange', name, value });
@@ -270,8 +303,8 @@ export const useAccountInfo = () => {
         }
         // Update the snapshot to reflect the newly saved values
         const newSnapshot: Record<string, any> = {};
-        // Exclude 'role' from snapshot for non-admin
-        const editableKeys = isAdmin 
+        // Include 'role' in snapshot only if role is editable
+        const editableKeys = isRoleEditable 
           ? ['displayName', 'birthday', 'gender', 'title', 'role', 'city', 'district', 'address', 'avatarUrl', 'active']
           : ['displayName', 'birthday', 'gender', 'title', 'city', 'district', 'address', 'avatarUrl', 'active'];
         editableKeys.forEach((key) => {
@@ -295,12 +328,33 @@ export const useAccountInfo = () => {
     }
   };
 
+  // Filtered roles list for the role picker:
+  // - Admin sees all roles
+  // - User with allowedRoles sees only their allowed roles
+  // - Otherwise no roles shown (role picker hidden)
+  const editableRoles = useMemo(() => {
+    if (isAdmin) return state.roles;
+    if (userAllowedRoles.length > 0) {
+      return state.roles.filter((r: any) =>
+        userAllowedRoles.includes(String(r.role)) ||
+        userAllowedRoles.includes(String(r.id)) ||
+        userAllowedRoles.includes(String(r.name)) ||
+        String(r.role) === String(state.role) ||
+        String(r.id) === String(state.role)
+      );
+    }
+    return [];
+  }, [isAdmin, userAllowedRoles, state.roles, state.role]);
+
   return {
     state,
     dispatch,
     handleInputChange,
     handleSave,
     hasChanges,
-    isAdmin
+    isAdmin,
+    isRoleEditable,
+    editableRoles,
+    userAllowedRoles
   };
 };

@@ -8,7 +8,30 @@ import { SnackbarProvider } from 'notistack';
 import CustomSnackbar from '@core/components/CustomSnackbar';
 
 // Tạo một theme mặc định (bạn có thể custom màu sắc tại đây sau)
-const theme = createTheme();
+// Tạo một theme mặc định với style OutlinedInput đồng bộ toàn hệ thống
+const theme = createTheme({
+  components: {
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          borderRadius: '8px',
+          '& fieldset': {
+            borderColor: '#dfe3eb',
+          },
+          '&:hover fieldset': {
+            borderColor: '#bcc4d3',
+          },
+          '&.Mui-focused fieldset': {
+            borderColor: '#2f65f0',
+          },
+          '&.Mui-disabled fieldset': {
+            borderColor: '#eef0f4',
+          },
+        },
+      },
+    },
+  },
+});
 
 export default function ThemeProvider({ children }: { children: React.ReactNode }) {
   // useEffect này giúp fix lỗi mismatch giữa Server và Client khi render MUI

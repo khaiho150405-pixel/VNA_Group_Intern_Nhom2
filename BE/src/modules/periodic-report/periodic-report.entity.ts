@@ -48,6 +48,9 @@ export class PeriodicReport {
   @Column({ name: "report_file_name", type: "varchar", length: 255, nullable: true })
   reportFileName: string;
 
+  @Column({ name: "reject_reason", type: "text", nullable: true })
+  rejectReason: string;
+
   @Column({ name: "created_at", type: "timestamp", default: () => "CURRENT_TIMESTAMP" })
   createdAt: Date;
 

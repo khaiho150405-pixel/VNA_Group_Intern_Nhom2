@@ -28,6 +28,7 @@ export class CurrentUser {
   province?: any;
   district?: any;
   address?: string;
+  allowedRoles?: string[];
 
 
   constructor(
@@ -47,7 +48,8 @@ export class CurrentUser {
       'dateOfBirth',
       'province',
       'district',
-      'address'
+      'address',
+      'allowedRoles'
     ],
   ) {
     user &&

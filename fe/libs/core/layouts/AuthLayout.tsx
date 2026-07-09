@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import React from "react";
 import { styled } from "@mui/material/styles";
 import Box from "@mui/material/Box";
@@ -41,7 +41,7 @@ const Card = styled(Box)(({ theme }) => ({
   backgroundColor: VNA_COLORS.white,
   padding: theme.spacing(4, 4),
   borderRadius: 12,
-  boxShadow: `0px 8px 30px ${VNA_COLORS.shadow}`, 
+  boxShadow: '0px 20px 50px rgba(0, 0, 0, 0.04), 0px 4px 16px rgba(0, 0, 0, 0.02)', 
   border: `1px solid ${VNA_COLORS.border}`,
   boxSizing: "border-box",
 }));

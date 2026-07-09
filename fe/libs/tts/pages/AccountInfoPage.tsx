@@ -31,7 +31,9 @@ export const AccountInfoPage = () => {
     handleInputChange,
     handleSave,
     hasChanges,
-    isAdmin
+    isAdmin,
+    isRoleEditable,
+    editableRoles
   } = useAccountInfo();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [calendarAnchor, setCalendarAnchor] = React.useState<null | HTMLElement>(null);
@@ -56,6 +58,11 @@ export const AccountInfoPage = () => {
     provinces,
     districts
   } = state;
+
+  const roleDisplayValue = React.useMemo(() => {
+    const matched = state.roles?.find((r: any) => String(r.role) === String(role) || String(r.id) === String(role));
+    return matched ? matched.name : role;
+  }, [state.roles, role]);
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
@@ -102,7 +109,7 @@ export const AccountInfoPage = () => {
   };
 
   return (
-    <Box className={classes.root}>
+    <Box sx={{ backgroundColor: '#ffffff', minHeight: '100vh', display: 'flex', flexDirection: 'column', overflow: 'visible' }}>
       <AppToast
         show={toast.show}
         message={toast.message}
@@ -111,24 +118,85 @@ export const AccountInfoPage = () => {
       />
 
       {/* Page Header */}
-      <Box className={classes.pageHeader}>
-        <Typography className={classes.headerTitle}>Chi tiết người dùng</Typography>
-        <Box className={classes.actions}>
-          <Button className={classes.cancelBtn} disableRipple disabled={loading} onClick={() => router.push('/')}>Hủy bỏ</Button>
+      <Box
+        sx={{
+          backgroundColor: '#fff',
+          padding: '16px 24px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          boxShadow: '0px 2px 12px rgba(0, 0, 0, 0.04)',
+          zIndex: 10,
+          minHeight: '64px',
+          position: 'sticky',
+          top: 0,
+        }}
+      >
+        <Typography
+          sx={{
+            fontWeight: 700,
+            fontSize: '1.1rem',
+            color: '#333',
+            margin: 0,
+            lineHeight: 1.4,
+          }}
+        >
+          Chi tiết người dùng
+        </Typography>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+          }}
+        >
+          <Button
+            disableRipple
+            disabled={loading}
+            onClick={() => router.push('/')}
+            sx={{
+              textTransform: 'none',
+              color: '#666',
+              fontSize: '0.875rem',
+              borderRadius: '6px',
+              padding: '6px 18px',
+              minWidth: 'auto',
+              backgroundColor: 'transparent',
+              boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
+              transition: 'all 0.2s ease-in-out',
+              '&:hover': {
+                backgroundColor: '#f5f5f7',
+                color: '#333',
+                boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)'
+              }
+            }}
+          >
+            Hủy bỏ
+          </Button>
           <Button
             variant="contained"
             startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Save fontSize="small" />}
-            className={classes.saveBtn}
             disableElevation
             onClick={handleSave}
             disabled={loading || !hasChanges}
             sx={{
+              backgroundColor: '#2f65f0',
+              color: '#fff',
+              '&:hover': {
+                backgroundColor: '#1e4fd1',
+              },
               ...(!hasChanges && !loading ? {
                 backgroundColor: '#b0b0b0 !important',
                 color: '#fff !important',
                 '&:hover': { backgroundColor: '#b0b0b0 !important' },
                 cursor: 'not-allowed',
-              } : {})
+                boxShadow: 'none',
+              } : {}),
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: '0.85rem',
+              borderRadius: '6px',
+              padding: '6px 24px',
             }}
           >
             {loading ? 'Đang lưu...' : 'Lưu'}
@@ -137,7 +205,7 @@ export const AccountInfoPage = () => {
       </Box>
 
       {/* Main Content Area */}
-      <Box className={classes.mainContent}>
+      <Box sx={{ padding: 3, flex: 1, overflow: 'visible' }}>
         <Grid container spacing={3}>
           {/* Left Column: Avatar & Activation */}
 
@@ -298,30 +366,40 @@ export const AccountInfoPage = () => {
                   />
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField
-                    select fullWidth label={<RequiredLabel label="Vai trò" />} variant="outlined" size="small"
-                    className={classes.field} value={role}
-                    onChange={(e) => handleInputChange('role', e.target.value)}
-                    onFocus={handleInputFocus}
-                    slotProps={{
-                      inputLabel: { shrink: true },
-                      select: { displayEmpty: true }
-                    }}
-                    disabled={loading || !isAdmin || username?.trim().toLowerCase() === 'testuser'}
-                  >
-                    <MenuItem value="" disabled selected>Chọn vai trò</MenuItem>
-                    {roles && roles.length > 0 ? (
-                      roles.map((r) => (
-                        <MenuItem key={r.id} value={r.role}>{r.name}</MenuItem>
-                      ))
-                    ) : [
-                      <MenuItem key="superAdmin" value="superAdmin">Quản trị viên</MenuItem>,
-                      <MenuItem key="leader" value="leader">Lãnh đạo</MenuItem>,
-                      <MenuItem key="expert" value="expert">Chuyên viên</MenuItem>,
-                      <MenuItem key="employee" value="employee">Nhân viên</MenuItem>,
-                      <MenuItem key="enterprise" value="enterprise">Quản trị DN</MenuItem>
-                    ]}
-                  </TextField>
+                  {isRoleEditable ? (
+                    <TextField
+                      select fullWidth label={<RequiredLabel label="Vai trò" />} variant="outlined" size="small"
+                      className={classes.field} value={role}
+                      onChange={(e) => handleInputChange('role', e.target.value)}
+                      onFocus={handleInputFocus}
+                      slotProps={{
+                        inputLabel: { shrink: true },
+                        select: { displayEmpty: true }
+                      }}
+                      disabled={loading || username?.trim().toLowerCase() === 'testuser'}
+                    >
+                      <MenuItem value="" disabled selected>Chọn vai trò</MenuItem>
+                      {editableRoles && editableRoles.length > 0 ? (
+                        editableRoles.map((r) => (
+                          <MenuItem key={r.id} value={r.role}>{r.name}</MenuItem>
+                        ))
+                      ) : [
+                        <MenuItem key="superAdmin" value="superAdmin">Quản trị viên</MenuItem>,
+                        <MenuItem key="leader" value="leader">Lãnh đạo</MenuItem>,
+                        <MenuItem key="expert" value="expert">Chuyên viên</MenuItem>,
+                        <MenuItem key="employee" value="employee">Nhân viên</MenuItem>,
+                        <MenuItem key="enterprise" value="enterprise">Quản trị DN</MenuItem>
+                      ]}
+                    </TextField>
+                  ) : (
+                    <TextField
+                      fullWidth label={<RequiredLabel label="Vai trò" />} variant="outlined" size="small"
+                      className={classes.field} value={roleDisplayValue}
+                      onFocus={handleInputFocus}
+                      slotProps={{ inputLabel: { shrink: true } }}
+                      disabled
+                    />
+                  )}
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
                   <TextField
@@ -343,7 +421,7 @@ export const AccountInfoPage = () => {
                     onFocus={handleInputFocus}
                     disableRipple
                     disabled={loading}
-                    style={{ marginBottom: '20px', marginLeft: 0 }}
+                    style={{ marginBottom: '20px', marginLeft: 0, fontWeight: 600 }}
                   >
                     Thay đổi
                   </Button>

@@ -2,11 +2,11 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 import * as fs from 'fs';
 import { join } from 'path';
 
-export class seedLoaiHinhBusinessLine1635390919191 implements MigrationInterface {
+export class seedLoaiHinhBusinessLine1635390919189 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     try {
-      await queryRunner.query('DELETE FROM loai_hinh_kinh_doanh;');
-      await queryRunner.query('DELETE FROM business_line;');
+      await queryRunner.query('TRUNCATE TABLE loai_hinh_kinh_doanh RESTART IDENTITY CASCADE;');
+      await queryRunner.query('TRUNCATE TABLE business_line RESTART IDENTITY CASCADE;');
     } catch (err) {
       console.warn('Could not clear tables before seeding:', err.message);
     }

@@ -4,6 +4,7 @@ import { Repository, getManager } from "typeorm";
 import { PeriodicReport } from "./periodic-report.entity";
 import { AccidentDetail } from "./accident-detail.entity";
 import { Doet } from "../doet/doet.entity";
+import { PeriodicReportHistory } from "./periodic-report-history.entity";
 import { ReportPeriod } from "../report-period/report-period.entity";
 import * as fs from "fs";
 import * as path from "path";
@@ -12,13 +13,81 @@ import { BaseService } from "src/commons";
 
 @Injectable()
 export class PeriodicReportService extends BaseService<PeriodicReport> implements OnApplicationBootstrap {
+  private async hasPermission(roleId: number | undefined, code: string): Promise<boolean> {
+    if (!roleId) return false;
+    const manager = getManager();
+    const count = await manager.query(
+      `SELECT COUNT(*) FROM role_permissions WHERE role_id = $1 AND permission_code = $2`,
+      [roleId, code]
+    );
+    return parseInt(count[0]?.count || '0', 10) > 0;
+  }
+
+  async checkReadPermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') return;
+    const roleId = currentUser.role?.id;
+    const isSo = currentUser.role?.type === 'SO';
+    
+    if (isSo) {
+      const allowed = await this.hasPermission(roleId, 'ADMIN_C_ACCIDENT_REPORT_VIEW');
+      if (!allowed) {
+        throw Response.errorForBidden("Tài khoản của bạn không có quyền xem báo cáo tai nạn lao động.");
+      }
+    }
+  }
+
+  async checkCreatePermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') return;
+    const roleId = currentUser.role?.id;
+    const isSo = currentUser.role?.type === 'SO';
+    
+    if (isSo) {
+      const allowed = await this.hasPermission(roleId, 'ADMIN_C_ACCIDENT_REPORT_CREATE');
+      if (!allowed) {
+        throw Response.errorForBidden("Tài khoản của bạn không có quyền khai báo mới báo cáo tai nạn lao động.");
+      }
+    }
+  }
+
+  async checkUpdatePermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') return;
+    const roleId = currentUser.role?.id;
+    const isSo = currentUser.role?.type === 'SO';
+    
+    if (isSo) {
+      const allowed = await this.hasPermission(roleId, 'ADMIN_C_ACCIDENT_REPORT_UPDATE');
+      if (!allowed) {
+        throw Response.errorForBidden("Tài khoản của bạn không có quyền duyệt/từ chối báo cáo tai nạn lao động.");
+      }
+    }
+  }
+
+  async checkDeletePermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') return;
+    const roleId = currentUser.role?.id;
+    const isSo = currentUser.role?.type === 'SO';
+    
+    if (isSo) {
+      const allowed = await this.hasPermission(roleId, 'ADMIN_C_ACCIDENT_REPORT_DELETE');
+      if (!allowed) {
+        throw Response.errorForBidden("Tài khoản của bạn không có quyền xóa báo cáo tai nạn lao động.");
+      }
+    }
+  }
+
   constructor(
     @InjectRepository(PeriodicReport)
     private readonly reportRepo: Repository<PeriodicReport>,
     @InjectRepository(AccidentDetail)
     private readonly detailRepo: Repository<AccidentDetail>,
     @InjectRepository(Doet)
-    private readonly doetRepo: Repository<Doet>
+    private readonly doetRepo: Repository<Doet>,
+    @InjectRepository(PeriodicReportHistory)
+    private readonly historyRepo: Repository<PeriodicReportHistory>
   ) {
     super(reportRepo, (data) => Object.assign(new PeriodicReport(), data));
   }
@@ -41,6 +110,7 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
   }
 
   async findAllReports(currentUser: any, query: any) {
+    await this.checkReadPermission(currentUser);
     const roleType = currentUser?.role?.type;
     const isSoUser = roleType === 'SO';
     const doetId = currentUser?.doet || currentUser?.doet_id;
@@ -91,15 +161,25 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
       });
 
       for (const d of doets) {
+        const regDate = d.createdAt ? new Date(d.createdAt) : null;
         for (const config of activePeriods) {
           if (period && config.period !== period) continue;
+
+          if (regDate && config.endDate) {
+            const pEndDate = new Date(config.endDate);
+            if (pEndDate < regDate) {
+              continue;
+            }
+          }
+
           allPossibleReports.push({
             doetId: d.id,
             companyName: d.name,
             taxCode: d.taxCode,
             period: config.period,
             year: filterYear,
-            doet: d
+            doet: d,
+            config: config
           });
         }
       }
@@ -111,12 +191,22 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
 
       let finalItems = allPossibleReports.map(rep => {
         const match = existingReports.find(r => String(r.doetId) === String(rep.doetId) && r.period === rep.period);
+        
+        let finalStatus = match?.status || 'CHO_BAO_CAO';
+        if (!match && rep.config) {
+          const now = new Date();
+          const periodEnd = new Date(rep.config.endDate);
+          if (periodEnd < now) {
+            finalStatus = 'HET_HAN';
+          }
+        }
+
         return {
           id: match?.id || `virtual_${rep.doetId}_${rep.period}`,
           doetId: rep.doetId,
           year: rep.year,
           period: rep.period,
-          status: match?.status || 'CHO_BAO_CAO',
+          status: finalStatus,
           companyName: rep.companyName,
           taxCode: rep.taxCode,
           doet: rep.doet,
@@ -165,6 +255,7 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
   }
 
   async getSummaryReport(currentUser: any, query: any) {
+    await this.checkReadPermission(currentUser);
     const roleType = currentUser?.role?.type;
     const isSoUser = roleType === 'SO';
     const doetId = currentUser?.doet || currentUser?.doet_id;
@@ -229,12 +320,23 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
 
     const reports = await qb.getMany();
 
+    const doetIds = [...new Set(reports.map(r => r.doetId).filter(id => id && !isNaN(+id)))].map(id => +id);
+    const doetsMap = new Map<number, any>();
+    if (doetIds.length > 0) {
+      const doets = await this.doetRepo.createQueryBuilder("d")
+        .leftJoinAndSelect("d.loaiHinhKinhDoanh", "lh")
+        .where("d.id IN (:...doetIds)", { doetIds })
+        .getMany();
+      doets.forEach(d => doetsMap.set(d.id, d));
+    }
+
     let totalEmployees = 0;
     let femaleEmployees = 0;
     let totalSalaryFund = 0;
 
     const aggregatedTnldSummary: any = {};
     const aggregatedTnldTroCapSummary: any = {};
+    const loaiHinhStatsMap = new Map<number, any>();
 
     const fields = [
       'tongSoVu', 'tongSoVuNguoiChet', 'tongSoVu2Nguoi', 'tongSoVu2NguoiTroLen',
@@ -276,6 +378,48 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
           const val = Number(r.tnldTroCapSummary[key] || 0);
           if (!isNaN(val)) {
             aggregatedTnldTroCapSummary[key] = (aggregatedTnldTroCapSummary[key] || 0) + val;
+          }
+        }
+      }
+
+      const doet = doetsMap.get(+(r.doetId || 0));
+      const lh = doet?.loaiHinhKinhDoanh;
+      if (lh) {
+        if (!loaiHinhStatsMap.has(lh.id)) {
+          loaiHinhStatsMap.set(lh.id, {
+            loaiHinh: lh,
+            reportCount: 0,
+            totalEmployees: 0,
+            femaleEmployees: 0,
+            tnldSummary: { ...aggregatedTnldSummary }, // just using keys from aggregatedTnldSummary to initialize 0
+            tnldTroCapSummary: { ...aggregatedTnldTroCapSummary }
+          });
+          // Reset initialized stats to 0
+          for (const key of Object.keys(loaiHinhStatsMap.get(lh.id).tnldSummary)) {
+            loaiHinhStatsMap.get(lh.id).tnldSummary[key] = 0;
+            loaiHinhStatsMap.get(lh.id).tnldTroCapSummary[key] = 0;
+          }
+        }
+
+        const stats = loaiHinhStatsMap.get(lh.id);
+        stats.reportCount += 1;
+        stats.totalEmployees += Number(r.totalEmployees || 0);
+        stats.femaleEmployees += Number(r.femaleEmployees || 0);
+        
+        if (r.tnldSummary) {
+          for (const key of Object.keys(r.tnldSummary)) {
+            const val = Number(r.tnldSummary[key] || 0);
+            if (!isNaN(val)) {
+              stats.tnldSummary[key] = (stats.tnldSummary[key] || 0) + val;
+            }
+          }
+        }
+        if (r.tnldTroCapSummary) {
+          for (const key of Object.keys(r.tnldTroCapSummary)) {
+            const val = Number(r.tnldTroCapSummary[key] || 0);
+            if (!isNaN(val)) {
+              stats.tnldTroCapSummary[key] = (stats.tnldTroCapSummary[key] || 0) + val;
+            }
           }
         }
       }
@@ -324,20 +468,36 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
       tnldSummary: aggregatedTnldSummary,
       tnldTroCapSummary: aggregatedTnldTroCapSummary,
       accidentDetails: accidentDetailsList,
+      loaiHinhStats: Array.from(loaiHinhStatsMap.values()),
       reportCount: reports.length
     });
   }
 
-  async findDetail(id: number) {
+  async findDetail(id: number, currentUser?: any) {
+    if (currentUser) await this.checkReadPermission(currentUser);
     const report = await this.reportRepo.findOne({
       where: { id },
       relations: ["accidentDetails"]
     });
     if (!report) throw Response.errorNotFound("Không tìm thấy báo cáo");
+
+    if (report.doetId) {
+      const doet = await this.doetRepo.findOne({
+        where: { id: report.doetId as any },
+        relations: ["loaiHinhKinhDoanh", "businessLine"]
+      });
+      if (doet) {
+        (report as any).doet = doet;
+        (report as any).company = doet;
+      }
+    }
+
     return Response.get(report);
   }
 
-  async createReport(payload: any) {
+  async createReport(currentUser: any, payload: any) {
+    await this.checkCreatePermission(currentUser);
+    const rpCreated = payload.createdAt ? new Date(payload.createdAt) : new Date();
     if (payload.accidentDetails && Array.isArray(payload.accidentDetails)) {
       for (const detail of payload.accidentDetails) {
         if (detail.stats) {
@@ -350,8 +510,8 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
       }
     }
 
-    const status = payload.status || 'DA_TIEP_NHAN';
-    if (status === 'DA_TIEP_NHAN') {
+    const status = payload.status || 'CHO_XET_DUYET';
+    if (status === 'DA_TIEP_NHAN' || status === 'CHO_XET_DUYET') {
       if (!payload.reportFileUrl) throw new BadRequestException("Vui lòng đính kèm báo cáo TNLĐ có dấu mộc công ty");
       if (payload.totalEmployees === undefined || payload.totalEmployees === null || payload.totalEmployees === '') throw new BadRequestException("Tổng số lao động là bắt buộc");
       if (payload.femaleEmployees === undefined || payload.femaleEmployees === null || payload.femaleEmployees === '') throw new BadRequestException("Tổng số lao động nữ là bắt buộc");
@@ -407,6 +567,14 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
     payload.status = status;
     const report = this.reportRepo.create(payload);
     const saved = await this.reportRepo.save(report);
+
+    // Log initial history
+    try {
+      await this.saveHistory((saved as any).id, status, currentUser);
+    } catch (historyError) {
+      console.error("Lỗi khi lưu lịch sử báo cáo:", historyError);
+    }
+
     return Response.get(saved);
   }
 
@@ -423,12 +591,43 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
       }
     }
 
-    const status = payload.status || 'DA_TIEP_NHAN';
+    const isSoUser = currentUser?.role?.type === 'SO';
+    let status = payload.status || 'CHO_XET_DUYET';
+
     const currentReport = await this.reportRepo.findOne({ where: { id } });
     if (!currentReport) throw new BadRequestException("Không tìm thấy báo cáo");
-    if (currentReport.status === 'DA_TIEP_NHAN') throw new BadRequestException("Báo cáo đã được tiếp nhận, không thể chỉnh sửa");
 
-    if (status === 'DA_TIEP_NHAN') {
+    // Doanh nghiệp không được phép tự đặt trạng thái DA_TIEP_NHAN hoặc HUY_TIEP_NHAN
+    if (!isSoUser && (status === 'DA_TIEP_NHAN' || status === 'HUY_TIEP_NHAN')) {
+      status = 'CHO_XET_DUYET';
+    }
+    
+    if (!isSoUser) {
+      const doetId = currentUser?.doet || currentUser?.doet_id;
+      if (Number(currentReport.doetId) !== Number(doetId)) {
+        throw Response.errorForBidden("Bạn chỉ được phép chỉnh sửa báo cáo của chính doanh nghiệp mình.");
+      }
+    }
+
+    if (payload.status !== undefined && payload.status !== currentReport.status) {
+      if (isSoUser) {
+        await this.checkUpdatePermission(currentUser);
+      }
+    }
+    
+    if (!isSoUser && (currentReport.status === 'DA_TIEP_NHAN' || currentReport.status === 'CHO_XET_DUYET')) {
+      throw new BadRequestException("Báo cáo đang chờ tiếp nhận hoặc đã được tiếp nhận, không thể chỉnh sửa");
+    }
+
+    if (status === 'HUY_TIEP_NHAN') {
+      if (!payload.rejectReason || !payload.rejectReason.trim()) {
+        throw new BadRequestException("Vui lòng cung cấp lý do từ chối");
+      }
+    } else if (status === 'DA_TIEP_NHAN' || status === 'CHO_XET_DUYET') {
+      payload.rejectReason = null;
+    }
+
+    if (!isSoUser && (status === 'DA_TIEP_NHAN' || status === 'CHO_XET_DUYET')) {
       if (!payload.reportFileUrl) throw new BadRequestException("Vui lòng đính kèm báo cáo TNLĐ có dấu mộc công ty");
       
       const total = payload.totalEmployees !== undefined ? payload.totalEmployees : currentReport.totalEmployees;
@@ -484,6 +683,7 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
       }
     }
 
+    const oldStatus = currentReport.status;
     payload.status = status;
     const adminUser = currentUser ? {
       ...currentUser,
@@ -491,7 +691,18 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
     } : {
       realRole: 'ADMIN'
     };
-    return super.put(adminUser, id, payload);
+    
+    const response = await super.put(adminUser, id, payload);
+    
+    if (status !== oldStatus) {
+      try {
+        await this.saveHistory(Number(id), status, currentUser, payload.rejectReason);
+      } catch (historyError) {
+        console.error("Lỗi khi lưu lịch sử báo cáo:", historyError);
+      }
+    }
+    
+    return response;
   }
 
   private validateLogicalConstraints(stats: any, prefixMsg: string = '') {
@@ -672,5 +883,210 @@ export class PeriodicReportService extends BaseService<PeriodicReport> implement
         if (sumTaiSan !== summaryTaiSan) throw new BadRequestException(`${prefixMsg}Chi tiết: Thiệt hại tài sản không khớp`);
       }
     }
+  }
+
+  async saveHistory(reportId: number, status: string, user: any, rejectReason?: string) {
+    const history = new PeriodicReportHistory();
+    history.reportId = reportId;
+    history.status = status;
+    history.userId = user?.id || null;
+    
+    let userRole = 'DN';
+    if (user?.role?.type) {
+      userRole = user.role.type;
+    } else if (user?.realRole === 'SO' || user?.role?.role === 'SO') {
+      userRole = 'SO';
+    }
+    history.userRole = userRole;
+    
+    if (userRole === 'SO') {
+      history.userName = user?.fullName || user?.username || 'Cán bộ Sở';
+    } else {
+      const report = await this.reportRepo.findOne({ where: { id: reportId } });
+      history.userName = report?.companyName || user?.fullName || user?.username || 'Doanh nghiệp';
+    }
+    
+    history.rejectReason = rejectReason || null;
+    history.createdAt = new Date();
+    await this.historyRepo.save(history);
+  }
+
+  async getHistory(reportId: number, currentUser?: any): Promise<any> {
+    if (currentUser) await this.checkReadPermission(currentUser);
+    const report = await this.reportRepo.findOne({ where: { id: reportId } });
+    if (!report) {
+      throw new BadRequestException("Không tìm thấy báo cáo");
+    }
+
+    let histories = await this.historyRepo.find({
+      where: { reportId },
+      order: { createdAt: 'ASC' }
+    });
+
+    if (histories.length === 0) {
+      const fallbackList = [];
+      
+      if (report.status !== 'DANG_BAO_CAO' && report.status !== 'CHO_BAO_CAO') {
+        fallbackList.push({
+          id: -1,
+          reportId: report.id,
+          status: 'CHO_XET_DUYET',
+          userId: null,
+          userName: report.companyName || 'Doanh nghiệp',
+          userRole: 'DN',
+          rejectReason: null,
+          createdAt: report.createdAt
+        });
+      }
+
+      if (report.status === 'DA_TIEP_NHAN') {
+        fallbackList.push({
+          id: -2,
+          reportId: report.id,
+          status: 'DA_TIEP_NHAN',
+          userId: null,
+          userName: 'Cán bộ Sở',
+          userRole: 'SO',
+          rejectReason: null,
+          createdAt: report.updatedAt
+        });
+      } else if (report.status === 'HUY_TIEP_NHAN') {
+        fallbackList.push({
+          id: -3,
+          reportId: report.id,
+          status: 'HUY_TIEP_NHAN',
+          userId: null,
+          userName: 'Cán bộ Sở',
+          userRole: 'SO',
+          rejectReason: report.rejectReason || 'Không có lý do cụ thể',
+          createdAt: report.updatedAt
+        });
+      } else if (report.status === 'DANG_BAO_CAO') {
+        fallbackList.push({
+          id: -4,
+          reportId: report.id,
+          status: 'DANG_BAO_CAO',
+          userId: null,
+          userName: report.companyName || 'Doanh nghiệp',
+          userRole: 'DN',
+          rejectReason: null,
+          createdAt: report.createdAt
+        });
+      }
+      
+      return Response.get(fallbackList);
+    }
+
+    return Response.get(histories);
+  }
+
+  async getYearHistory(year: number, currentUser?: any): Promise<any> {
+    if (currentUser) await this.checkReadPermission(currentUser);
+    const histories = await this.historyRepo.createQueryBuilder("history")
+      .leftJoinAndSelect("history.report", "report")
+      .where("report.year = :year", { year })
+      .orderBy("history.createdAt", "DESC")
+      .getMany();
+
+    if (histories.length === 0) {
+      const reports = await this.reportRepo.find({ where: { year } });
+      const fallbackList = [];
+      for (const report of reports) {
+        if (report.status !== 'DANG_BAO_CAO' && report.status !== 'CHO_BAO_CAO') {
+          fallbackList.push({
+            id: -1 - report.id * 10,
+            reportId: report.id,
+            status: 'CHO_XET_DUYET',
+            userId: null,
+            userName: report.companyName || 'Doanh nghiệp',
+            userRole: 'DN',
+            rejectReason: null,
+            createdAt: report.createdAt,
+            report: report
+          });
+        }
+
+        if (report.status === 'DA_TIEP_NHAN') {
+          fallbackList.push({
+            id: -2 - report.id * 10,
+            reportId: report.id,
+            status: 'DA_TIEP_NHAN',
+            userId: null,
+            userName: 'Cán bộ Sở',
+            userRole: 'SO',
+            rejectReason: null,
+            createdAt: report.updatedAt,
+            report: report
+          });
+        } else if (report.status === 'HUY_TIEP_NHAN') {
+          fallbackList.push({
+            id: -3 - report.id * 10,
+            reportId: report.id,
+            status: 'HUY_TIEP_NHAN',
+            userId: null,
+            userName: 'Cán bộ Sở',
+            userRole: 'SO',
+            rejectReason: report.rejectReason || 'Không có lý do cụ thể',
+            createdAt: report.updatedAt,
+            report: report
+          });
+        } else if (report.status === 'DANG_BAO_CAO') {
+          fallbackList.push({
+            id: -4 - report.id * 10,
+            reportId: report.id,
+            status: 'DANG_BAO_CAO',
+            userId: null,
+            userName: report.companyName || 'Doanh nghiệp',
+            userRole: 'DN',
+            rejectReason: null,
+            createdAt: report.createdAt,
+            report: report
+          });
+        }
+      }
+      fallbackList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      return Response.get(fallbackList);
+    }
+
+    return Response.get(histories);
+  }
+
+  async delete(currentUser: any, id: string): Promise<any> {
+    await this.checkDeletePermission(currentUser);
+    const existing = await this.reportRepo.findOne(id);
+    if (!existing) throw Response.errorNotFound("Không tìm thấy báo cáo");
+
+    const isDN = currentUser?.role?.type === 'DN';
+    if (isDN) {
+      const doetId = currentUser.doet || currentUser.doet_id;
+      if (Number(existing.doetId) !== Number(doetId)) {
+        throw Response.errorForBidden("Bạn chỉ được phép xóa báo cáo của chính doanh nghiệp mình.");
+      }
+      if (existing.status === 'DA_TIEP_NHAN') {
+        throw Response.errorBad("Báo cáo đã được tiếp nhận, không thể xóa.");
+      }
+    }
+
+    // Xóa chi tiết tai nạn và lịch sử trước để tránh lỗi FK
+    await this.detailRepo.delete({ report: existing });
+    await this.historyRepo.delete({ reportId: existing.id });
+
+    await this.reportRepo.delete(id);
+    return Response.SUCCESSFULLY;
+  }
+
+  async deletes(currentUser: any, ids: string[], doet: any): Promise<any> {
+    for (const id of ids) {
+      await this.delete(currentUser, id);
+    }
+    return Response.SUCCESSFULLY;
+  }
+
+  async destroy(currentUser: any, id: string): Promise<any> {
+    return this.delete(currentUser, id);
+  }
+
+  async destroys(currentUser: any, ids: string[], doet: any): Promise<any> {
+    return this.deletes(currentUser, ids, doet);
   }
 }

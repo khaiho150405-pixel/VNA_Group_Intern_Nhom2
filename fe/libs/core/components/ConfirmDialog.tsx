@@ -45,21 +45,42 @@ export const ConfirmDialog = ({
         </DialogContentText>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onCancel} variant="outlined" color="inherit" sx={{ textTransform: 'none', borderRadius: '6px' }}>
+        <Button
+          onClick={onCancel}
+          disableRipple
+          sx={{
+            textTransform: 'none',
+            color: '#666',
+            fontSize: '0.875rem',
+            borderRadius: '6px',
+            padding: '4.8px 18px',
+            boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
+            transition: 'all 0.2s ease-in-out',
+            '&:hover': {
+              backgroundColor: '#f5f5f7',
+              color: '#333',
+              boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)',
+            },
+          }}
+        >
           {cancelText}
         </Button>
         <Button 
           onClick={onConfirm} 
           variant="contained" 
           autoFocus 
-          disableElevation
           sx={{ 
             textTransform: 'none', 
             borderRadius: '6px',
             bgcolor: isDestructive ? '#ff453a' : '#2f65f0',
-            '&:hover': { bgcolor: isDestructive ? '#e63930' : '#2551c0' },
             fontWeight: 600,
-            px: 3
+            px: 3,
+            boxShadow: isDestructive ? '0px 4px 12px rgba(255, 69, 58, 0.2)' : '0px 4px 12px rgba(47, 101, 240, 0.2)',
+            transition: 'all 0.2s ease-in-out',
+            '&:hover': { 
+              bgcolor: isDestructive ? '#e63930' : '#1e4fd1',
+              boxShadow: isDestructive ? '0px 8px 20px rgba(255, 69, 58, 0.35)' : '0px 8px 20px rgba(47, 101, 240, 0.35)',
+            }
           }}
         >
           {confirmText}

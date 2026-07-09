@@ -15,7 +15,11 @@ export const userService = {
         return response.data || response;
     },
     getById: async (id: string) => {
-        const response = await axiosClient.get(`/users/${id}`);
+        const response = await axiosClient.get(`/users/${id}`, {
+            params: {
+                relation: '["role"]'
+            }
+        });
         return response.data || response;
     },
     update: async (id: string, data: any) => {

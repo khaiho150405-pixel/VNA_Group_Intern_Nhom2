@@ -84,25 +84,55 @@ export class UserService extends BaseService<User> implements OnApplicationBoots
     return 0;
   }
 
-  // Kiểm tra quyền ghi (thêm, sửa) - Chuyên viên trở lên
-  private checkWritePermission(currentUser: any) {
-    const level = this.getPermissionLevel(currentUser);
-    if (level < 1) {
-      throw Response.errorForBidden("Tài khoản của bạn chỉ có quyền xem, không được thực hiện thao tác này.");
+  private async hasPermission(roleId: number | undefined, code: string): Promise<boolean> {
+    if (!roleId) return false;
+    const count = await this.manager.query(
+      `SELECT COUNT(*) FROM role_permissions WHERE role_id = $1 AND permission_code = $2`,
+      [roleId, code]
+    );
+    return parseInt(count[0]?.count || '0', 10) > 0;
+  }
+
+  // Kiểm tra quyền ghi (thêm, sửa) - Chuyên viên trở lên hoặc tài khoản có quyền tương ứng
+  private async checkWritePermission(currentUser: any, action: 'create' | 'update') {
+    if (!currentUser) {
+      throw Response.errorForBidden("Vui lòng đăng nhập.");
+    }
+    if (currentUser.username === 'testuser') {
+      return;
+    }
+    const roleId = currentUser.role?.id;
+    const requiredPermission = action === 'create' ? 'ADMIN_C_USER_CREATE' : 'ADMIN_C_USER_UPDATE';
+    const allowed = await this.hasPermission(roleId, requiredPermission);
+    if (!allowed) {
+      const level = this.getPermissionLevel(currentUser);
+      if (level < 1) {
+        throw Response.errorForBidden("Tài khoản của bạn chỉ có quyền xem, không được thực hiện thao tác này.");
+      }
     }
   }
 
-  // Kiểm tra quyền đầy đủ (xóa, cập nhật trạng thái) - Admin/Lãnh đạo
-  private checkFullPermission(currentUser: any) {
-    const level = this.getPermissionLevel(currentUser);
-    if (level < 2) {
-      throw Response.errorForBidden("Bạn không có quyền thực hiện thao tác này. Chỉ Admin hoặc Lãnh đạo mới được phép xóa hoặc cập nhật trạng thái.");
+  // Kiểm tra quyền đầy đủ (xóa, cập nhật trạng thái) - Admin/Lãnh đạo hoặc tài khoản có quyền xóa
+  private async checkFullPermission(currentUser: any) {
+    if (!currentUser) {
+      throw Response.errorForBidden("Vui lòng đăng nhập.");
+    }
+    if (currentUser.username === 'testuser') {
+      return;
+    }
+    const roleId = currentUser.role?.id;
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_USER_DELETE');
+    if (!allowed) {
+      const level = this.getPermissionLevel(currentUser);
+      if (level < 2) {
+        throw Response.errorForBidden("Bạn không có quyền thực hiện thao tác này. Chỉ Admin hoặc Lãnh đạo mới được phép xóa hoặc cập nhật trạng thái.");
+      }
     }
   }
 
   // Check permission cũ - giữ lại để tương thích (sử dụng checkWritePermission)
-  private checkPermission(currentUser: any) {
-    this.checkWritePermission(currentUser);
+  private async checkPermission(currentUser: any, action: 'create' | 'update' = 'create') {
+    await this.checkWritePermission(currentUser, action);
   }
 
   private async getRoleMap(): Promise<Record<string, { id: number; name: string }>> {
@@ -229,7 +259,7 @@ export class UserService extends BaseService<User> implements OnApplicationBoots
 
   async import(currentUser: CurrentUser, inputData: any): Promise<any> {
     try {
-      this.checkPermission(currentUser);
+      await this.checkPermission(currentUser, 'create');
       console.log("Dữ liệu gốc từ Frontend gửi xuống:", inputData);
       let users = inputData;
       if (inputData && typeof inputData === 'object' && !Array.isArray(inputData)) {
@@ -270,6 +300,19 @@ export class UserService extends BaseService<User> implements OnApplicationBoots
         }
 
         const roleIdVal = user.roleId ? +user.roleId : undefined;
+        if (roleIdVal) {
+          const assignedRole = await this.manager.findOne(Role, roleIdVal);
+          if (assignedRole && assignedRole.type !== 'DN') {
+            const isTestUser = currentUser && currentUser.username === 'testuser';
+            const hasUserCreatePermission = currentUser && await this.hasPermission(currentUser.role?.id, 'ADMIN_C_USER_CREATE');
+            if (!isTestUser && !hasUserCreatePermission) {
+              result.err += 1;
+              result.username.push((user.username || 'Chưa có tên') + " (Chỉ tài khoản được cấp quyền mới được gán vai trò Sở)");
+              continue;
+            }
+          }
+        }
+
         if (roleIdVal && adminRoleIds.includes(roleIdVal) && username !== 'testuser') {
           result.err += 1;
           result.username.push((user.username || 'Chưa có tên') + " (Cấm gán quyền Admin)");
@@ -463,7 +506,7 @@ export class UserService extends BaseService<User> implements OnApplicationBoots
 
   async put(currentUser: any, id: string, itemDto: any): Promise<any> {
     try {
-      this.checkPermission(currentUser);
+      await this.checkPermission(currentUser, 'update');
       // 1. Check email uniqueness
       if (itemDto.email) {
         itemDto.email = itemDto.email.trim();
@@ -520,6 +563,12 @@ export class UserService extends BaseService<User> implements OnApplicationBoots
         if (itemDto.roleId && !adminRoleIds.includes(+itemDto.roleId)) {
           throw Response.errorBad("testuser là tài khoản quản trị viên mặc định, không được phép thay đổi vai trò.");
         }
+        if (Object.prototype.hasOwnProperty.call(itemDto, 'status')) {
+          const nextDbStatus = !(itemDto.status === true || itemDto.status === "true");
+          if (nextDbStatus === true) {
+            throw Response.errorBad("Tài khoản admin testuser là tài khoản mặc định, không thể bị tắt trạng thái hoạt động.");
+          }
+        }
       }
 
       if (itemDto.roleId && adminRoleIds.includes(+itemDto.roleId)) {
@@ -544,7 +593,7 @@ export class UserService extends BaseService<User> implements OnApplicationBoots
 
   async post(currentUser: any, itemDto: any, doet: any): Promise<any> {
     try {
-      this.checkPermission(currentUser);
+      await this.checkPermission(currentUser, 'create');
       if (!itemDto.email || typeof itemDto.email !== 'string' || itemDto.email.trim() === '') {
         throw Response.errorBad("Email không được để trống");
       }
@@ -584,6 +633,14 @@ export class UserService extends BaseService<User> implements OnApplicationBoots
       // Map roleId if present
       if (itemDto.roleId) {
         itemDto.roleId = +itemDto.roleId;
+        const assignedRole = await this.manager.findOne(Role, itemDto.roleId);
+        if (assignedRole && assignedRole.type !== 'DN') {
+          const isTestUser = currentUser && currentUser.username === 'testuser';
+          const hasUserCreatePermission = currentUser && await this.hasPermission(currentUser.role?.id, 'ADMIN_C_USER_CREATE');
+          if (!isTestUser && !hasUserCreatePermission) {
+            throw Response.errorForBidden("Bạn không có quyền gán vai trò Sở.");
+          }
+        }
       }
 
       // Check admin constraints
@@ -666,6 +723,27 @@ export class UserService extends BaseService<User> implements OnApplicationBoots
       const updateData = { ...data };
       delete updateData.id;
 
+      // Security: Only testuser or users with ADMIN_C_USER_UPDATE permission can assign allowedRoles
+      if (Object.prototype.hasOwnProperty.call(updateData, 'allowedRoles')) {
+        let canAssignAllowedRoles = false;
+        if (currentUser) {
+          if (currentUser.username === 'testuser') {
+            canAssignAllowedRoles = true;
+          } else if (currentUser.role?.id) {
+            // Check if the current user's role has ADMIN_C_USER_UPDATE permission
+            const roleWithPerms = await this.userRepository.manager.findOne(
+              'Role',
+              { where: { id: currentUser.role.id }, relations: ['permissions'] } as any
+            ) as any;
+            canAssignAllowedRoles = Array.isArray(roleWithPerms?.permissions) &&
+              roleWithPerms.permissions.some((p: any) => p.code === 'ADMIN_C_USER_UPDATE');
+          }
+        }
+        if (!canAssignAllowedRoles) {
+          delete updateData.allowedRoles;
+        }
+      }
+
       if (updateData.realRole) {
         const roleMap = await this.getRoleMap();
         const roleKey = String(updateData.realRole).toLowerCase().trim();
@@ -707,7 +785,7 @@ export class UserService extends BaseService<User> implements OnApplicationBoots
 
       // Skip permission check if self-updating
       if (!isSelfUpdate) {
-        this.checkPermission(currentUser);
+        await this.checkPermission(currentUser, 'update');
       }
 
       if (updateData.password) {
@@ -777,8 +855,75 @@ export class UserService extends BaseService<User> implements OnApplicationBoots
       }
 
       if (updateData.roleId) {
-        user.roleId = +updateData.roleId;
-        user.role = { id: +updateData.roleId } as any;
+        const nextRoleId = +updateData.roleId;
+        if (nextRoleId !== user.roleId) {
+          const assignedRole = await this.manager.findOne(Role, nextRoleId);
+          if (assignedRole && assignedRole.type !== 'DN') {
+            const isTestUser = currentUser && currentUser.username === 'testuser';
+            const hasUserUpdatePermission = currentUser && await this.hasPermission(currentUser.role?.id, 'ADMIN_C_USER_UPDATE');
+            
+            let selfAllowed = false;
+            if (isSelfUpdate && user.allowedRoles) {
+              const allowedIds = Array.isArray(user.allowedRoles)
+                ? user.allowedRoles.map(String)
+                : String(user.allowedRoles).split(',').filter(Boolean);
+              const allowedIdsNormalized = allowedIds.map(id => id.toLowerCase().trim());
+              if (
+                allowedIds.includes(String(nextRoleId)) ||
+                (assignedRole && (
+                  allowedIdsNormalized.includes(String(assignedRole.role).toLowerCase().trim()) ||
+                  allowedIdsNormalized.includes(String(assignedRole.name).toLowerCase().trim()) ||
+                  allowedIdsNormalized.includes(String(assignedRole.id).toLowerCase().trim())
+                ))
+              ) {
+                selfAllowed = true;
+              }
+            }
+
+            if (!isTestUser && !hasUserUpdatePermission && !selfAllowed) {
+              throw Response.errorForBidden("Bạn không có quyền gán hoặc sửa đổi vai trò Sở.");
+            }
+
+            // Perform Role Swapping in allowedRoles!
+            const oldRoleKey = user.role?.role;
+            const newRoleKey = assignedRole.role;
+
+            let allowed: string[] = [];
+            const rawAllowed = Object.prototype.hasOwnProperty.call(updateData, 'allowedRoles')
+              ? updateData.allowedRoles
+              : user.allowedRoles;
+
+            if (Array.isArray(rawAllowed)) {
+              allowed = [...rawAllowed.map(String)];
+            } else if (typeof rawAllowed === 'string') {
+              allowed = String(rawAllowed).split(',').map(s => s.trim()).filter(Boolean);
+            }
+
+            // 1. Add old role key to allowedRoles
+            if (oldRoleKey && !allowed.includes(oldRoleKey)) {
+              allowed.push(oldRoleKey);
+            }
+
+            // 2. Remove new role key/id/name from allowedRoles
+            if (newRoleKey) {
+              allowed = allowed.filter(r => {
+                const rLower = String(r || '').toLowerCase().trim();
+                return rLower !== String(newRoleKey).toLowerCase().trim() &&
+                       rLower !== String(assignedRole.id).trim() &&
+                       rLower !== String(assignedRole.name).toLowerCase().trim();
+              });
+            }
+
+            // Set back to updateData or user
+            if (Object.prototype.hasOwnProperty.call(updateData, 'allowedRoles')) {
+              updateData.allowedRoles = allowed;
+            } else {
+              user.allowedRoles = allowed;
+            }
+          }
+        }
+        user.roleId = nextRoleId;
+        user.role = { id: nextRoleId } as any;
       }
 
       // Ràng buộc: Mỗi doanh nghiệp chỉ được có 1 user truy cập duy nhất
@@ -793,8 +938,12 @@ export class UserService extends BaseService<User> implements OnApplicationBoots
 
       // Explicitly update status if provided and allowed
       if (Object.prototype.hasOwnProperty.call(updateData, 'status')) {
+        const newDbStatus = !(updateData.status === true || updateData.status === "true");
+        if (usernameLower === 'testuser' && newDbStatus === true) {
+          throw Response.errorBad("Tài khoản admin testuser là tài khoản mặc định, không thể bị tắt trạng thái hoạt động.");
+        }
         // Frontend true (Active) -> DB false, Frontend false (Inactive) -> DB true
-        user.status = !(updateData.status === true || updateData.status === "true");
+        user.status = newDbStatus;
         delete updateData.status;
       }
 
@@ -834,7 +983,7 @@ export class UserService extends BaseService<User> implements OnApplicationBoots
 
   async delete(currentUser: any, id: string): Promise<any> {
     try {
-      this.checkFullPermission(currentUser);
+      await this.checkFullPermission(currentUser);
       const targetUser = await this.userRepository.findOne(id);
       if (targetUser?.username?.trim().toLowerCase() === 'testuser') {
         throw Response.errorBad("Cảnh báo: testuser là tài khoản quản trị viên mặc định, không được phép xóa tài khoản này.");
@@ -852,7 +1001,7 @@ export class UserService extends BaseService<User> implements OnApplicationBoots
 
   async destroy(currentUser: any, id: string): Promise<any> {
     try {
-      this.checkFullPermission(currentUser);
+      await this.checkFullPermission(currentUser);
       const targetUser = await this.userRepository.findOne(id);
       if (targetUser?.username?.trim().toLowerCase() === 'testuser') {
         throw Response.errorBad("Cảnh báo: testuser là tài khoản quản trị viên mặc định, không được phép xóa tài khoản này.");
@@ -870,7 +1019,7 @@ export class UserService extends BaseService<User> implements OnApplicationBoots
 
   async destroys(currentUser: any, ids: string[], doet: any): Promise<any> {
     try {
-      this.checkFullPermission(currentUser);
+      await this.checkFullPermission(currentUser);
       if (!ids || ids.length === 0) return { success: true };
 
       const targetUsers = await this.userRepository.findByIds(ids);
@@ -893,7 +1042,7 @@ export class UserService extends BaseService<User> implements OnApplicationBoots
 
   async deletes(currentUser: any, ids: string[], doet: any): Promise<any> {
     try {
-      this.checkFullPermission(currentUser);
+      await this.checkFullPermission(currentUser);
       if (!ids || ids.length === 0) return { success: true };
 
       const targetUsers = await this.userRepository.findByIds(ids);

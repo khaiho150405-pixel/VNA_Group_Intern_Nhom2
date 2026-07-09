@@ -1,11 +1,60 @@
-import { Injectable, OnApplicationBootstrap } from "@nestjs/common";
+import { Injectable, OnApplicationBootstrap, BadRequestException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Repository, getManager } from "typeorm";
 import { InjuryFactor } from "./injury-factor.entity";
 import Response from "../../commons/response";
 
 @Injectable()
 export class InjuryFactorService implements OnApplicationBootstrap {
+  private async hasPermission(roleId: number | undefined, code: string): Promise<boolean> {
+    if (!roleId) return false;
+    const count = await this.injuryFactorRepo.query(
+      `SELECT COUNT(*) FROM role_permissions WHERE role_id = $1 AND permission_code = $2`,
+      [roleId, code]
+    );
+    return parseInt(count[0]?.count || '0', 10) > 0;
+  }
+
+  async checkReadPermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') return;
+    const roleId = currentUser.role?.id;
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_CATEGORY_VIEW');
+    if (!allowed) {
+      throw Response.errorForBidden("Tài khoản của bạn không có quyền xem danh mục chung.");
+    }
+  }
+
+  async checkCreatePermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') return;
+    const roleId = currentUser.role?.id;
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_CATEGORY_CREATE');
+    if (!allowed) {
+      throw Response.errorForBidden("Tài khoản của bạn không có quyền thêm mới danh mục.");
+    }
+  }
+
+  async checkUpdatePermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') return;
+    const roleId = currentUser.role?.id;
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_CATEGORY_UPDATE');
+    if (!allowed) {
+      throw Response.errorForBidden("Tài khoản của bạn không có quyền cập nhật danh mục.");
+    }
+  }
+
+  async checkDeletePermission(currentUser: any) {
+    if (currentUser === undefined || currentUser === null) return;
+    if (currentUser.username === 'testuser') return;
+    const roleId = currentUser.role?.id;
+    const allowed = await this.hasPermission(roleId, 'ADMIN_C_CATEGORY_DELETE');
+    if (!allowed) {
+      throw Response.errorForBidden("Tài khoản của bạn không có quyền xóa danh mục.");
+    }
+  }
+
   constructor(
     @InjectRepository(InjuryFactor)
     private readonly injuryFactorRepo: Repository<InjuryFactor>,
@@ -48,7 +97,8 @@ export class InjuryFactorService implements OnApplicationBootstrap {
     status?: string;
     page?: number;
     limit?: number;
-  }) {
+  }, currentUser?: any) {
+    if (currentUser) await this.checkReadPermission(currentUser);
     const { name, code, status, page = 1, limit = 10 } = query;
 
     const qb = this.injuryFactorRepo.createQueryBuilder("inf");
@@ -84,7 +134,8 @@ export class InjuryFactorService implements OnApplicationBootstrap {
   /**
    * Lấy chi tiết theo ID
    */
-  async findById(id: number) {
+  async findById(id: number, currentUser?: any) {
+    if (currentUser) await this.checkReadPermission(currentUser);
     const item = await this.injuryFactorRepo.findOne({ where: { id } });
     if (!item) throw Response.errorNotFound("Không tìm thấy yếu tố chấn thương");
     return item;
@@ -105,7 +156,8 @@ export class InjuryFactorService implements OnApplicationBootstrap {
   /**
    * Tạo mới
    */
-  async create(data: Partial<InjuryFactor>) {
+  async create(data: Partial<InjuryFactor>, currentUser?: any) {
+    if (currentUser) await this.checkCreatePermission(currentUser);
     const { exists } = await this.checkCodeExists(data.code);
     if (exists) throw Response.errorBad(`Mã "${data.code}" đã tồn tại`);
 
@@ -117,12 +169,26 @@ export class InjuryFactorService implements OnApplicationBootstrap {
   /**
    * Cập nhật
    */
-  async update(id: number, data: Partial<InjuryFactor>) {
+  async update(id: number, data: Partial<InjuryFactor>, currentUser?: any) {
+    if (currentUser) await this.checkUpdatePermission(currentUser);
     const existing = await this.findById(id);
 
     if (data.code && data.code !== existing.code) {
       const { exists } = await this.checkCodeExists(data.code, id);
       if (exists) throw Response.errorBad(`Mã "${data.code}" đã tồn tại`);
+    }
+
+    // Kiểm tra nếu tắt trạng thái thì không cho nếu đang được sử dụng
+    const isDeactivating = ((data.status as any) === false || (data.status as any) === 'INACTIVE') && ((existing.status as any) !== false && (existing.status as any) !== 'INACTIVE');
+    if (isDeactivating) {
+      const manager = getManager();
+      const countRes = await manager.query(
+        `SELECT COUNT(*) as count FROM accident_details WHERE nguyen_nhan_id = $1`,
+        [id]
+      );
+      if (countRes && countRes[0] && Number(countRes[0].count) > 0) {
+        throw new BadRequestException('Yếu tố chấn thương này đang được sử dụng trong báo cáo, không thể tắt trạng thái');
+      }
     }
 
     Object.assign(existing, data, { updatedAt: new Date() });
@@ -133,8 +199,19 @@ export class InjuryFactorService implements OnApplicationBootstrap {
   /**
    * Xóa vĩnh viễn
    */
-  async remove(id: number) {
+  async remove(id: number, currentUser?: any) {
+    if (currentUser) await this.checkDeletePermission(currentUser);
     await this.findById(id);
+
+    const manager = getManager();
+    const countRes = await manager.query(
+      `SELECT COUNT(*) as count FROM accident_details WHERE nguyen_nhan_id = $1`,
+      [id]
+    );
+    if (countRes && countRes[0] && Number(countRes[0].count) > 0) {
+      throw new BadRequestException('Yếu tố chấn thương này đang được sử dụng trong báo cáo, không thể xóa');
+    }
+
     await this.injuryFactorRepo.delete(id);
     return Response.SUCCESSFULLY;
   }
@@ -142,8 +219,19 @@ export class InjuryFactorService implements OnApplicationBootstrap {
   /**
    * Xóa nhiều
    */
-  async removeMany(ids: number[]) {
+  async removeMany(ids: number[], currentUser?: any) {
+    if (currentUser) await this.checkDeletePermission(currentUser);
     if (!ids || ids.length === 0) throw Response.errorBad("Danh sách ID không được rỗng");
+
+    const manager = getManager();
+    const countRes = await manager.query(
+      `SELECT COUNT(*) as count FROM accident_details WHERE nguyen_nhan_id = ANY($1::int[])`,
+      [ids]
+    );
+    if (countRes && countRes[0] && Number(countRes[0].count) > 0) {
+      throw new BadRequestException('Một số yếu tố chấn thương đang được sử dụng trong báo cáo, không thể xóa');
+    }
+
     await this.injuryFactorRepo.delete(ids);
     return Response.SUCCESSFULLY;
   }

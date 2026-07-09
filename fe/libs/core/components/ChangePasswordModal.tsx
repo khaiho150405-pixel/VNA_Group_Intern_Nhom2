@@ -26,7 +26,7 @@ import { AppToast } from '@tts/components/AppToast';
 const useStyles = makeStyles((theme: Theme) => ({
   dialogPaper: {
     borderRadius: 14,
-    boxShadow: '0px 12px 40px rgba(0, 0, 0, 0.15)',
+    boxShadow: '0px 24px 64px rgba(0, 0, 0, 0.12), 0px 4px 16px rgba(0, 0, 0, 0.04)',
     overflow: 'hidden',
   },
   dialogTitle: {
@@ -34,7 +34,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     color: '#fff',
     padding: theme.spacing(2, 2),
     textAlign: 'center',
-    boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.15)',
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
     position: 'relative',
     zIndex: 2,
     borderRadius: '14px 14px 0 0',
@@ -91,14 +91,12 @@ const useStyles = makeStyles((theme: Theme) => ({
   cancelBtn: {
     textTransform: 'none',
     color: '#666',
-    fontSize: '0.95rem',
-    fontWeight: 500,
-    padding: theme.spacing(1, 4),
-    borderRadius: 8,
-    '&:hover': { 
-      backgroundColor: '#f5f5f5',
-      color: '#333'
-    },
+    fontSize: '0.875rem',
+    borderRadius: 6,
+    padding: theme.spacing(0.6, 2.25),
+    boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
+    transition: 'all 0.2s ease-in-out',
+    '&:hover': { backgroundColor: '#f5f5f7', color: '#333', boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)' },
   },
   saveBtn: {
     backgroundColor: VNA_COLORS.primary,
@@ -108,10 +106,11 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontSize: '0.95rem',
     padding: theme.spacing(1, 6),
     borderRadius: 8,
-    boxShadow: '0px 4px 10px rgba(47, 101, 240, 0.3)',
+    boxShadow: '0px 4px 12px rgba(47, 101, 240, 0.2)',
+    transition: 'all 0.2s ease-in-out',
     '&:hover': { 
       backgroundColor: VNA_COLORS.primaryHover,
-      boxShadow: '0px 6px 12px rgba(47, 101, 240, 0.4)',
+      boxShadow: '0px 8px 20px rgba(47, 101, 240, 0.35)',
     },
   },
   errorBox: {

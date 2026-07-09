@@ -18,7 +18,9 @@ import { InjuryTypeModule } from "./modules/injury-type/injury-type.module";
 import { InjuryFactorModule } from "./modules/injury-factor/injury-factor.module";
 import { PeriodicReportModule } from "./modules/periodic-report/periodic-report.module";
 import { ReportPeriodModule } from "./modules/report-period/report-period.module";
+import { PermissionModule } from "./modules/permission/permission.module";
 import { DomainMiddleware } from "./commons/middleware/domain.middleware";
+import { OccupationModule } from "./modules/occupation/occupation.module";
 
 @Module({
   imports: [
@@ -47,6 +49,8 @@ import { DomainMiddleware } from "./commons/middleware/domain.middleware";
     InjuryFactorModule,
     PeriodicReportModule,
     ReportPeriodModule,
+    PermissionModule,
+    OccupationModule,
   ],
   controllers: [AppController],
   providers: [AppService]
@@ -57,3 +61,4 @@ export class AppModule implements NestModule {
       .apply(DomainMiddleware).forRoutes("*");
   }
 }
+

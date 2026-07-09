@@ -37,7 +37,8 @@ export class User extends BaseAddressEntity {
       "deletedAt",
       "otp",
       "otpExpired",
-      "workUnit"
+      "workUnit",
+      "allowedRoles"
     ]
   ) {
     super(users as any);
@@ -108,4 +109,7 @@ export class User extends BaseAddressEntity {
 
   @Column({ nullable: true })
   workUnit!: string;
+
+  @Column("simple-array", { nullable: true })
+  allowedRoles!: string[];
 }

@@ -1,6 +1,6 @@
 import docx
 
-template_path = 'd:\\VNA_Group_Intern_Nhom2\\template.docx'
+template_path = 'd:\\VNA_Group_Intern_Nhom2\\fe\\public\\template.docx'
 output_path = 'd:\\VNA_Group_Intern_Nhom2\\fe\\public\\template.docx'
 
 doc = docx.Document(template_path)
@@ -16,17 +16,25 @@ doc.paragraphs[5].runs[3].text = '{femaleEmployees} '
 doc.paragraphs[6].runs[1].text = '{totalSalary} '
 
 t0 = doc.tables[0]
-t0.cell(0, 0).paragraphs[0].runs[0].text = 'Địa chỉ: {companyAddress}'
-t0.cell(0, 1).paragraphs[0].runs[2].text = ': {addressCode}'
+if len(t0.row_cells(0)) > 1:
+    t0.cell(0, 0).paragraphs[0].runs[0].text = 'Địa chỉ: {companyAddress}          Mã phường xã: {wardCode}'
+    for i in range(1, len(t0.row_cells(0))):
+        t0.cell(0, i).text = ''
+else:
+    t0.cell(0, 0).paragraphs[0].runs[0].text = 'Địa chỉ: {companyAddress}          Mã phường xã: {wardCode}'
 
 t1 = doc.tables[1]
 t1.cell(0, 0).paragraphs[0].runs[3].text = '{companyType}    '
-t1.cell(0, 0).paragraphs[0].runs[4].text = 'Mã loại hình cơ sở: {typeCode}'
+t1.cell(0, 0).paragraphs[0].runs[4].text = 'Mã loại hình cơ sở: '
+for i in range(1, 5):
+    t1.cell(0, i).text = f'{{tC{i}}}'
 
 t2 = doc.tables[2]
 t2.cell(0, 0).paragraphs[0].runs[1].text = '{companyField}'
 t2.cell(0, 0).paragraphs[0].runs[3].text = ''
-t2.cell(0, 0).paragraphs[0].runs[4].text = '\xa0Mã lĩnh vực: {fieldCode}'
+t2.cell(0, 0).paragraphs[0].runs[4].text = '\xa0Mã lĩnh vực: '
+for i in range(1, 5):
+    t2.cell(0, i).text = f'{{fC{i}}}'
 t5 = doc.tables[5]
 p5 = t5.cell(0, 1).paragraphs[0]
 p5.runs[2].text = '(K'

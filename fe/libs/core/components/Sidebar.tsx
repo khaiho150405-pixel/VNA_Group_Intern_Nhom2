@@ -25,6 +25,7 @@ import {
 } from '@mui/icons-material';
 import { VNA_COLORS } from '@core/theme';
 import { useAuth } from '@core/contexts/AuthProvider';
+import { usePermission } from '../hooks/usePermission';
 import { useRouter, usePathname } from 'next/navigation';
 import { NAVIGATION_ITEMS, NavItem } from '../constants/navigation';
 import { ChangePasswordModal } from './ChangePasswordModal';
@@ -36,6 +37,7 @@ interface SidebarProps {
 
 export const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
   const { user, logout } = useAuth();
+  const { hasPermission } = usePermission();
   const router = useRouter();
   const pathname = usePathname();
   const [openItems, setOpenItems] = useState<string[]>([]);
@@ -115,7 +117,50 @@ export const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
   // Filter items based on user role recursively
   const filterNavItems = (items: NavItem[]): NavItem[] => {
     return items
-      .filter(item => item.roles.includes(userRole as any))
+      .filter(item => {
+        // Enterprise users (DN) should only see enterprise-profile and accident-reports
+        if (userRoleType === 'DN') {
+          if (!item.path) return true; // parent containers
+          return item.path === '/enterprise-profile' || item.path === '/accident-reports';
+        }
+        if (!item.path) {
+          return true;
+        }
+        if (item.path === '/permissions') {
+          return user?.username === 'testuser';
+        }
+        if (item.path === '/roles') {
+          return hasPermission('ADMIN_C_ROLE_VIEW');
+        }
+        if (item.path === '/users') {
+          return hasPermission('ADMIN_C_USER_VIEW');
+        }
+        if (item.path === '/loai-hinh-kinh-doanh') {
+          return hasPermission('ADMIN_C_LOAI_HINH_KD_VIEW');
+        }
+        if (item.path === '/nganh-nghe-kinh-doanh') {
+          return hasPermission('ADMIN_C_NGANH_NGHE_KD_VIEW');
+        }
+        if (item.path === '/doets') {
+          return hasPermission('ADMIN_C_ENTERPRISE_VIEW');
+        }
+        if (item.path === '/enterprise-profile') {
+          return userRoleType === 'DN';
+        }
+        if (item.path === '/report-periods') {
+          return hasPermission('ADMIN_C_REPORT_PERIOD_VIEW');
+        }
+        if (item.path === '/common-categories') {
+          return hasPermission('ADMIN_C_CATEGORY_VIEW');
+        }
+        if (item.path === '/accident-reports') {
+          if (userRoleType === 'SO') {
+            return hasPermission('ADMIN_C_ACCIDENT_REPORT_VIEW');
+          }
+          return userRoleType === 'DN';
+        }
+        return item.roles.includes(userRole as any);
+      })
       .map(item => ({
         ...item,
         children: item.children ? filterNavItems(item.children) : undefined

@@ -22,9 +22,11 @@ export const useAccountInfoStyles = makeStyles((theme: Theme) => ({
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    boxShadow: '0px 4px 10px rgba(0,0,0,0.08)',
-    zIndex: 1,
+    boxShadow: '0px 2px 12px rgba(0, 0, 0, 0.04)',
+    zIndex: 10,
     minHeight: '64px',
+    position: 'sticky',
+    top: 0,
   },
   headerTitle: {
     fontWeight: 700,
@@ -43,9 +45,12 @@ export const useAccountInfoStyles = makeStyles((theme: Theme) => ({
     fontSize: '0.85rem',
     borderRadius: 6,
     padding: theme.spacing(0.5, 2),
+    boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
+    transition: 'all 0.2s ease-in-out',
     '&:hover': {
       backgroundColor: '#f5f5f7',
       color: '#333',
+      boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)',
     }
   },
   saveBtn: {
@@ -55,8 +60,11 @@ export const useAccountInfoStyles = makeStyles((theme: Theme) => ({
     fontWeight: 600,
     padding: theme.spacing(0.5, 3),
     borderRadius: 6,
+    boxShadow: '0px 4px 12px rgba(47, 101, 240, 0.2)',
+    transition: 'all 0.2s ease-in-out',
     '&:hover': {
       backgroundColor: '#1e4fd1',
+      boxShadow: '0px 8px 20px rgba(47, 101, 240, 0.35)',
     },
   },
   mainContent: {
@@ -71,7 +79,7 @@ export const useAccountInfoStyles = makeStyles((theme: Theme) => ({
     flexDirection: 'column',
     alignItems: 'center',
     height: 'fit-content',
-    boxShadow: '0px 4px 20px rgba(0,0,0,0.08)',
+    boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.04), 0px 2px 6px rgba(0, 0, 0, 0.02)',
     border: '1px solid #f0f0f0',
     position: 'relative',
   },
@@ -89,7 +97,7 @@ export const useAccountInfoStyles = makeStyles((theme: Theme) => ({
     backgroundColor: '#fff',
     borderRadius: 8,
     padding: theme.spacing(3, 4),
-    boxShadow: '0px 4px 20px rgba(0,0,0,0.08)',
+    boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.04), 0px 2px 6px rgba(0, 0, 0, 0.02)',
     border: '1px solid #f0f0f0',
   },
   avatarCircle: {

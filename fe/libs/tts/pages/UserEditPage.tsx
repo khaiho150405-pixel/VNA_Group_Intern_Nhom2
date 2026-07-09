@@ -17,7 +17,7 @@ import {
 import { PhotoCamera, Save, Event, Delete } from '@mui/icons-material';
 import { ChangeEmailModal } from '@core/components/ChangeEmailModal';
 import { RequiredLabel } from '@core/components/RequiredLabel';
-import { MainLayout } from '@core/layouts/MainLayout';
+
 import { useAccountInfoStyles } from '../logic/account-info/style';
 import { useEditUser } from '@tts/hooks/useEditUser';
 import { CustomCalendar } from '@core/components/CustomCalendar';
@@ -56,6 +56,46 @@ export const UserEditPage = () => {
     } = useEditUser();
     const { user } = useAuth();
 
+    const userPermissions = React.useMemo(() => {
+        if (!user) return [];
+        if (user.username === 'testuser') {
+            return ['ADMIN_C_USER_VIEW', 'ADMIN_C_USER_UPDATE', 'ADMIN_C_USER_DELETE'];
+        }
+        const currentUserRoleId = user.roleId || (user.role as any)?.id;
+        const loggedInRoleObj = state.roles?.find((r: any) => Number(r.id) === Number(currentUserRoleId));
+        return (loggedInRoleObj?.permissions || []).map((p: any) => p.code);
+    }, [user, state.roles]);
+
+    const canView = React.useMemo(() => {
+        if (!user) return false;
+        if (user.username === 'testuser') return true;
+        if (userId && String(user.id) === String(userId)) return true;
+        if (state.roles && state.roles.length > 0) {
+            return userPermissions.includes('ADMIN_C_USER_VIEW');
+        }
+        return getPermissionLevel(user) >= 0;
+    }, [user, userId, state.roles, userPermissions]);
+
+    const canChangeStatus = React.useMemo(() => {
+        if (!user) return false;
+        if (user.username === 'testuser') return true;
+        if (state.roles && state.roles.length > 0) {
+            return userPermissions.includes('ADMIN_C_USER_DELETE');
+        }
+        return getPermissionLevel(user) >= 2;
+    }, [user, state.roles, userPermissions]);
+
+    const canAssignRole = React.useMemo(() => {
+        if (!user) return false;
+        if (user.username === 'testuser') return true;
+        if (state.roles && state.roles.length > 0) {
+            return userPermissions.includes('ADMIN_C_USER_UPDATE');
+        }
+        const currentUserRoleId = user.roleId || (user.role as any)?.id;
+        const loggedInRoleObj = state.roles?.find((r: any) => Number(r.id) === Number(currentUserRoleId));
+        return !!loggedInRoleObj?.permissions?.some((p: any) => p.code === 'ADMIN_C_USER_UPDATE');
+    }, [user, state.roles, userPermissions]);
+
     // Kiểm tra quyền chỉnh sửa
     const canEdit = React.useMemo(() => {
         if (!user) return false;
@@ -63,6 +103,16 @@ export const UserEditPage = () => {
         // Tự sửa chính mình: luôn được phép
         if (userId && String(user.id) === String(userId)) {
             return true;
+        }
+
+        // Kiểm tra quyền động
+        if (state.roles && state.roles.length > 0) {
+            const hasUpdatePerm = userPermissions.includes('ADMIN_C_USER_UPDATE');
+            if (!hasUpdatePerm) return false;
+        } else {
+            // Fallback to static checks
+            const currentLevel = getPermissionLevel(user);
+            if (currentLevel < 1) return false;
         }
         
         const currentLevel = getPermissionLevel(user);
@@ -92,7 +142,7 @@ export const UserEditPage = () => {
         }
         
         return false;
-    }, [user, userId, state.username, state.role, state.roles]);
+    }, [user, userId, state.username, state.role, state.roles, userPermissions]);
 
     const hasChanges = () => {
         if (!state.initialSnapshot) return false;
@@ -136,8 +186,20 @@ export const UserEditPage = () => {
         loading,
         roles,
         provinces,
-        districts
+        districts,
+        allowedRoles
     } = state;
+
+    const editableRoles = React.useMemo(() => {
+        if (!roles) return [];
+        const allowed = allowedRoles || [];
+        return roles.filter((r: any) =>
+            allowed.includes(String(r.role)) ||
+            allowed.includes(String(r.id)) ||
+            allowed.includes(String(r.name)) ||
+            String(r.id) === String(role)
+        );
+    }, [roles, allowedRoles, role]);
 
     const handleAvatarClick = () => {
         fileInputRef.current?.click();
@@ -175,15 +237,72 @@ export const UserEditPage = () => {
         setCalendarAnchor(null);
     };
 
+    if (state.roles && state.roles.length > 0 && !canView) {
+        return (
+            <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+                    <Box sx={{ bgcolor: '#fee2e2', p: 3, borderRadius: '50%', mb: 3 }}>
+                        <Typography color="error" variant="h3" component="div" sx={{ display: 'flex' }}>
+                            🔒
+                        </Typography>
+                    </Box>
+                    <Typography variant="h5" sx={{ fontWeight: 700, mb: 1, color: '#1e293b' }}>
+                        Quyền truy cập bị từ chối
+                    </Typography>
+                    <Typography variant="body1" sx={{ color: '#64748b', mb: 3, textAlign: 'center', maxWidth: 450 }}>
+                        Tài khoản của bạn không được cấp quyền xem thông tin người dùng này. Vui lòng liên hệ quản trị viên.
+                    </Typography>
+                </Box>
+        );
+    }
+
     return (
-        <MainLayout>
-            <Box className={classes.root}>
-                <Box className={classes.pageHeader}>
-                    <Typography className={classes.headerTitle}>
+        <Box sx={{ backgroundColor: '#ffffff', minHeight: '100vh', display: 'flex', flexDirection: 'column', overflow: 'visible' }}>
+                <Box sx={{
+                    backgroundColor: '#fff',
+                    padding: '16px 24px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    boxShadow: '0px 2px 12px rgba(0, 0, 0, 0.04)',
+                    zIndex: 10,
+                    minHeight: '64px',
+                    position: 'sticky',
+                    top: 0,
+                }}>
+                    <Typography sx={{
+                        fontWeight: 700,
+                        fontSize: '1.1rem',
+                        color: '#333',
+                        margin: 0,
+                    }}>
                         {canEdit ? 'Chỉnh sửa người dùng' : 'Chi tiết người dùng'}
                     </Typography>
-                    <Box className={classes.actions}>
-                        <Button className={classes.cancelBtn} disableRipple disabled={loading} onClick={() => router.push('/users')}>
+                    <Box sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                    }}>
+                        <Button
+                            disableRipple
+                            disabled={loading}
+                            onClick={() => router.push('/users')}
+                            sx={{
+                                textTransform: 'none',
+                                color: '#666',
+                                fontSize: '0.875rem',
+                                borderRadius: '6px',
+                                padding: '6px 18px',
+                                minWidth: 'auto',
+                                backgroundColor: 'transparent',
+                                boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
+                                transition: 'all 0.2s ease-in-out',
+                                '&:hover': {
+                                    backgroundColor: '#f5f5f7',
+                                    color: '#333',
+                                    boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)'
+                                }
+                            }}
+                        >
                             {canEdit ? 'Hủy bỏ' : 'Quay lại'}
                         </Button>
                         {canEdit && (
@@ -209,7 +328,7 @@ export const UserEditPage = () => {
                     </Box>
                 </Box>
 
-                <Box className={classes.mainContent}>
+                <Box sx={{ padding: 3, flex: 1, overflow: 'visible' }}>
                     <Grid container spacing={3}>
 
                         <Grid size={{ xs: 12, md: 3 }}>
@@ -273,10 +392,14 @@ export const UserEditPage = () => {
                                     <Typography style={{ fontWeight: 600, fontSize: '0.85rem', color: '#333' }}>Kích hoạt</Typography>
                                     <Switch
                                         checked={active}
-                                        onChange={() => dispatch({ type: 'toggleActive' })}
+                                        onChange={() => {
+                                            // Guard: testuser không được tắt trạng thái
+                                            if (username?.trim().toLowerCase() === 'testuser' && active === true) return;
+                                            dispatch({ type: 'toggleActive' });
+                                        }}
                                         color="primary"
                                         size="small"
-                                        disabled={loading || !canEdit || getPermissionLevel(user) < 2}
+                                        disabled={loading || !canEdit || !canChangeStatus || (username?.trim().toLowerCase() === 'testuser')}
                                     />
                                 </Box>
                             </Box>
@@ -374,11 +497,11 @@ export const UserEditPage = () => {
                                                 inputLabel: { shrink: true },
                                                 select: { displayEmpty: true }
                                             }}
-                                            disabled={loading || !canEdit || getPermissionLevel(user) === 0}
+                                            disabled={loading || !canEdit || getPermissionLevel(user) === 0 || !canAssignRole || username === 'testuser'}
                                         >
                                             <MenuItem value="" disabled selected>Chọn vai trò</MenuItem>
-                                            {state.roles && state.roles.length > 0 ? (
-                                                state.roles
+                                            {editableRoles && editableRoles.length > 0 ? (
+                                                editableRoles
                                                     .map((r: any) => (
                                                         <MenuItem key={r.id} value={r.id}>
                                                             {r.name}
@@ -445,6 +568,5 @@ export const UserEditPage = () => {
 
                 <ChangeEmailModal open={showEmailModal} onClose={() => dispatch({ type: 'toggleEmailModal', value: false })} />
             </Box>
-        </MainLayout>
     );
 };

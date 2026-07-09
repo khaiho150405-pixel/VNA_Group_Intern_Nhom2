@@ -694,7 +694,7 @@ export const RegisterEnterprisePage = () => {
 
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: '#f4f6f8', py: { xs: 4, md: 8 }, px: { xs: 2, md: 4 } }}>
-      <Box sx={{ maxWidth: 1000, margin: '0 auto', backgroundColor: 'white', borderRadius: 2, boxShadow: '0 4px 20px rgba(0,0,0,0.05)', p: { xs: 3, md: 5 } }}>
+      <Box sx={{ maxWidth: 1000, margin: '0 auto', backgroundColor: 'white', borderRadius: 2, boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.04), 0px 2px 6px rgba(0, 0, 0, 0.02)', p: { xs: 3, md: 5 } }}>
         <Box className={classes.root}>
           <Box className={classes.stepperWrapper}>
             <Stepper activeStep={activeStep} className={classes.stepper}>
@@ -718,6 +718,22 @@ export const RegisterEnterprisePage = () => {
               onClick={() => (activeStep === 0 ? router.push('/login') : setActiveStep(0))}
               className={classes.cancelBtn}
               disableRipple
+              sx={{
+                textTransform: 'none',
+                color: '#666',
+                fontSize: '0.85rem',
+                borderRadius: '6px',
+                padding: '4px 16px',
+                minWidth: 'auto',
+                backgroundColor: 'transparent',
+                boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.03)',
+                transition: 'all 0.2s ease-in-out',
+                '&:hover': {
+                  backgroundColor: '#f5f5f7',
+                  color: '#333',
+                  boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.06)'
+                }
+              }}
             >
               {activeStep === 0 ? 'Huỷ bỏ' : 'Trở về'}
             </Button>
