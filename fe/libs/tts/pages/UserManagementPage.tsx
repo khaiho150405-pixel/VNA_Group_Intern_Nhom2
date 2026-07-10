@@ -40,58 +40,58 @@ import { InputAdornment } from '@mui/material';
 import { validate, VALIDATION_MESSAGES } from '@core/utils/validation';
 
 interface CustomPaginationProps {
-  page: number;
-  count: number;
-  onChange: (newPage: number) => void;
-  isZeroBased?: boolean;
+    page: number;
+    count: number;
+    onChange: (newPage: number) => void;
+    isZeroBased?: boolean;
 }
 
 const CustomPagination = ({ page, count, onChange, isZeroBased = false }: CustomPaginationProps) => {
-  const currentPage = isZeroBased ? page + 1 : page;
-  const [val, setVal] = React.useState(String(currentPage));
+    const currentPage = isZeroBased ? page + 1 : page;
+    const [val, setVal] = React.useState(String(currentPage));
 
-  React.useEffect(() => {
-    setVal(String(currentPage));
-  }, [currentPage]);
+    React.useEffect(() => {
+        setVal(String(currentPage));
+    }, [currentPage]);
 
-  const handlePageSubmit = () => {
-    const p = parseInt(val, 10);
-    if (!isNaN(p) && p >= 1 && p <= count) {
-      onChange(isZeroBased ? p - 1 : p);
-    } else {
-      setVal(String(currentPage));
-    }
-  };
+    const handlePageSubmit = () => {
+        const p = parseInt(val, 10);
+        if (!isNaN(p) && p >= 1 && p <= count) {
+            onChange(isZeroBased ? p - 1 : p);
+        } else {
+            setVal(String(currentPage));
+        }
+    };
 
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-      <IconButton
-        size="small"
-        onClick={() => onChange(isZeroBased ? page - 1 : page - 1)}
-        disabled={currentPage <= 1}
-        sx={{ color: '#94a3b8', '&.Mui-disabled': { color: '#cbd5e1' }, p: '2px' }}
-      >
-        <ChevronLeftIcon sx={{ fontSize: '1.1rem' }} />
-      </IconButton>
-      <Box sx={{ width: '24px', height: '24px', backgroundColor: '#f1f3f5', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-        <input
-          value={val}
-          onChange={(e) => setVal(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') handlePageSubmit(); }}
-          onBlur={handlePageSubmit}
-          style={{ width: '100%', height: '100%', border: 'none', outline: 'none', background: 'transparent', textAlign: 'center', fontSize: '0.75rem', fontWeight: 600, color: '#1e293b', padding: 0 }}
-        />
-      </Box>
-      <IconButton
-        size="small"
-        onClick={() => onChange(isZeroBased ? page + 1 : page + 1)}
-        disabled={currentPage >= count}
-        sx={{ color: '#94a3b8', '&.Mui-disabled': { color: '#cbd5e1' }, p: '2px' }}
-      >
-        <ChevronRightIcon sx={{ fontSize: '1.1rem' }} />
-      </IconButton>
-    </Box>
-  );
+    return (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+            <IconButton
+                size="small"
+                onClick={() => onChange(isZeroBased ? page - 1 : page - 1)}
+                disabled={currentPage <= 1}
+                sx={{ color: '#94a3b8', '&.Mui-disabled': { color: '#cbd5e1' }, p: '2px' }}
+            >
+                <ChevronLeftIcon sx={{ fontSize: '1.1rem' }} />
+            </IconButton>
+            <Box sx={{ width: '24px', height: '24px', backgroundColor: '#f1f3f5', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                <input
+                    value={val}
+                    onChange={(e) => setVal(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handlePageSubmit(); }}
+                    onBlur={handlePageSubmit}
+                    style={{ width: '100%', height: '100%', border: 'none', outline: 'none', background: 'transparent', textAlign: 'center', fontSize: '0.75rem', fontWeight: 600, color: '#1e293b', padding: 0 }}
+                />
+            </Box>
+            <IconButton
+                size="small"
+                onClick={() => onChange(isZeroBased ? page + 1 : page + 1)}
+                disabled={currentPage >= count}
+                sx={{ color: '#94a3b8', '&.Mui-disabled': { color: '#cbd5e1' }, p: '2px' }}
+            >
+                <ChevronRightIcon sx={{ fontSize: '1.1rem' }} />
+            </IconButton>
+        </Box>
+    );
 };
 
 export const UserManagementPage = () => {
@@ -590,10 +590,24 @@ export const UserManagementPage = () => {
                 // Fetch duplicates from system (username/email already in DB)
                 const { dupUsernames: freshDupUsernames, dupEmails: freshDupEmails } = await fetchDuplicates(formattedData);
 
-                // Validate ALL rows (format + in-file dup + system dup)
+                // Filter out rows already in the system (both username and email exist in the DB)
+                const systemDupRows: any[] = [];
+                const nonSystemDupRows: any[] = [];
+
+                formattedData.forEach((row: any) => {
+                    const usernameTaken = row.username && freshDupUsernames.some((u: string) => u.toLowerCase().trim() === row.username.trim().toLowerCase());
+                    const emailTaken = row.email && freshDupEmails.some((e: string) => e.toLowerCase().trim() === row.email.trim().toLowerCase());
+                    if (usernameTaken && emailTaken) {
+                        systemDupRows.push(row);
+                    } else {
+                        nonSystemDupRows.push(row);
+                    }
+                });
+
+                // Check remaining rows for validation errors (format, in-file dup, or system duplicate)
                 let hasAnyError = false;
-                for (let i = 0; i < formattedData.length; i++) {
-                    const errs = validateRow(formattedData[i], i, formattedData, freshDupUsernames, freshDupEmails);
+                for (let i = 0; i < nonSystemDupRows.length; i++) {
+                    const errs = validateRow(nonSystemDupRows[i], i, nonSystemDupRows, freshDupUsernames, freshDupEmails);
                     if (Object.keys(errs).length > 0) {
                         hasAnyError = true;
                         break;
@@ -601,12 +615,20 @@ export const UserManagementPage = () => {
                 }
 
                 if (hasAnyError) {
-                    // Has errors of any kind → show dialog with ALL rows so user can review, fix or delete
-                    setImportUsers(formattedData);
-                    setIsPreviewOpen(true);
+                    // Show preview dialog with ONLY the new rows (database duplicates are completely skipped and not shown)
+                    if (nonSystemDupRows.length > 0) {
+                        setImportUsers(nonSystemDupRows);
+                        setIsPreviewOpen(true);
+                    } else {
+                        enqueueSnackbar('Tất cả người dùng trong file đã tồn tại trên hệ thống. Không có gì để nhập.', { variant: 'warning' });
+                    }
                 } else {
-                    // All rows are fully valid → import immediately
-                    await doImport(formattedData);
+                    // No errors → import directly
+                    if (nonSystemDupRows.length > 0) {
+                        await doImport(nonSystemDupRows);
+                    } else {
+                        enqueueSnackbar('Tất cả người dùng trong file đã tồn tại trên hệ thống. Không có gì để nhập.', { variant: 'warning' });
+                    }
                 }
             } catch (error) {
                 enqueueSnackbar('Lỗi khi xử lý file', { variant: 'error' });
@@ -636,7 +658,7 @@ export const UserManagementPage = () => {
     };
 
     const handleSaveEditImport = (index: number) => {
-        const errors = validateRow(editImportForm, index, importUsers);
+        const errors = validateRow(editImportForm, index, importUsers, dupUsernames, dupEmails);
         if (Object.keys(errors).length > 0) {
             setEditImportErrors(errors);
             enqueueSnackbar('Vui lòng sửa các thông tin chưa hợp lệ!', { variant: 'error' });
@@ -1289,7 +1311,7 @@ export const UserManagementPage = () => {
                         onClick={handleConfirmImport}
                         variant="contained"
                         disableElevation
-                        disabled={loading || importUsers.length === 0 || importUsers.some((item, i) => Object.keys(validateRow(item, i, importUsers)).length > 0)}
+                        disabled={loading || importUsers.length === 0 || importUsers.some((item, i) => Object.keys(validateRow(item, i, importUsers, dupUsernames, dupEmails)).length > 0)}
                         startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <UploadIcon fontSize="small" />}
                         sx={{ textTransform: 'none', bgcolor: '#2f65f0', fontWeight: 600, borderRadius: '4px' }}
                     >
